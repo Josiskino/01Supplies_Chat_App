@@ -14,12 +14,18 @@ import '../../core/constants/app_images.dart';
 class PulsingLogo extends StatefulWidget {
   const PulsingLogo({
     super.key,
-    this.size = 150,
+    this.size = 185,
     this.asset = AppImages.appIcon,
   });
 
   /// Taille de repos du logo, en pixels logiques. L'animation la fait varier
   /// autour de cette valeur.
+  ///
+  /// Elle vaut plus que la taille voulue à l'écran : `app_icon.png` réserve une
+  /// marge transparente d'environ 15 % de chaque côté, exigée par le masque
+  /// arrondi des icônes iOS. Le dessin utile n'occupe donc que ~71 % du carré,
+  /// et une valeur calée sur le rendu voulu donnerait un logo visiblement plus
+  /// petit qu'attendu.
   final double size;
 
   final String asset;

@@ -1,0 +1,56 @@
+flutter_native_splash:
+
+  # ── Plateformes ────────────────────────────────────────────────────────────
+  # Le paquet ne sait générer que pour Android, iOS et le web : macOS, Windows
+  # et Linux ne sont pas supportés. Sur les deux cibles desktop du projet, le
+  # relais est pris par `SplashScreen` (Dart), qui affiche le même logo via
+  # `AppImages.appIcon`.
+  # Le web reste en template `flutter create` et n'est pas une cible : rien à
+  # générer de ce côté.
+  android: true
+  ios: true
+  web: false
+
+  # ── Général ────────────────────────────────────────────────────────────────
+  # Les fonds reprennent `AppColors.backgroundColor*` plutôt qu'un blanc pur :
+  # le splash natif cède la place au premier écran Flutter sans changement de
+  # teinte, donc sans le flash blanc qui trahit la couture.
+  color: "#F2F2F0"
+  image: assets/branding/splash_logo.png
+
+  # ── Mode sombre ────────────────────────────────────────────────────────────
+  # Le logo est repris tel quel : l'orange et le violet gardent leur contraste
+  # sur fond sombre, une variante inversée n'apporterait rien.
+  color_dark: "#1C1C1A"
+  image_dark: assets/branding/splash_logo.png
+
+  # ── Android ────────────────────────────────────────────────────────────────
+  android_gravity: center
+
+  # ── Android 12+ ────────────────────────────────────────────────────────────
+  # À partir d'Android 12, le système impose son propre gabarit : le drawable
+  # est masqué par un cercle. Avec `icon_background_color` défini, il attend un
+  # canevas de 960×960 dont le contenu tient dans un cercle de 640 px de
+  # diamètre — d'où l'image dédiée, le logo standard y serait rogné.
+  android_12:
+    color: "#F2F2F0"
+    color_dark: "#1C1C1A"
+    image: assets/branding/splash_logo_android12.png
+    image_dark: assets/branding/splash_logo_android12.png
+    icon_background_color: "#F2F2F0"
+    icon_background_color_dark: "#1C1C1A"
+
+  # ── iOS ────────────────────────────────────────────────────────────────────
+  # `scaleAspectFit` conserve les proportions du logo quelle que soit la taille
+  # de l'écran ; `scaleToFill` l'étirerait sur les iPad.
+  ios_content_mode: scaleAspectFit
+
+  # Image dédiée à iOS, et c'est nécessaire : le storyboard contraint la vue aux
+  # quatre bords de l'écran, si bien qu'une image carrée est ajustée à la largeur
+  # entière. La résolution du PNG n'y change rien — seule la part de vide autour
+  # du logo décide de sa taille perçue. Le fichier iOS porte donc des marges
+  # transparentes qui ramènent le logo à ~54 % de la largeur, la proportion que
+  # les densités d'Android donnent déjà de leur côté. Sans lui, le logo occupe
+  # 88 % de l'écran sur iPhone contre 55 % sur Android.
+  image_ios: assets/branding/splash_logo_ios.png
+  image_dark_ios: assets/branding/splash_logo_ios.png
