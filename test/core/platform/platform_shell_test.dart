@@ -9,6 +9,13 @@ import 'package:supplies_chat_app/core/platform/impl/desktop_platform_ui.dart';
 import 'package:supplies_chat_app/core/platform/impl/material_platform_ui.dart';
 import 'package:supplies_chat_app/core/platform/platform_ui.dart';
 import 'package:supplies_chat_app/core/responsive/breakpoints.dart';
+import 'package:supplies_chat_app/flavors.dart';
+import 'package:supplies_chat_app/presentation/desktop/desktop_workspace_shell.dart';
+import 'package:supplies_chat_app/presentation/desktop/widgets/chat_thread_panel.dart';
+import 'package:supplies_chat_app/presentation/desktop/widgets/contact_profile_panel.dart';
+import 'package:supplies_chat_app/presentation/desktop/widgets/conversation_list_panel.dart';
+import 'package:supplies_chat_app/presentation/desktop/widgets/workspace_icon_rail.dart';
+import 'package:supplies_chat_app/presentation/desktop/widgets/workspace_sidebar.dart';
 import 'package:supplies_chat_app/presentation/main/widgets/custom_bottom_nav_bar.dart';
 import 'package:supplies_chat_app/presentation/main/widgets/custom_nav_rail.dart';
 
@@ -19,6 +26,11 @@ import 'package:supplies_chat_app/presentation/main/widgets/custom_nav_rail.dart
 /// l'implémentation est choisie explicitement, sans lire `dart:io`. C'est
 /// exactement ce que `PlatformInfo` du package ne permettrait pas.
 void main() {
+  // La barre latérale affiche le nom de l'app, tiré du flavor. Sans cette
+  // initialisation, `FlavorConfig.flavor` étant `late final`, le rendu échoue —
+  // c'est `bootstrap()` qui s'en charge dans l'app.
+  setUpAll(() => FlavorConfig.flavor = Flavor.development);
+
   const destinations = [
     PlatformDestination(
       icon: Iconsax.message,
@@ -137,14 +149,54 @@ void main() {
     });
   });
 
-  group('Desktop — Material dense', () {
+  group('Desktop — espace de travail à colonnes', () {
     const ui = DesktopPlatformUi(AppPlatform.macos);
 
-    testWidgets('rail par défaut', (tester) async {
+    testWidgets('rend l\'espace de travail, pas la coquille à onglets', (
+      tester,
+    ) async {
       await pumpShell(tester, ui: ui, width: 1400);
 
-      expect(find.byType(CustomNavRail), findsOneWidget);
+      // Le desktop a sa propre disposition : liste et conversation visibles
+      // ensemble. Ni tab bar iOS, ni barre du bas Material.
+      expect(find.byType(DesktopWorkspaceShell), findsOneWidget);
       expect(find.byType(AdaptiveScaffold), findsNothing);
+      expect(find.byType(CustomBottomAppBar), findsNothing);
+    });
+
+    testWidgets('les cinq colonnes sont présentes sur un grand écran', (
+      tester,
+    ) async {
+      await pumpShell(tester, ui: ui, width: 1600);
+
+      expect(find.byType(WorkspaceIconRail), findsOneWidget);
+      expect(find.byType(WorkspaceSidebar), findsOneWidget);
+      expect(find.byType(ConversationListPanel), findsOneWidget);
+      expect(find.byType(ChatThreadPanel), findsOneWidget);
+      expect(find.byType(ContactProfilePanel), findsOneWidget);
+    });
+
+    testWidgets('le repli retire le profil avant la liste', (tester) async {
+      // 1200 px : sous le seuil du profil (1360) mais au-dessus de celui de la
+      // barre latérale (1080). C'est la consultation qui cède, pas le travail.
+      await pumpShell(tester, ui: ui, width: 1200);
+
+      expect(find.byType(ContactProfilePanel), findsNothing);
+      expect(find.byType(ConversationListPanel), findsOneWidget);
+      expect(find.byType(ChatThreadPanel), findsOneWidget);
+    });
+
+    testWidgets('à 1000 px, la barre latérale cède mais liste et fil restent', (
+      tester,
+    ) async {
+      await pumpShell(tester, ui: ui, width: 1000);
+
+      expect(find.byType(WorkspaceSidebar), findsNothing);
+      expect(find.byType(ConversationListPanel), findsOneWidget);
+      expect(find.byType(ChatThreadPanel), findsOneWidget);
+      // Le rail d'icônes ne disparaît jamais : c'est la navigation de premier
+      // niveau.
+      expect(find.byType(WorkspaceIconRail), findsOneWidget);
     });
 
     testWidgets('fenêtre rétrécie sous 600 px : retour à la barre du bas', (
