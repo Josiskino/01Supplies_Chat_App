@@ -104,8 +104,29 @@ class TAppTheme {
   static TextTheme _mergedTextTheme(TextTheme base, TextTheme custom) =>
       base.merge(custom);
 
+  /// Thème de base portant la police du corps de texte.
+  ///
+  /// La famille est posée sur le `ThemeData` lui-même, pas seulement dans le
+  /// `TextTheme` : sans cela, tout `TextStyle` écrit à la main dans un écran —
+  /// le champ de saisie de la connexion, le libellé d'un bouton — retombe sur la
+  /// police par défaut de Flutter. Le résultat est une interface où la moitié des
+  /// textes sont dans la bonne police et l'autre non, sans qu'on voie pourquoi.
+  ///
+  /// `copyWith` n'expose pas `fontFamily`, d'où cette construction en amont
+  /// plutôt qu'un ajout aux surcharges existantes.
+  static ThemeData _baseWith(Brightness brightness) => ThemeData(
+    brightness: brightness,
+    fontFamily: TFonts.sfPro.value,
+    fontFamilyFallback: const [
+      '.SF Pro Text',
+      'Segoe UI Variable',
+      'Segoe UI',
+      'Roboto',
+    ],
+  );
+
   static ThemeData lightThemeData(BuildContext context) {
-    final base = ThemeData.light();
+    final base = _baseWith(Brightness.light);
     return base.copyWith(
       primaryColor: AppColors.primaryColorLight,
       primaryColorLight: AppColors.secondaryColorLight,
@@ -132,7 +153,7 @@ class TAppTheme {
   }
 
   static ThemeData darkThemeData(BuildContext context) {
-    final base = ThemeData.dark();
+    final base = _baseWith(Brightness.dark);
     return base.copyWith(
       primaryColor: AppColors.primaryColorDark,
       primaryColorLight: AppColors.secondaryColorDark,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../app_colors.dart';
 
 enum TFonts {
+  sfPro('SF Pro'),
   inter('Inter'),
   bricolageGrotesque('Bricolage Grotesque');
 
@@ -46,18 +47,32 @@ class TTextTheme {
     height: height,
   );
 
-  /// Corps de texte en Inter.
+  /// Corps de texte, aligné sur l'app cliente : `SF Pro`.
   ///
-  /// `GoogleFonts` est utilisé plutôt qu'un `fontFamily` système car l'app cible
-  /// aussi Windows, où les polices d'Apple ('SF Pro') n'existent pas. Les `.ttf`
-  /// déposés dans `assets/google_fonts/` sont pris en priorité par le package,
-  /// ce qui évite tout téléchargement au démarrage.
+  /// La famille n'est **pas** déclarée en asset, exactement comme chez le client.
+  /// Sur iOS et macOS, le nom résout vers San Francisco, la police système ; le
+  /// texte y est donc identique à celui de l'app cliente, ce qui est le but.
+  ///
+  /// Ailleurs, le nom ne résout pas — d'où la chaîne de repli explicite, et non
+  /// un silence qui laisserait Flutter retomber sur sa police par défaut :
+  /// Segoe UI Variable sur Windows, Roboto sur Android. Ce sont les polices
+  /// système de ces plateformes, ce qui reste le comportement attendu.
+  ///
+  /// Le corps ne passe donc pas par `GoogleFonts`, contrairement aux titres : une
+  /// police système ne se télécharge pas et s'affiche dès la première image.
   static TextStyle _defaultBodyFont({
     double? fontSize,
     FontWeight? fontWeight,
     Color? color,
     double? height,
-  }) => GoogleFonts.inter(
+  }) => TextStyle(
+    fontFamily: TFonts.sfPro.value,
+    fontFamilyFallback: const [
+      '.SF Pro Text',
+      'Segoe UI Variable',
+      'Segoe UI',
+      'Roboto',
+    ],
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,
