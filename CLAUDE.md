@@ -13,6 +13,28 @@ messagerie reste à écrire.
 
 ---
 
+## Lancer depuis l'éditeur
+
+Les configurations sont versionnées pour les deux éditeurs :
+
+- **VS Code / Cursor** : `.vscode/launch.json` (5 configurations + variantes
+  Windows), `.vscode/tasks.json` (build_runner, analyze, test, l10n).
+- **Android Studio / IntelliJ** : `.idea/runConfigurations/*.xml`.
+
+⚠️ `.vscode/settings.json` déclare `dart.flutterSdkPath: .fvm/flutter_sdk`. Sans
+ce réglage, l'éditeur analyse avec le Flutter global du poste (3.38.4) alors que
+le projet est piné sur 3.44.2 — d'où des erreurs qui n'apparaissent que dans
+l'éditeur, ou l'inverse.
+
+⚠️ **Les flavors ne sont pas supportés par Flutter sur Windows ni Linux** :
+`--flavor` y fait échouer la commande. Les configurations « (Windows) » s'en
+passent ; l'environnement reste correct puisqu'il est déterminé par le point
+d'entrée, pas par le drapeau.
+
+Une configuration `FORCE_PLATFORM` permet d'inspecter le rendu iOS depuis macOS
+sans simulateur (`--dart-define=FORCE_PLATFORM=ios`). La tab bar UIKit native y
+reste indisponible : le plugin n'est pas enregistré hors iOS.
+
 ## Commandes
 
 FVM est obligatoire (`.fvmrc` pin **Flutter 3.44.2**). Préfixer toutes les
@@ -120,6 +142,49 @@ GoRouter, `lib/config/router/app_router.dart`. Routes **plates**, aucun
 
 La décision de redirection est dans `core/auth/auth_gate.dart` — fonction **pure**,
 donc testée sans widget tree (`test/core/auth/auth_gate_test.dart`).
+
+### Adaptation par plateforme
+
+Deux axes distincts, portés ensemble par `PlatformLayout` :
+
+- **la largeur** décide de la disposition (barre du bas / rail) ;
+- **la plateforme** décide du vocabulaire de widgets (Material / Cupertino).
+
+Les croiser est nécessaire : « iOS » et « iPad en paysage » sont deux questions
+différentes, et une tab bar d'iPhone étirée sur 1 300 px est un défaut, pas une
+adaptation.
+
+```
+core/platform/
+  app_platform.dart          enum + résolution (surchargeable)
+  platform_ui.dart           contrats : Shell / Controls / Overlays / Motion
+  impl/material_platform_ui.dart      Android
+  impl/cupertino_platform_ui.dart     iOS — seul fichier qui importe le package
+  impl/desktop_platform_ui.dart       macOS + Windows, hérite de Material
+  platform_ui_provider.dart  @riverpod, surchargeable en test
+```
+
+Règles :
+
+- **Aucun écran ne teste la plateforme.** Un `if (Platform.isIOS)` dans un widget
+  est le début de la divergence incontrôlée — quatre interfaces dont trois jamais
+  testées. Tout passe par `ref.watch(platformUiProvider)`.
+- Les écrans utilisent `PlatformPage` plutôt que `Scaffold` + `AppBar`, sinon ils
+  gardent une barre de titre Material jusque sur iOS.
+- `AppPlatform` dérive de `defaultTargetPlatform`, **jamais** de `dart:io` : c'est
+  ce qui rend les trois rendus testables depuis une seule machine.
+
+**`adaptive_platform_ui` est confiné à `impl/cupertino_platform_ui.dart`.** Trois
+raisons : il est en `0.1.x` avec une API qui bouge vite, il ne déclare pas de
+support macOS/Windows, et son `PlatformInfo` lit `dart:io` en statique. Une
+conséquence concrète à connaître : en test sur macOS, sa coquille rend des widgets
+**Material** (car `PlatformInfo.isIOS` est faux), lesquels exigent
+`MaterialLocalizations` — d'où les delegates fournis même à l'hôte Cupertino dans
+les tests.
+
+Son `AdaptiveScaffold` n'a pas de `backgroundColor` : l'implémentation Cupertino
+pose la couleur sous le corps, pour que le paramètre du contrat ne soit pas
+silencieusement ignoré.
 
 ### Navigation adaptative
 

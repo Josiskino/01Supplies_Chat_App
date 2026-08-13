@@ -51,6 +51,7 @@ dependencies:
 
   # ── Desktop : taille et titre de la fenêtre (Windows / macOS) ─────────────
   window_manager: ^0.4.3
+  adaptive_platform_ui: ^0.1.111
 
 dev_dependencies:
   flutter_test:

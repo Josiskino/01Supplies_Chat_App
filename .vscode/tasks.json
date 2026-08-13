@@ -1,0 +1,64 @@
+{
+  // Tâches courantes du projet, lançables via « Exécuter la tâche… ».
+  // Toutes passent par `fvm` : appeler `flutter` directement utiliserait le SDK
+  // global du poste au lieu du 3.44.2 piné par le projet.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // À laisser tourner pendant le développement : toute modification d'un
+      // provider `@riverpod` régénère son `.g.dart`.
+      "label": "build_runner: watch",
+      "type": "shell",
+      "command": "fvm dart run build_runner watch --delete-conflicting-outputs",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "build_runner: build",
+      "type": "shell",
+      "command": "fvm dart run build_runner build --delete-conflicting-outputs",
+      "problemMatcher": []
+    },
+    {
+      "label": "l10n: régénérer les traductions",
+      "type": "shell",
+      "command": "fvm flutter gen-l10n",
+      "problemMatcher": []
+    },
+    {
+      "label": "analyze",
+      "type": "shell",
+      "command": "fvm flutter analyze",
+      "group": "test",
+      "problemMatcher": ["$dart-analyze"]
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "fvm flutter test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "icônes de lancement",
+      "type": "shell",
+      "command": "fvm dart run flutter_launcher_icons",
+      "problemMatcher": []
+    },
+    {
+      "label": "pub get",
+      "type": "shell",
+      "command": "fvm flutter pub get",
+      "problemMatcher": []
+    },
+    {
+      // Enchaîne les vérifications avant un commit.
+      "label": "pré-commit (analyze + test)",
+      "dependsOrder": "sequence",
+      "dependsOn": ["analyze", "test"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}

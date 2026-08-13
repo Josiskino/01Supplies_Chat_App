@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="01 Chat — production" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <option name="filePath" value="$PROJECT_DIR$/lib/main_production.dart" />
+    <option name="buildFlavor" value="production" />
+    <method />
+  </configuration>
+</component>

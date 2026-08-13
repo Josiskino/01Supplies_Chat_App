@@ -16,7 +16,12 @@ migrate_working_dir/
 *.iml
 *.ipr
 *.iws
-.idea/
+# `.idea/*` et non `.idea/` : avec un motif de dossier, git n'entre pas dedans et
+# les exceptions ci-dessous seraient sans effet.
+.idea/*
+# Les configurations de lancement sont partagées : chaque développeur doit
+# retrouver les mêmes flavors sans les recréer à la main.
+!.idea/runConfigurations/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line

@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="01 Chat — staging" type="FlutterRunConfigurationType" factoryName="Flutter">
+    <option name="filePath" value="$PROJECT_DIR$/lib/main_staging.dart" />
+    <option name="buildFlavor" value="staging" />
+    <method />
+  </configuration>
+</component>

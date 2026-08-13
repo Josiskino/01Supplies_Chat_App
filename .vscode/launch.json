@@ -1,0 +1,87 @@
+{
+  // Configurations de lancement de 01 Chat.
+  //
+  // L'appareil cible est celui sélectionné dans la barre d'état de l'éditeur —
+  // ces configurations ne le fixent pas, elles choisissent l'environnement.
+  //
+  // ⚠️ Les flavors ne sont pas supportés par Flutter sur Windows ni Linux :
+  // `--flavor` y fait échouer la commande. Les configurations « (Windows) » plus
+  // bas s'en passent ; l'environnement reste correct puisqu'il est déterminé par
+  // le point d'entrée `main_<flavor>.dart`, pas par le drapeau.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "01 Chat — development",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main_development.dart",
+      "args": ["--flavor", "development"]
+    },
+    {
+      "name": "01 Chat — staging",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main_staging.dart",
+      "args": ["--flavor", "staging"]
+    },
+    {
+      "name": "01 Chat — production",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main_production.dart",
+      "args": ["--flavor", "production"]
+    },
+    {
+      "name": "01 Chat — production (profile)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main_production.dart",
+      "args": ["--flavor", "production"]
+    },
+    {
+      "name": "01 Chat — production (release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main_production.dart",
+      "args": ["--flavor", "production"]
+    },
+
+    // ── Windows : sans --flavor (non supporté par Flutter sur cette cible) ───
+    {
+      "name": "01 Chat — development (Windows)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main_development.dart"
+    },
+    {
+      "name": "01 Chat — production (Windows, release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main_production.dart"
+    },
+
+    // ── Diagnostic ──────────────────────────────────────────────────────────
+    {
+      // Force le rendu iOS depuis une machine macOS, sans simulateur.
+      // Utile pour inspecter la coquille Cupertino, mais la tab bar UIKit native
+      // reste indisponible : le plugin n'est pas enregistré hors iOS.
+      "name": "01 Chat — development (rendu iOS forcé sur macOS)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "program": "lib/main_development.dart",
+      "args": [
+        "--flavor",
+        "development",
+        "--dart-define=FORCE_PLATFORM=ios"
+      ]
+    }
+  ]
+}

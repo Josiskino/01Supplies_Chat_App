@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/utils/localization_helper.dart';
 import '../../widgets/common/empty_state_widget.dart';
+import '../../widgets/common/platform_page.dart';
 
 /// Demandes de livraison rattachées aux conversations.
 class RequestsScreen extends StatelessWidget {
@@ -12,8 +13,8 @@ class RequestsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = LocalizationHelper.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.requestsTitle)),
+    return PlatformPage(
+      title: l10n.requestsTitle,
       body: EmptyStateWidget(
         icon: Iconsax.receipt_item,
         title: l10n.requestsEmptyTitle,

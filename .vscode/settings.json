@@ -1,0 +1,50 @@
+{
+  // ⚠️ Ligne la plus importante de ce fichier.
+  //
+  // Sans elle, l'éditeur utilise le Flutter global du poste (3.38.4 ici) alors que
+  // le projet est piné sur 3.44.2 via `.fvmrc`. L'analyseur et le lanceur
+  // travailleraient donc sur un SDK différent de celui des builds en ligne de
+  // commande — d'où des erreurs qui n'apparaissent que dans l'éditeur, ou
+  // l'inverse. L'app `supplies_apk_management` n'a pas ce réglage.
+  "dart.flutterSdkPath": ".fvm/flutter_sdk",
+
+  // Le SDK FVM est un lien symbolique vers le cache : l'indexer ferait remonter
+  // tout le framework Flutter dans la recherche et l'autocomplétion.
+  "search.exclude": {
+    "**/.fvm": true,
+    "**/build": true,
+    "**/.dart_tool": true,
+    "**/*.g.dart": true,
+    "**/lib/core/l10n/generated": true
+  },
+  "files.watcherExclude": {
+    "**/.fvm/**": true,
+    "**/build/**": true,
+    "**/.dart_tool/**": true
+  },
+
+  // Le code généré est en lecture seule : l'ouvrir par erreur et l'éditer serait
+  // perdu au prochain `build_runner`.
+  "files.readonlyInclude": {
+    "**/*.g.dart": true,
+    "lib/core/l10n/generated/**": true
+  },
+
+  "dart.lineLength": 80,
+  "editor.formatOnSave": true,
+  "editor.rulers": [80],
+  "[dart]": {
+    "editor.defaultFormatter": "Dart-Code.dart-code",
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  },
+
+  // Les `.env` ne sont pas versionnés mais sont des assets : les masquer les
+  // rendrait invisibles alors qu'un build échoue s'ils manquent.
+  "files.exclude": {
+    "**/.dart_tool": true,
+    "**/.fvm": true
+  }
+}

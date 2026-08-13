@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/utils/localization_helper.dart';
 import '../../widgets/common/empty_state_widget.dart';
+import '../../widgets/common/platform_page.dart';
 
 /// Liste des fils de discussion avec les clients.
 ///
@@ -15,8 +16,8 @@ class ConversationsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = LocalizationHelper.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.conversationsTitle)),
+    return PlatformPage(
+      title: l10n.conversationsTitle,
       body: EmptyStateWidget(
         icon: Iconsax.message,
         title: l10n.conversationsEmptyTitle,

@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../core/utils/localization_helper.dart';
 import '../../widgets/common/empty_state_widget.dart';
+import '../../widgets/common/platform_page.dart';
 
 /// Annuaire des clients joignables par message.
 class ContactsScreen extends StatelessWidget {
@@ -12,8 +13,8 @@ class ContactsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = LocalizationHelper.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.contactsTitle)),
+    return PlatformPage(
+      title: l10n.contactsTitle,
       body: EmptyStateWidget(
         icon: Iconsax.people,
         title: l10n.contactsEmptyTitle,
