@@ -85,7 +85,7 @@ abstract class _$SplashCompletedNotifier extends $Notifier<bool> {
   bool build();
   @$mustCallSuper
   @override
-  void runBuild() {
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<bool, bool>;
     final element =
         ref.element
@@ -95,6 +95,6 @@ abstract class _$SplashCompletedNotifier extends $Notifier<bool> {
               Object?,
               Object?
             >;
-    element.handleCreate(ref, build);
+    return element.handleCreate(ref, build);
   }
 }

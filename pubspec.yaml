@@ -52,9 +52,16 @@ dependencies:
   # ── Desktop : taille et titre de la fenêtre (Windows / macOS) ─────────────
   window_manager: ^0.4.3
   adaptive_platform_ui: ^0.1.111
+  flutter_acrylic: ^1.1.4
+  macos_window_utils: ^1.9.1
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  # Exécute des tests sur un appareil réel ou un simulateur — indispensable ici :
+  # `adaptive_platform_ui` choisit son rendu sur `dart:io`, donc son chemin iOS
+  # ne peut être exercé que depuis un appareil iOS.
+  integration_test:
     sdk: flutter
 
   flutter_lints: ^6.0.0
@@ -70,8 +77,11 @@ flutter_launcher_icons:
   # Android : toutes les densités + adaptive icon (8.0+)
   android: "launcher_icon"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icon/app_icon.png"
-  adaptive_icon_foreground_inset: 15
+  # Calque avant-plan dédié, dont la marge est intégrée à l'image.
+  # `adaptive_icon_foreground_inset` est sans effet dans la v0.14.4 : 6, 20 et 30
+  # produisent tous un contenu de 312 px, qui déborde du masque de 288 px. La
+  # marge est donc portée par le fichier, ce qui est de toute façon vérifiable.
+  adaptive_icon_foreground: "assets/branding/adaptive_foreground.png"
 
   # iOS : toutes les tailles iPhone/iPad. `remove_alpha_ios` est exigé par Apple.
   ios: true
@@ -105,6 +115,7 @@ flutter:
     - .env.staging
     - .env.production
     - assets/icon/
+    - assets/images/
     # Polices déposées ici : `google_fonts` les utilise en priorité et cesse
     # de télécharger au runtime — indispensable pour un démarrage hors ligne
     # sur desktop.
