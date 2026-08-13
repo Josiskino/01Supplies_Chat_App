@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../config/theme/design_tokens.dart';
 import '../app_platform.dart';
+import '../../../presentation/desktop/desktop_workspace_shell.dart';
 import '../platform_ui.dart';
 import 'material_platform_ui.dart';
 
 /// Rendu de bureau (macOS et Windows).
 ///
-/// **Provisoire, en attente du design desktop dédié.** Hérite de l'implémentation
-/// Material et ne surcharge que ce qui est déjà certain : pas de tab bar en bas,
-/// transitions sobres, indicateurs plus petits. Le reste — densité, master-detail,
-/// barre de titre — se branchera ici quand la maquette sera disponible, sans
-/// toucher aux écrans.
+/// Hérite de l'implémentation Material et surcharge ce qui diverge : l'espace de
+/// travail à cinq colonnes, des transitions sans déplacement, des indicateurs plus
+/// discrets.
 ///
 /// `adaptive_platform_ui` n'est **pas** utilisé sur cette cible : il ne déclare
 /// pas de support macOS/Windows et son rendu natif n'y est pas enregistré.
@@ -49,9 +48,26 @@ class DesktopShell extends MaterialShell {
     required ValueChanged<int> onSelected,
     Color? backgroundColor,
   }) {
-    // Une fenêtre de bureau réduite sous 600 px repasse volontairement sur la
-    // barre du bas : c'est la seule disposition tenable à cette largeur. On
-    // délègue donc au comportement Material plutôt que de forcer le rail.
+    // Au-delà du format compact, le bureau a sa propre disposition : un espace de
+    // travail à colonnes, où liste et conversation sont visibles ensemble. C'est
+    // ce qu'attend un agent qui traite des dizaines de fils sur un grand écran —
+    // une pile mobile étirée l'obligerait à naviguer sans cesse.
+    //
+    // Le `body` (l'IndexedStack des onglets) est ignoré dans ce cas : la
+    // navigation desktop ne passe pas par des onglets.
+    if (layout.usesLateralNavigation) {
+      // `Colors.transparent` et non `backgroundColor` : le Scaffold peindrait
+      // sinon une couleur opaque par-dessus le matériau translucide de la
+      // fenêtre, et l'effet de verre disparaîtrait entièrement.
+      return const Scaffold(
+        backgroundColor: Colors.transparent,
+        body: DesktopWorkspaceShell(),
+      );
+    }
+
+    // Fenêtre réduite sous 600 px : on repasse sur la disposition mobile, seule
+    // tenable à cette largeur. C'est aussi pour cela que la bascule lit la
+    // largeur et non la plateforme.
     return super.buildShell(
       key: key,
       layout: layout,
