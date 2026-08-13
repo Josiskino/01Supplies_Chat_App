@@ -15,9 +15,12 @@ class PlatformDestination {
     required this.icon,
     required this.selectedIcon,
     required this.label,
+    this.cupertinoIcon,
+    this.cupertinoSelectedIcon,
     this.sfSymbol,
     this.selectedSfSymbol,
     this.badgeCount = 0,
+    this.isSearch = false,
     this.key,
   });
 
@@ -25,6 +28,14 @@ class PlatformDestination {
 
   /// Variante affichée quand la destination est active.
   final IconData selectedIcon;
+
+  /// Icônes Cupertino, utilisées sur Apple quand la barre native n'est pas
+  /// disponible (iOS antérieur à 26, iPad en rail, rendu de secours).
+  ///
+  /// Sans elles, la barre retomberait sur les icônes Material : sur iOS, un jeu
+  /// d'icônes étranger à la plateforme se remarque immédiatement.
+  final IconData? cupertinoIcon;
+  final IconData? cupertinoSelectedIcon;
 
   final String label;
 
@@ -35,6 +46,14 @@ class PlatformDestination {
   final String? selectedSfSymbol;
 
   final int badgeCount;
+
+  /// Destination de recherche.
+  ///
+  /// iOS 26 la détache du groupe et la place dans sa propre pastille, à droite de
+  /// la barre — c'est la disposition de l'App Store. Les autres plateformes
+  /// l'affichent comme une destination ordinaire.
+  final bool isSearch;
+
   final Key? key;
 }
 
@@ -61,6 +80,32 @@ class PlatformAction {
   /// Libellé d'accessibilité, et texte du bouton quand la plateforme en affiche
   /// un plutôt qu'une icône.
   final String? label;
+}
+
+/// Une entrée de menu contextuel, exprimée sans dépendance à un système de
+/// design.
+class PlatformMenuAction {
+  const PlatformMenuAction({
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.sfSymbol,
+    this.isDestructive = false,
+    this.isSelected = false,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final IconData? icon;
+
+  /// Nom du SF Symbol, pour le menu natif iOS.
+  final String? sfSymbol;
+
+  /// Une action destructive est rendue en rouge sur les deux plateformes.
+  final bool isDestructive;
+
+  /// Coche l'entrée — un filtre actif, par exemple.
+  final bool isSelected;
 }
 
 /// Contexte de décision passé aux implémentations.
@@ -111,12 +156,19 @@ abstract interface class PlatformShell {
 
   /// Écran secondaire, poussé sur la pile : titre + corps, sans navigation
   /// principale.
+  ///
+  /// [titleWidget] remplace le titre texte quand l'en-tête doit porter davantage
+  /// — un avatar et un nom cliquable, par exemple. C'est la seule entorse à la
+  /// règle « pas de widget dans le contrat », et elle est assumée : il s'agit de
+  /// *contenu*, pas d'un contrôle dont l'apparence dépend de la plateforme.
   Widget buildPage({
     Key? key,
     required String title,
     required Widget body,
+    Widget? titleWidget,
     List<PlatformAction> actions,
     Color? backgroundColor,
+    bool resizeToAvoidBottomInset,
   });
 }
 
@@ -166,6 +218,19 @@ abstract interface class PlatformOverlays {
     required BuildContext context,
     required String message,
     bool isError,
+  });
+
+  /// Enveloppe [child] d'un menu contextuel.
+  ///
+  /// Déclenché par un appui long sur mobile, par un clic droit sur desktop. Le
+  /// rendu diffère radicalement : iOS floute l'arrière-plan et présente un aperçu
+  /// agrandi de l'élément, Material ouvre un menu ancré au point de contact. C'est
+  /// exactement le genre de divergence que l'abstraction doit absorber, plutôt que
+  /// de laisser chaque écran l'improviser.
+  Widget contextMenu({
+    Key? key,
+    required Widget child,
+    required List<PlatformMenuAction> actions,
   });
 }
 

@@ -80,14 +80,17 @@ class MaterialShell implements PlatformShell {
     Key? key,
     required String title,
     required Widget body,
+    Widget? titleWidget,
     List<PlatformAction> actions = const [],
     Color? backgroundColor,
+    bool resizeToAvoidBottomInset = true,
   }) {
     return Scaffold(
       key: key,
       backgroundColor: backgroundColor,
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       appBar: AppBar(
-        title: Text(title),
+        title: titleWidget ?? Text(title),
         actions: [
           for (final action in actions)
             IconButton(
@@ -228,6 +231,98 @@ class MaterialOverlays implements PlatformOverlays {
           margin: const EdgeInsets.all(DesignTokens.spaceL),
         ),
       );
+  }
+
+  @override
+  Widget contextMenu({
+    Key? key,
+    required Widget child,
+    required List<PlatformMenuAction> actions,
+  }) {
+    return _MaterialContextMenu(key: key, actions: actions, child: child);
+  }
+}
+
+/// Menu Material ancré au point de contact.
+///
+/// `showMenu` exige une position en coordonnées écran : on capture donc le point
+/// du geste. Un menu centré paraîtrait détaché de l'élément touché.
+class _MaterialContextMenu extends StatefulWidget {
+  const _MaterialContextMenu({
+    super.key,
+    required this.child,
+    required this.actions,
+  });
+
+  final Widget child;
+  final List<PlatformMenuAction> actions;
+
+  @override
+  State<_MaterialContextMenu> createState() => _MaterialContextMenuState();
+}
+
+class _MaterialContextMenuState extends State<_MaterialContextMenu> {
+  Offset _tapPosition = Offset.zero;
+
+  void _storePosition(Offset position) => _tapPosition = position;
+
+  Future<void> _show() async {
+    final overlay = Overlay.of(context).context.findRenderObject();
+    if (overlay is! RenderBox) return;
+
+    final selected = await showMenu<PlatformMenuAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromPoints(_tapPosition, _tapPosition),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        for (final action in widget.actions)
+          PopupMenuItem<PlatformMenuAction>(
+            value: action,
+            child: Row(
+              children: [
+                if (action.icon != null) ...[
+                  Icon(
+                    action.icon,
+                    size: DesignTokens.iconS,
+                    color: action.isDestructive
+                        ? Theme.of(context).colorScheme.error
+                        : null,
+                  ),
+                  const SizedBox(width: DesignTokens.spaceM),
+                ],
+                Expanded(
+                  child: Text(
+                    action.label,
+                    style: action.isDestructive
+                        ? TextStyle(color: Theme.of(context).colorScheme.error)
+                        : null,
+                  ),
+                ),
+                if (action.isSelected)
+                  const Icon(Icons.check, size: DesignTokens.iconS),
+              ],
+            ),
+          ),
+      ],
+    );
+
+    selected?.onPressed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (details) => _storePosition(details.globalPosition),
+      onLongPress: _show,
+      // Clic droit : le geste attendu sur desktop, où l'appui long n'existe pas.
+      onSecondaryTapDown: (details) {
+        _storePosition(details.globalPosition);
+        _show();
+      },
+      child: widget.child,
+    );
   }
 }
 

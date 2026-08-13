@@ -22,6 +22,12 @@ class AppUiRoute {
   static const String profile = '/main/profile';
 
   // ── Écrans hors coquille ──────────────────────────────────────────────────
+  /// Fil de discussion. Le segment `:id` porte l'identifiant de conversation.
+  static const String conversationDetail = '/conversation/:id';
+
+  /// Construit le chemin d'une conversation donnée.
+  static String conversationDetailPath(String id) => '/conversation/$id';
+
   static const String settings = '/settings';
   static const String imageViewer = '/image-viewer';
 }
