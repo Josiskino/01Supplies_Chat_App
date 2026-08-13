@@ -1,0 +1,6 @@
+arb-dir: lib/core/l10n/arb
+template-arb-file: app_fr.arb
+output-localization-file: app_localizations.dart
+# Les fichiers générés sont écrits dans l'arborescence (et commités, comme dans
+# supplies_apk) pour que le dépôt soit analysable sans avoir lancé `gen-l10n`.
+output-dir: lib/core/l10n/generated

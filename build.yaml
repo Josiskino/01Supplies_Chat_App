@@ -1,0 +1,20 @@
+# Configuration de la génération de code.
+#
+# Les deux autres apps du dépôt n'ont pas de `build.yaml` et tournent sur les
+# défauts du generator. Ici le codegen Riverpod est **systématique** (aucun
+# provider écrit à la main), donc la configuration est explicite : elle
+# documente le contrat et évite qu'une mise à jour du generator change
+# silencieusement la forme des fichiers générés.
+targets:
+  $default:
+    builders:
+      riverpod_generator:
+        options:
+          # Les providers générés portent le suffixe `Provider`
+          # (`ThemeNotifier` → `themeProvider`, `apiClient` → `apiClientProvider`).
+          provider_name_suffix: "Provider"
+        generate_for:
+          include:
+            - lib/**.dart
+          exclude:
+            - lib/**.g.dart

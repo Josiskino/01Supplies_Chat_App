@@ -1,0 +1,58 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "01 Chat",
+
+  "navConversations": "Conversations",
+  "navRequests": "Requests",
+  "navContacts": "Contacts",
+  "navProfile": "Profile",
+
+  "conversationsTitle": "Conversations",
+  "conversationsEmptyTitle": "No conversations",
+  "conversationsEmptyMessage": "Customer requests will show up here.",
+
+  "requestsTitle": "Delivery requests",
+  "requestsEmptyTitle": "No requests",
+  "requestsEmptyMessage": "Requests linked to a conversation will show up here.",
+
+  "contactsTitle": "Contacts",
+  "contactsEmptyTitle": "No contacts",
+  "contactsEmptyMessage": "The customer directory will show up here.",
+
+  "profileTitle": "Profile",
+  "settingsTitle": "Settings",
+
+  "themeLabel": "Theme",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "languageLabel": "Language",
+  "languageFrench": "French",
+  "languageEnglish": "English",
+
+  "signIn": "Sign in",
+  "signOut": "Sign out",
+  "emailLabel": "Email address",
+  "passwordLabel": "Password",
+  "loginTitle": "Sign in",
+  "loginSubtitle": "Restricted to the 01Supplies logistics team",
+
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "search": "Search",
+  "loading": "Loading…",
+
+  "errorGeneric": "Something went wrong.",
+  "errorNetwork": "Can't connect. Check your network and try again.",
+
+  "unreadCount": "{count, plural, =0{No unread messages} =1{1 unread message} other{{count} unread messages}}",
+  "@unreadCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+}

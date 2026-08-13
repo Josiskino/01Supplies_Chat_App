@@ -1,0 +1,24 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  # Exclure les artefacts de build et le code généré : `flutter analyze` ne doit
+  # jamais analyser `build/` (qui contient du code tiers ne compilant pas hors
+  # de son package, et qui polluait le rapport avec des milliers de fausses
+  # erreurs sur les autres apps du dépôt).
+  exclude:
+    - build/**
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.mocks.dart"
+    - lib/core/l10n/generated/**
+
+linter:
+  rules:
+    # Les widgets de cette base de code sont largement `const` : l'oubli est une
+    # perte de perf silencieuse, on veut le voir.
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    # Une classe utilitaire sans constructeur privé est instanciable par erreur.
+    avoid_classes_with_only_static_members: false
+    # Documentation obligatoire sur les API publiques : trop bruyant sur une UI.
+    public_member_api_docs: false

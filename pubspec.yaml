@@ -1,0 +1,110 @@
+name: supplies_chat_app
+description: "01Supplies Internal Chat — messagerie interne logistique (Android, iOS, Windows, macOS)"
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # ── State management : Riverpod 3 + code generation ────────────────────────
+  flutter_riverpod: ^3.1.0
+  riverpod_annotation: ^4.0.0
+  hooks_riverpod: ^3.1.0
+  flutter_hooks: ^0.21.3+1
+
+  # ── Navigation ────────────────────────────────────────────────────────────
+  go_router: ^17.1.0
+
+  # ── Réseau & résultat fonctionnel ─────────────────────────────────────────
+  dio: ^5.9.1
+  fpdart: ^1.2.0
+  connectivity_plus: ^7.0.0
+
+  # ── Configuration & stockage ──────────────────────────────────────────────
+  flutter_dotenv: ^6.0.0
+  shared_preferences: ^2.5.4
+
+  # ── Observabilité ─────────────────────────────────────────────────────────
+  logger: ^2.6.2
+
+  # ── i18n / formatage ──────────────────────────────────────────────────────
+  intl: ^0.20.2
+  flutter_localizations:
+    sdk: flutter
+
+  # ── UI ────────────────────────────────────────────────────────────────────
+  google_fonts: ^8.0.1
+  iconsax: ^0.0.8
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  flutter_animate: ^4.5.2
+  flutter_native_splash: ^2.4.7
+  # Ouvre les liens reçus dans un message (et les liens des écrans de réglages).
+  url_launcher: ^6.3.2
+
+  # ── Desktop : taille et titre de la fenêtre (Windows / macOS) ─────────────
+  window_manager: ^0.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  riverpod_generator: ^4.0.0+1
+  build_runner: ^2.10.4
+  flutter_launcher_icons: ^0.14.4
+
+# ── Icônes de lancement — les 4 plateformes cibles + web ───────────────────
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+
+  # Android : toutes les densités + adaptive icon (8.0+)
+  android: "launcher_icon"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
+  adaptive_icon_foreground_inset: 15
+
+  # iOS : toutes les tailles iPhone/iPad. `remove_alpha_ios` est exigé par Apple.
+  ios: true
+  image_path_ios: "assets/icon/app_icon.png"
+  remove_alpha_ios: true
+
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 256
+
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#ffffff"
+    theme_color: "#6F52ED"
+
+flutter:
+  uses-material-design: true
+
+  # Génération l10n depuis les ARB (voir l10n.yaml)
+  generate: true
+
+  assets:
+    # Les 3 environnements. Le flavor choisit lequel charger (cf. FlavorConfig).
+    - .env.development
+    - .env.staging
+    - .env.production
+    - assets/icon/
+    # Polices déposées ici : `google_fonts` les utilise en priorité et cesse
+    # de télécharger au runtime — indispensable pour un démarrage hors ligne
+    # sur desktop.
+    - assets/google_fonts/
