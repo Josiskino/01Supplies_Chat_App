@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
+  flutter_acrylic
   screen_retriever_windows
   url_launcher_windows
   window_manager
