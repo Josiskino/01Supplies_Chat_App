@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/providers/splash_completed_provider.dart';
+import '../../../core/utils/localization_helper.dart';
 import '../../../flavors.dart';
 import '../../widgets/pulsing_logo.dart';
 
@@ -51,7 +52,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             ),
             const SizedBox(height: DesignTokens.spaceS),
             Text(
-              'Messagerie interne logistique',
+              LocalizationHelper.of(context).appTagline,
               style: theme.textTheme.bodySmall,
             ),
           ],

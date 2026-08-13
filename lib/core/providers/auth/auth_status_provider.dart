@@ -63,6 +63,13 @@ class AuthStatusNotifier extends _$AuthStatusNotifier {
       StorageKeys.token,
       'placeholder-token',
     );
+    // Latence simulée. L'écriture locale est si rapide que l'état `loading` ne
+    // durait qu'une image : l'indicateur du bouton clignotait au lieu de
+    // s'afficher, ce qui se lit comme un défaut et non comme une attente.
+    //
+    // À **supprimer** avec la vraie authentification : l'appel réseau fournira
+    // alors sa propre latence, et celle-ci s'y ajouterait bêtement.
+    await Future<void>.delayed(const Duration(milliseconds: 420));
     state = AuthGateStatus.authenticated;
   }
 

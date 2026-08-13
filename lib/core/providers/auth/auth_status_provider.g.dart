@@ -113,7 +113,7 @@ abstract class _$AuthStatusNotifier extends $Notifier<AuthGateStatus> {
   AuthGateStatus build();
   @$mustCallSuper
   @override
-  void runBuild() {
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<AuthGateStatus, AuthGateStatus>;
     final element =
         ref.element
@@ -123,6 +123,6 @@ abstract class _$AuthStatusNotifier extends $Notifier<AuthGateStatus> {
               Object?,
               Object?
             >;
-    element.handleCreate(ref, build);
+    return element.handleCreate(ref, build);
   }
 }
