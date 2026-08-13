@@ -12,16 +12,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => '01 Chat';
 
   @override
-  String get navConversations => 'Conversations';
+  String get appTagline => 'Internal logistics messaging';
 
   @override
-  String get navRequests => 'Requests';
+  String get navConversations => 'Messages';
+
+  @override
+  String get navCalls => 'Calls';
 
   @override
   String get navContacts => 'Contacts';
 
   @override
-  String get navProfile => 'Profile';
+  String get navSettings => 'Settings';
 
   @override
   String get conversationsTitle => 'Conversations';
@@ -34,14 +37,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Customer requests will show up here.';
 
   @override
-  String get requestsTitle => 'Delivery requests';
+  String get callsTitle => 'Calls';
 
   @override
-  String get requestsEmptyTitle => 'No requests';
+  String get callsEmptyTitle => 'No calls';
 
   @override
-  String get requestsEmptyMessage =>
-      'Requests linked to a conversation will show up here.';
+  String get callsEmptyMessage => 'Your call history will show up here.';
 
   @override
   String get contactsTitle => 'Contacts';
@@ -54,7 +56,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The customer directory will show up here.';
 
   @override
-  String get profileTitle => 'Profile';
+  String get accountTitle => 'Settings';
 
   @override
   String get settingsTitle => 'Settings';
@@ -97,6 +99,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginSubtitle => 'Restricted to the 01Supplies logistics team';
+
+  @override
+  String get rememberMe => 'Stay signed in';
+
+  @override
+  String get forgotPassword => 'Forgot password?';
 
   @override
   String get retry => 'Retry';

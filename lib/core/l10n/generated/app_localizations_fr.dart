@@ -12,16 +12,19 @@ class AppLocalizationsFr extends AppLocalizations {
   String get appTitle => '01 Chat';
 
   @override
-  String get navConversations => 'Conversations';
+  String get appTagline => 'Messagerie interne logistique';
 
   @override
-  String get navRequests => 'Demandes';
+  String get navConversations => 'Messages';
+
+  @override
+  String get navCalls => 'Appels';
 
   @override
   String get navContacts => 'Contacts';
 
   @override
-  String get navProfile => 'Profil';
+  String get navSettings => 'Réglages';
 
   @override
   String get conversationsTitle => 'Conversations';
@@ -34,14 +37,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les demandes des clients apparaîtront ici.';
 
   @override
-  String get requestsTitle => 'Demandes de livraison';
+  String get callsTitle => 'Appels';
 
   @override
-  String get requestsEmptyTitle => 'Aucune demande';
+  String get callsEmptyTitle => 'Aucun appel';
 
   @override
-  String get requestsEmptyMessage =>
-      'Les demandes rattachées à une conversation s\'afficheront ici.';
+  String get callsEmptyMessage =>
+      'L\'historique de vos appels s\'affichera ici.';
 
   @override
   String get contactsTitle => 'Contacts';
@@ -54,7 +57,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'L\'annuaire des clients s\'affichera ici.';
 
   @override
-  String get profileTitle => 'Profil';
+  String get accountTitle => 'Réglages';
 
   @override
   String get settingsTitle => 'Réglages';
@@ -98,6 +101,12 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get loginSubtitle =>
       'Espace réservé à l\'équipe logistique 01Supplies';
+
+  @override
+  String get rememberMe => 'Rester connecté';
+
+  @override
+  String get forgotPassword => 'Mot de passe oublié ?';
 
   @override
   String get retry => 'Réessayer';

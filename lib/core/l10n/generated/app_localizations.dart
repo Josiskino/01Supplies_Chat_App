@@ -104,17 +104,23 @@ abstract class AppLocalizations {
   /// **'01 Chat'**
   String get appTitle;
 
+  /// No description provided for @appTagline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Messagerie interne logistique'**
+  String get appTagline;
+
   /// Onglet listant les fils de discussion
   ///
   /// In fr, this message translates to:
-  /// **'Conversations'**
+  /// **'Messages'**
   String get navConversations;
 
-  /// Onglet listant les demandes de livraison rattachées
+  /// Onglet listant l’historique des appels
   ///
   /// In fr, this message translates to:
-  /// **'Demandes'**
-  String get navRequests;
+  /// **'Appels'**
+  String get navCalls;
 
   /// Onglet de l'annuaire des clients
   ///
@@ -125,8 +131,8 @@ abstract class AppLocalizations {
   /// Onglet du compte et des réglages
   ///
   /// In fr, this message translates to:
-  /// **'Profil'**
-  String get navProfile;
+  /// **'Réglages'**
+  String get navSettings;
 
   /// No description provided for @conversationsTitle.
   ///
@@ -146,23 +152,23 @@ abstract class AppLocalizations {
   /// **'Les demandes des clients apparaîtront ici.'**
   String get conversationsEmptyMessage;
 
-  /// No description provided for @requestsTitle.
+  /// No description provided for @callsTitle.
   ///
   /// In fr, this message translates to:
-  /// **'Demandes de livraison'**
-  String get requestsTitle;
+  /// **'Appels'**
+  String get callsTitle;
 
-  /// No description provided for @requestsEmptyTitle.
+  /// No description provided for @callsEmptyTitle.
   ///
   /// In fr, this message translates to:
-  /// **'Aucune demande'**
-  String get requestsEmptyTitle;
+  /// **'Aucun appel'**
+  String get callsEmptyTitle;
 
-  /// No description provided for @requestsEmptyMessage.
+  /// No description provided for @callsEmptyMessage.
   ///
   /// In fr, this message translates to:
-  /// **'Les demandes rattachées à une conversation s\'afficheront ici.'**
-  String get requestsEmptyMessage;
+  /// **'L\'historique de vos appels s\'affichera ici.'**
+  String get callsEmptyMessage;
 
   /// No description provided for @contactsTitle.
   ///
@@ -182,11 +188,11 @@ abstract class AppLocalizations {
   /// **'L\'annuaire des clients s\'affichera ici.'**
   String get contactsEmptyMessage;
 
-  /// No description provided for @profileTitle.
+  /// No description provided for @accountTitle.
   ///
   /// In fr, this message translates to:
-  /// **'Profil'**
-  String get profileTitle;
+  /// **'Réglages'**
+  String get accountTitle;
 
   /// No description provided for @settingsTitle.
   ///
@@ -271,6 +277,18 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Espace réservé à l\'équipe logistique 01Supplies'**
   String get loginSubtitle;
+
+  /// No description provided for @rememberMe.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rester connecté'**
+  String get rememberMe;
+
+  /// No description provided for @forgotPassword.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mot de passe oublié ?'**
+  String get forgotPassword;
 
   /// No description provided for @retry.
   ///

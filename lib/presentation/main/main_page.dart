@@ -6,10 +6,11 @@ import '../../core/platform/platform_ui.dart';
 import '../../core/platform/platform_ui_provider.dart';
 import '../../core/providers/navigation/main_tab_provider.dart';
 import '../../core/utils/localization_helper.dart';
+import '../pages/calls/calls_screen.dart';
 import '../pages/contacts/contacts_screen.dart';
 import '../pages/conversations/conversations_screen.dart';
-import '../pages/profile/profile_screen.dart';
-import '../pages/requests/requests_screen.dart';
+import '../pages/search/search_screen.dart';
+import '../pages/settings/settings_screen.dart';
 import '../widgets/navigation/double_back_to_exit.dart';
 import 'nav_destinations.dart';
 
@@ -35,9 +36,10 @@ class _MainPageState extends ConsumerState<MainPage> {
   /// les widgets et réinitialiserait l'état préservé par l'`IndexedStack`.
   static const List<Widget> _screens = [
     ConversationsScreen(),
-    RequestsScreen(),
+    CallsScreen(),
     ContactsScreen(),
-    ProfileScreen(),
+    SettingsScreen(),
+    SearchScreen(),
   ];
 
   @override

@@ -2,25 +2,26 @@
   "@@locale": "en",
 
   "appTitle": "01 Chat",
+  "appTagline": "Internal logistics messaging",
 
-  "navConversations": "Conversations",
-  "navRequests": "Requests",
+  "navConversations": "Messages",
+  "navCalls": "Calls",
   "navContacts": "Contacts",
-  "navProfile": "Profile",
+  "navSettings": "Settings",
 
   "conversationsTitle": "Conversations",
   "conversationsEmptyTitle": "No conversations",
   "conversationsEmptyMessage": "Customer requests will show up here.",
 
-  "requestsTitle": "Delivery requests",
-  "requestsEmptyTitle": "No requests",
-  "requestsEmptyMessage": "Requests linked to a conversation will show up here.",
+  "callsTitle": "Calls",
+  "callsEmptyTitle": "No calls",
+  "callsEmptyMessage": "Your call history will show up here.",
 
   "contactsTitle": "Contacts",
   "contactsEmptyTitle": "No contacts",
   "contactsEmptyMessage": "The customer directory will show up here.",
 
-  "profileTitle": "Profile",
+  "accountTitle": "Settings",
   "settingsTitle": "Settings",
 
   "themeLabel": "Theme",
@@ -37,6 +38,8 @@
   "passwordLabel": "Password",
   "loginTitle": "Sign in",
   "loginSubtitle": "Restricted to the 01Supplies logistics team",
+  "rememberMe": "Stay signed in",
+  "forgotPassword": "Forgot password?",
 
   "retry": "Retry",
   "cancel": "Cancel",

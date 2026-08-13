@@ -2,24 +2,25 @@
   "@@locale": "fr",
 
   "appTitle": "01 Chat",
+  "appTagline": "Messagerie interne logistique",
   "@appTitle": {
     "description": "Nom de l'application affiché dans les titres"
   },
 
-  "navConversations": "Conversations",
+  "navConversations": "Messages",
   "@navConversations": {
     "description": "Onglet listant les fils de discussion"
   },
-  "navRequests": "Demandes",
-  "@navRequests": {
-    "description": "Onglet listant les demandes de livraison rattachées"
+  "navCalls": "Appels",
+  "@navCalls": {
+    "description": "Onglet listant l’historique des appels"
   },
   "navContacts": "Contacts",
   "@navContacts": {
     "description": "Onglet de l'annuaire des clients"
   },
-  "navProfile": "Profil",
-  "@navProfile": {
+  "navSettings": "Réglages",
+  "@navSettings": {
     "description": "Onglet du compte et des réglages"
   },
 
@@ -27,15 +28,15 @@
   "conversationsEmptyTitle": "Aucune conversation",
   "conversationsEmptyMessage": "Les demandes des clients apparaîtront ici.",
 
-  "requestsTitle": "Demandes de livraison",
-  "requestsEmptyTitle": "Aucune demande",
-  "requestsEmptyMessage": "Les demandes rattachées à une conversation s'afficheront ici.",
+  "callsTitle": "Appels",
+  "callsEmptyTitle": "Aucun appel",
+  "callsEmptyMessage": "L'historique de vos appels s'affichera ici.",
 
   "contactsTitle": "Contacts",
   "contactsEmptyTitle": "Aucun contact",
   "contactsEmptyMessage": "L'annuaire des clients s'affichera ici.",
 
-  "profileTitle": "Profil",
+  "accountTitle": "Réglages",
   "settingsTitle": "Réglages",
 
   "themeLabel": "Thème",
@@ -52,6 +53,8 @@
   "passwordLabel": "Mot de passe",
   "loginTitle": "Connexion",
   "loginSubtitle": "Espace réservé à l'équipe logistique 01Supplies",
+  "rememberMe": "Rester connecté",
+  "forgotPassword": "Mot de passe oublié ?",
 
   "retry": "Réessayer",
   "cancel": "Annuler",
