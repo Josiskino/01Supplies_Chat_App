@@ -65,6 +65,9 @@ fvm flutter test
 
 # Icônes de lancement
 fvm dart run flutter_launcher_icons
+
+# Écran de démarrage natif (config : flutter_native_splash.yaml)
+fvm dart run flutter_native_splash:create
 ```
 
 ---
@@ -174,6 +177,16 @@ Règles :
 - `AppPlatform` dérive de `defaultTargetPlatform`, **jamais** de `dart:io` : c'est
   ce qui rend les trois rendus testables depuis une seule machine.
 
+**Une seule exception, `pages/auth/`.** L'écran de connexion est une vitrine de
+marque : photographie de fond, carte de verre, rendu identique sur les quatre
+plateformes et **sombre quel que soit le thème**. Ses couleurs sont donc
+littérales plutôt que tirées du `ColorScheme`, et ses champs sont des
+`GlassTextField` locaux et non `PlatformControls.textField` — un champ Material à
+fond opaque trouerait la carte. `AnnotatedRegion<SystemUiOverlayStyle>` y force
+une barre d'état claire, faute de quoi l'heure reste peinte en noir sur le fond
+sombre. Ces widgets restent confinés à `pages/auth/widgets/` : rien d'autre dans
+l'app n'hérite de cette exception.
+
 **`adaptive_platform_ui` est confiné à `impl/cupertino_platform_ui.dart`.** Trois
 raisons : il est en `0.1.x` avec une API qui bouge vite, il ne déclare pas de
 support macOS/Windows, et son `PlatformInfo` lit `dart:io` en statique. Une
@@ -257,6 +270,52 @@ Chacun a déjà coûté un bug dans cette famille de projets.
 6. **Splash sans navigation** — le splash doit appeler
    `splashCompletedProvider.complete()`, sinon le redirect ne se relance jamais et
    l'app reste bloquée (défaut constaté sur `supplies_apk_management`).
+
+7. **Taille du logo de splash sur iOS** — le storyboard contraint la vue image
+   aux **quatre bords de l'écran**. En `scaleAspectFit`, une image carrée est donc
+   ajustée à la largeur entière, et le logo occupe la même part de l'écran que du
+   canevas de son PNG. Augmenter la résolution n'y change rien : seule la marge
+   transparente autour du logo décide de sa taille perçue. D'où `image_ios`, dont
+   le canevas est volontairement plus grand que celui d'Android.
+
+8. **Cache du launch screen (iOS)** — SpringBoard conserve un instantané de
+   l'écran de démarrage qui **survit à la désinstallation de l'app**. Après une
+   régénération, le simulateur continue d'afficher l'ancien splash, ce qui donne
+   l'impression que la modification n'a pas pris. Purger avec
+   `xcrun simctl shutdown <UDID>` puis `boot`, app désinstallée.
+
+9. **Splash natif absent sur desktop** — `flutter_native_splash` ne couvre
+   qu'Android, iOS et le web. Sur macOS et Windows, c'est `SplashScreen` (Dart)
+   qui prend le relais, via `PulsingLogo` → `AppImages.appIcon`. Changer le logo
+   suppose donc de mettre à jour **`assets/icon/app_icon.png` aussi**, pas
+   seulement les sources de `assets/branding/`.
+
+10. **`adaptive_icon_foreground_inset` sans effet** — dans
+    `flutter_launcher_icons` 0.14.4, les valeurs 6, 20 et 30 produisent toutes le
+    même contenu de 312 px, qui déborde du masque de 288 px de l'icône
+    adaptative. La marge est donc portée par un fichier dédié,
+    `assets/branding/adaptive_foreground.png`, dont le contenu occupe 46 % du
+    canevas — vérifiable, contrairement à l'option.
+
+---
+
+## Identité visuelle
+
+Sources de génération dans **`assets/branding/`** (hors bundle : le dossier n'est
+pas déclaré en assets). Seul `assets/icon/app_icon.png` est embarqué, car
+`PulsingLogo` le charge au runtime.
+
+| Fichier | Canevas | Contenu | Destination |
+|---|---|---|---|
+| `assets/icon/app_icon.png` | 1024 | 71 % | icônes des 4 plateformes + splash Dart desktop |
+| `branding/adaptive_foreground.png` | 1024 | 46 % | calque avant-plan Android |
+| `branding/splash_logo.png` | 1024 | 88 % | splash Android (densités) |
+| `branding/splash_logo_ios.png` | 1640 | 55 % | splash iOS (cf. piège 7) |
+| `branding/splash_logo_android12.png` | 960 | 49 % | splash Android 12+ (cercle de 640) |
+
+Chaque proportion répond à une contrainte de plateforme différente : c'est
+pourquoi un fichier unique ne convient pas. Après toute modification, relancer
+`flutter_launcher_icons` **et** `flutter_native_splash:create`.
 
 ---
 
