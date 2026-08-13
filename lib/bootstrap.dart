@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'core/platform/window_glass.dart';
+import 'core/services/storage_service.dart';
 import 'core/providers/auth/auth_status_provider.dart';
 import 'core/utils/app_logger.dart';
 import 'flavors.dart';
@@ -19,6 +22,23 @@ bool get _isDesktop =>
 
 /// `true` sur les cibles mobiles.
 bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+/// Résout le thème effectif avant l'affichage de la fenêtre.
+///
+/// Reprend la même logique que `ThemeNotifier` : préférence enregistrée, sinon
+/// réglage du système. Dupliquer cette poignée de lignes est le prix à payer pour
+/// connaître le thème *avant* de construire l'arbre de widgets — le provider,
+/// lui, n'existe pas encore à ce stade.
+Future<bool> _resolveIsDarkTheme() async {
+  final saved = await StorageService.instance.getThemeMode();
+  return switch (saved) {
+    'dark' => true,
+    'light' => false,
+    // 'system' ou aucune préférence : on suit la plateforme.
+    _ =>
+      PlatformDispatcher.instance.platformBrightness == Brightness.dark,
+  };
+}
 
 /// Initialisation commune à tous les flavors.
 Future<void> bootstrap(Flavor flavor) async {
@@ -40,15 +60,28 @@ Future<void> bootstrap(Flavor flavor) async {
 
   // ── Fenêtre desktop ─────────────────────────────────────────────────────
   if (_isDesktop) {
+    // La translucidité doit être posée avant l'affichage : appliquer le matériau
+    // sur une fenêtre déjà visible produit un clignotement opaque.
+    //
+    // La préférence de thème est lue **ici**, avant d'appliquer le matériau. Une
+    // valeur devinée poserait le verre sombre derrière une interface claire (ou
+    // l'inverse) jusqu'au premier changement de thème — et les deux matériaux ne
+    // se ressemblent pas du tout.
+    await WindowGlass.initialize(isDark: await _resolveIsDarkTheme());
+
     await windowManager.ensureInitialized();
 
-    const windowOptions = WindowOptions(
-      size: Size(1200, 800),
+    final windowOptions = WindowOptions(
+      size: const Size(1200, 800),
       // La coquille bascule sur la barre du bas sous 600 px : la borne minimale
       // laisse volontairement atteindre cette disposition, sans descendre en
       // dessous du seuil où le rail et le contenu ne coexistent plus.
-      minimumSize: Size(480, 600),
+      minimumSize: const Size(480, 600),
       center: true,
+      // Fenêtre au fond transparent : sans cela, le matériau translucide serait
+      // masqué par la couleur de fond opaque de la fenêtre, et l'effet de verre
+      // n'apparaîtrait nulle part.
+      backgroundColor: WindowGlass.isEnabled ? Colors.transparent : null,
       titleBarStyle: TitleBarStyle.normal,
     );
 
@@ -56,6 +89,16 @@ Future<void> bootstrap(Flavor flavor) async {
       await windowManager.setTitle(FlavorConfig.appName);
       await windowManager.show();
       await windowManager.focus();
+
+      // La barre de titre est configurée **ici**, dans le callback et après
+      // `show()`.
+      //
+      // Deux raisons : `window_manager` reconfigure la fenêtre à son
+      // initialisation et annulerait des réglages posés avant lui ; et une trace
+      // d'exécution en release a montré que `waitUntilReadyToShow` rend la main
+      // *avant* d'exécuter ce callback. Placer l'appel après la boucle laissait
+      // donc l'ordre au hasard du planificateur.
+      await WindowGlass.applyTransparentTitleBar();
     });
   }
 
