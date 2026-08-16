@@ -283,79 +283,78 @@ class _ReplyBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Bandeau **rectangulaire**, pleine largeur. Un conteneur arrondi force son
+    // filet à épouser le rayon, ce qui lui donne des extrémités courbes ; le
+    // repère de citation se lit mieux comme un trait franc.
     return Container(
-      margin: const EdgeInsets.fromLTRB(
-        DesignTokens.spaceS,
-        DesignTokens.spaceS,
-        DesignTokens.spaceS,
-        0,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.spaceM,
-        vertical: DesignTokens.spaceS,
-      ),
-      decoration: BoxDecoration(
-        color: DesignTokens.getSubtleBackground(context, opacity: 0.06),
-        borderRadius: DesignTokens.borderRadiusM,
-        border: BorderDirectional(
-          start: BorderSide(color: theme.colorScheme.primary, width: 3),
-        ),
-      ),
+      width: double.infinity,
+      color: DesignTokens.getSubtleBackground(context, opacity: 0.06),
       child: Row(
         children: [
+          // Filet posé comme un élément de la rangée, et non comme une bordure :
+          // c'est ce qui le garde droit sur toute la hauteur.
+          Container(width: 3, color: theme.colorScheme.primary),
+          const SizedBox(width: DesignTokens.spaceM),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  reply.author,
-                  style: theme.textTheme.labelSmall
-                      ?.merge(AppleType.caption2)
-                      .copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.primary,
-                      ),
-                ),
-                const SizedBox(height: 1),
-                Row(
-                  children: [
-                    if (reply.isVoice) ...[
-                      Icon(
-                        CupertinoIcons.mic_fill,
-                        size: 11,
-                        color: DesignTokens.getTextColorWithOpacity(
-                          context,
-                          0.5,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: DesignTokens.spaceS,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    reply.author,
+                    style: theme.textTheme.labelSmall
+                        ?.merge(AppleType.caption2)
+                        .copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(height: 1),
+                  Row(
+                    children: [
+                      if (reply.isVoice) ...[
+                        Icon(
+                          CupertinoIcons.mic_fill,
+                          size: 11,
+                          color: DesignTokens.getTextColorWithOpacity(
+                            context,
+                            0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                      ],
+                      Expanded(
+                        child: Text(
+                          reply.text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall
+                              ?.merge(AppleType.caption1)
+                              .copyWith(
+                                color: DesignTokens.getTextColorWithOpacity(
+                                  context,
+                                  0.6,
+                                ),
+                              ),
                         ),
                       ),
-                      const SizedBox(width: 3),
                     ],
-                    Expanded(
-                      child: Text(
-                        reply.text,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall
-                            ?.merge(AppleType.caption1)
-                            .copyWith(
-                              color: DesignTokens.getTextColorWithOpacity(
-                                context,
-                                0.6,
-                              ),
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
           GestureDetector(
             onTap: onCancel,
             behavior: HitTestBehavior.opaque,
             child: Padding(
-              padding: const EdgeInsets.only(left: DesignTokens.spaceS),
+              padding: const EdgeInsets.symmetric(
+                horizontal: DesignTokens.spaceM,
+              ),
               child: Icon(
                 CupertinoIcons.xmark,
                 size: 16,
