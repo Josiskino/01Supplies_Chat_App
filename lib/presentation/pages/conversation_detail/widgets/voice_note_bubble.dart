@@ -40,7 +40,26 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble>
   );
 
   @override
+  void initState() {
+    super.initState();
+    // La fin de lecture doit rebasculer le bouton sur « lire ». Rien ne le fait
+    // spontanément : `AnimatedBuilder` suit les *valeurs*, et à la dernière
+    // image `isAnimating` est encore vrai — c'est le changement de **statut**,
+    // émis juste après, qui porte l'information.
+    _controller.addStatusListener(_onStatus);
+  }
+
+  void _onStatus(AnimationStatus status) {
+    if (!mounted) return;
+    if (status == AnimationStatus.completed ||
+        status == AnimationStatus.dismissed) {
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    _controller.removeStatusListener(_onStatus);
     _controller.dispose();
     super.dispose();
   }
@@ -64,12 +83,15 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble>
         GestureDetector(
           onTap: _toggle,
           behavior: HitTestBehavior.opaque,
-          child: Icon(
-            _controller.isAnimating
-                ? CupertinoIcons.pause_fill
-                : CupertinoIcons.play_fill,
-            size: 26,
-            color: widget.foreground,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) => Icon(
+              _controller.isAnimating
+                  ? CupertinoIcons.pause_fill
+                  : CupertinoIcons.play_fill,
+              size: 26,
+              color: widget.foreground,
+            ),
           ),
         ),
         const SizedBox(width: DesignTokens.spaceM),
@@ -94,10 +116,12 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble>
             // Pendant la lecture, le compteur montre le temps écoulé ; à
             // l'arrêt, la durée totale. C'est ce que fait WhatsApp, et cela
             // évite d'afficher un 0:00 fixe sur un message non lu.
-            final elapsed = widget.voice.duration * _controller.value;
-            final shown = _controller.value == 0 || _controller.value >= 1
-                ? widget.voice.duration
-                : elapsed;
+            // À l'arrêt comme en fin de lecture, c'est la durée totale qui
+            // s'affiche : un compteur figé à 0:13 sur une note de 0:14 se lit
+            // comme une lecture interrompue.
+            final shown = _controller.isAnimating
+                ? widget.voice.duration * _controller.value
+                : widget.voice.duration;
             return Text(
               _format(shown),
               style: Theme.of(context).textTheme.labelSmall
