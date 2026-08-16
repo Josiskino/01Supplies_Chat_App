@@ -10,6 +10,7 @@ import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../shared/fixtures/call_fixtures.dart';
 import '../../shared/models/call_view_data.dart';
+import 'widgets/call_backdrop.dart';
 import 'widgets/call_controls_bar.dart';
 import 'widgets/call_participant_tile.dart';
 
@@ -35,6 +36,13 @@ class CallScreen extends ConsumerStatefulWidget {
 
 class _CallScreenState extends ConsumerState<CallScreen> {
   late final CallSessionData _session = CallFixtures.session(widget.title);
+
+  /// Graine du fond, fixée à l'ouverture.
+  ///
+  /// Tirée une seule fois et gardée en champ : la calculer dans `build` ferait
+  /// changer la palette à chaque reconstruction — et il y en a une par seconde,
+  /// à cause du minuteur.
+  late final int _backdropSeed = DateTime.now().millisecondsSinceEpoch;
 
   Timer? _timer;
   Duration _elapsed = Duration.zero;
@@ -70,66 +78,70 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0B0B0D),
-        body: Stack(
-          children: [
-            SafeArea(
-              child: Column(
-                children: [
-                  _CallHeader(
-                    elapsed: _elapsed,
-                    isRecording: _session.isRecording,
-                    onMinimise: () => context.pop(),
-                    onInvite: () {},
-                  ),
-                  const SizedBox(height: DesignTokens.spaceL),
-                  _CallTitle(
-                    title: _session.title,
-                    subtitle: _session.subtitle,
-                  ),
-                  Expanded(
-                    child: _ParticipantConstellation(
-                      session: _session,
+        backgroundColor: const Color(0xFF07070A),
+        body: CallBackdrop(
+          seed: _backdropSeed,
+          child: Stack(
+            children: [
+              SafeArea(
+                child: Column(
+                  children: [
+                    _CallHeader(
+                      elapsed: _elapsed,
+                      isRecording: _session.isRecording,
+                      onMinimise: () => context.pop(),
                       onInvite: () {},
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: DesignTokens.spaceL,
+                    const SizedBox(height: DesignTokens.spaceL),
+                    _CallTitle(
+                      title: _session.title,
+                      subtitle: _session.subtitle,
                     ),
-                    child: CallReactionsBar(onReact: _react),
-                  ),
-                  const SizedBox(height: DesignTokens.spaceXl),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: DesignTokens.spaceS,
+                    Expanded(
+                      child: _ParticipantConstellation(
+                        session: _session,
+                        onInvite: () {},
+                      ),
                     ),
-                    child: CallControlsBar(
-                      isMuted: _isMuted,
-                      isCameraOn: _isCameraOn,
-                      participantCount: _session.participants.length,
-                      onToggleMute: () => setState(() => _isMuted = !_isMuted),
-                      onToggleCamera: () =>
-                          setState(() => _isCameraOn = !_isCameraOn),
-                      onHangUp: () => context.pop(),
-                      onShowParticipants: () {},
-                      onMore: () {},
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DesignTokens.spaceL,
+                      ),
+                      child: CallReactionsBar(onReact: _react),
                     ),
-                  ),
-                  const SizedBox(height: DesignTokens.spaceL),
-                ],
-              ),
-            ),
-            if (_flyingReaction != null)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: _FlyingReaction(
-                    key: ValueKey(_flyingReaction),
-                    emoji: _flyingReaction!,
-                  ),
+                    const SizedBox(height: DesignTokens.spaceXl),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DesignTokens.spaceS,
+                      ),
+                      child: CallControlsBar(
+                        isMuted: _isMuted,
+                        isCameraOn: _isCameraOn,
+                        participantCount: _session.participants.length,
+                        onToggleMute: () =>
+                            setState(() => _isMuted = !_isMuted),
+                        onToggleCamera: () =>
+                            setState(() => _isCameraOn = !_isCameraOn),
+                        onHangUp: () => context.pop(),
+                        onShowParticipants: () {},
+                        onMore: () {},
+                      ),
+                    ),
+                    const SizedBox(height: DesignTokens.spaceL),
+                  ],
                 ),
               ),
-          ],
+              if (_flyingReaction != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: _FlyingReaction(
+                      key: ValueKey(_flyingReaction),
+                      emoji: _flyingReaction!,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supplies_chat_app/presentation/pages/call/call_screen.dart';
+import 'package:supplies_chat_app/presentation/pages/call/widgets/call_backdrop.dart';
 import 'package:supplies_chat_app/presentation/pages/call/widgets/call_controls_bar.dart';
 import 'package:supplies_chat_app/presentation/pages/call/widgets/call_participant_tile.dart';
 import 'package:supplies_chat_app/presentation/shared/fixtures/call_fixtures.dart';
@@ -83,5 +84,30 @@ void main() {
     expect(find.text('Raccrocher'), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.phone_down_fill), findsOneWidget);
     expect(find.byType(CallControlsBar), findsOneWidget);
+  });
+
+  testWidgets('le fond ne se retire pas la palette à chaque seconde', (
+    tester,
+  ) async {
+    await pump(tester);
+
+    CallBackdrop backdrop() =>
+        tester.widget<CallBackdrop>(find.byType(CallBackdrop));
+    final first = backdrop().seed;
+
+    // Le minuteur reconstruit l'écran chaque seconde : si la graine était
+    // calculée dans `build`, le fond changerait de couleur en continu.
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(backdrop().seed, first);
+  });
+
+  test('chaque palette tient quatre teintes', () {
+    // Moins de quatre laisse des coins noirs ; l'aléa ne porte que sur les
+    // positions, jamais sur les couleurs elles-mêmes.
+    for (final palette in CallBackdrop.debugPalettes) {
+      expect(palette, hasLength(4));
+    }
   });
 }
