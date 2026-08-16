@@ -38,12 +38,12 @@ void main() {
                 delegate: PinnedStripHeader(
                   favorites: favorites,
                   background: Colors.black,
-                  borderColor: Colors.white24,
                 ),
               ),
               SliverList.builder(
                 itemCount: 40,
-                itemBuilder: (context, i) => SizedBox(height: 78, child: Text('$i')),
+                itemBuilder: (context, i) =>
+                    SizedBox(height: 78, child: Text('$i')),
               ),
             ],
           ),
@@ -56,7 +56,6 @@ void main() {
   const delegate = PinnedStripHeader(
     favorites: favorites,
     background: Colors.black,
-    borderColor: Colors.white24,
   );
 
   testWidgets('déployée au repos, repliée une fois défilée', (tester) async {

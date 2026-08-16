@@ -84,19 +84,24 @@ void main() {
   });
 
   group('contenu', () {
-    testWidgets('l\'aperçu et l\'heure sont affichés sur les deux plateformes', (
-      tester,
-    ) async {
-      for (final platform in [AppPlatform.ios, AppPlatform.android]) {
-        await pumpRow(tester, platform: platform);
-        expect(
-          find.text('Kofi : Parfait, ça me convient.'),
-          findsOneWidget,
-          reason: 'plateforme=$platform',
-        );
-        expect(find.text('12:10'), findsOneWidget, reason: 'plateforme=$platform');
-      }
-    });
+    testWidgets(
+      'l\'aperçu et l\'heure sont affichés sur les deux plateformes',
+      (tester) async {
+        for (final platform in [AppPlatform.ios, AppPlatform.android]) {
+          await pumpRow(tester, platform: platform);
+          expect(
+            find.text('Kofi : Parfait, ça me convient.'),
+            findsOneWidget,
+            reason: 'plateforme=$platform',
+          );
+          expect(
+            find.text('12:10'),
+            findsOneWidget,
+            reason: 'plateforme=$platform',
+          );
+        }
+      },
+    );
   });
 
   group('appui long — reproduction du plantage iOS', () {
@@ -108,9 +113,7 @@ void main() {
       // contraintes de largeur.
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            appPlatformProvider.overrideWithValue(AppPlatform.ios),
-          ],
+          overrides: [appPlatformProvider.overrideWithValue(AppPlatform.ios)],
           child: CupertinoApp(
             localizationsDelegates: delegates,
             home: ListView(

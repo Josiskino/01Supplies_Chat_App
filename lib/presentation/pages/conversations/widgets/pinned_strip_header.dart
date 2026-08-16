@@ -20,11 +20,7 @@ import '../../../shared/models/conversation_view_data.dart';
 /// durée. Une animation déclenchée par un seuil se désynchroniserait du doigt et
 /// resterait figée à mi-course si l'utilisateur s'arrête entre deux états.
 class PinnedStripHeader extends SliverPersistentHeaderDelegate {
-  const PinnedStripHeader({
-    required this.favorites,
-    required this.background,
-    required this.borderColor,
-  });
+  const PinnedStripHeader({required this.favorites, required this.background});
 
   final List<WorkspaceFavoriteData> favorites;
 
@@ -34,8 +30,6 @@ class PinnedStripHeader extends SliverPersistentHeaderDelegate {
   /// défiler dessous. Sans fond opaque, les lignes de conversation la
   /// traverseraient.
   final Color background;
-
-  final Color borderColor;
 
   static const double _expandedAvatar = 64;
   static const double _collapsedAvatar = 30;
@@ -87,17 +81,13 @@ class PinnedStripHeader extends SliverPersistentHeaderDelegate {
     final step = itemWidth + gap;
 
     return DecoratedBox(
-      decoration: BoxDecoration(
-        // Le fond n'apparaît qu'au repli : déployée, la bande doit laisser voir
-        // ce que la coquille peint derrière elle.
-        color: background.withValues(alpha: t),
-        border: Border(
-          bottom: BorderSide(
-            color: borderColor.withValues(alpha: t * 0.6),
-            width: DesignTokens.borderWidthThin,
-          ),
-        ),
-      ),
+      // Le fond n'apparaît qu'au repli : déployée, la bande doit laisser voir ce
+      // que la coquille peint derrière elle.
+      //
+      // Pas de filet sous la bande : il traversait toute la largeur et se
+      // remarquait plus que la pile elle-même. L'aplat opaque suffit à la
+      // détacher de la liste qui défile dessous.
+      decoration: BoxDecoration(color: background.withValues(alpha: t)),
       child: ClipRect(
         child: OverflowBox(
           alignment: Alignment.topLeft,
@@ -155,9 +145,7 @@ class PinnedStripHeader extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant PinnedStripHeader old) =>
-      old.favorites != favorites ||
-      old.background != background ||
-      old.borderColor != borderColor;
+      old.favorites != favorites || old.background != background;
 }
 
 class _PinnedAvatar extends StatelessWidget {

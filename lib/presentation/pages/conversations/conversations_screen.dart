@@ -78,10 +78,6 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
               delegate: PinnedStripHeader(
                 favorites: _pinned,
                 background: Theme.of(context).scaffoldBackgroundColor,
-                borderColor: DesignTokens.getBorderColor(
-                  Theme.of(context).brightness == Brightness.dark,
-                  opacity: 0.10,
-                ),
               ),
             ),
           SliverPadding(

@@ -18,7 +18,8 @@ void main() {
   const data = ConversationListItemData(
     id: 'c1',
     name: 'Kofi Adjei',
-    preview: 'Kofi : Parfait, ça me convient. Il me faudrait juste une '
+    preview:
+        'Kofi : Parfait, ça me convient. Il me faudrait juste une '
         'confirmation avant ce soir',
     timeLabel: '12:10',
     presence: PresenceStatus.online,
@@ -78,7 +79,8 @@ void main() {
     expect(
       AppleType.headline.fontWeight,
       FontWeight.w600,
-      reason: 'sur iOS un intitulé se détache par la graisse, pas par la taille',
+      reason:
+          'sur iOS un intitulé se détache par la graisse, pas par la taille',
     );
     expect(AppleType.subheadline.fontSize, 15);
     expect(AppleType.footnote.fontSize, 13);
