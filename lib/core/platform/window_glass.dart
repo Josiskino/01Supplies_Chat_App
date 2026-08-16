@@ -88,9 +88,7 @@ abstract final class WindowGlass {
   /// imposer sa teinte.
   static WindowEffect _effectFor(bool isDark) {
     if (!Platform.isMacOS) return WindowEffect.acrylic;
-    return isDark
-        ? WindowEffect.underWindowBackground
-        : WindowEffect.sidebar;
+    return isDark ? WindowEffect.underWindowBackground : WindowEffect.sidebar;
   }
 
   /// Rend la barre de titre transparente et étend le contenu dessous.

@@ -28,6 +28,9 @@ class AppUiRoute {
   /// Construit le chemin d'une conversation donnée.
   static String conversationDetailPath(String id) => '/conversation/$id';
 
+  /// Appel de groupe en cours.
+  static const String call = '/call';
+
   static const String settings = '/settings';
   static const String imageViewer = '/image-viewer';
 }

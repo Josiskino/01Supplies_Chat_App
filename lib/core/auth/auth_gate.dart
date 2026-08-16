@@ -33,10 +33,7 @@ class AuthGate {
   AuthGate._();
 
   /// Routes accessibles sans session.
-  static const Set<String> publicRoutes = {
-    AppUiRoute.splash,
-    AppUiRoute.login,
-  };
+  static const Set<String> publicRoutes = {AppUiRoute.splash, AppUiRoute.login};
 
   /// Renvoie la route vers laquelle rediriger, ou `null` pour laisser passer.
   static String? redirectFor({

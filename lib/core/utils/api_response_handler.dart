@@ -131,7 +131,10 @@ class ApiResponseHandler {
         error: e,
         stackTrace: stackTrace,
       );
-      return ApiError(message: 'Unexpected error processing response', error: e);
+      return ApiError(
+        message: 'Unexpected error processing response',
+        error: e,
+      );
     }
   }
 

@@ -52,10 +52,7 @@ class TCupertinoTheme {
     return CupertinoTextThemeData(
       primaryColor: primaryColor,
       textStyle: TTextTheme.bodyStyle(fontSize: 17, color: textColor),
-      actionTextStyle: TTextTheme.bodyStyle(
-        fontSize: 17,
-        color: primaryColor,
-      ),
+      actionTextStyle: TTextTheme.bodyStyle(fontSize: 17, color: primaryColor),
       navTitleTextStyle: TTextTheme.titleStyle(
         fontSize: 17,
         fontWeight: FontWeight.w600,
@@ -70,10 +67,7 @@ class TCupertinoTheme {
         fontSize: 17,
         color: primaryColor,
       ),
-      tabLabelTextStyle: TTextTheme.bodyStyle(
-        fontSize: 10,
-        color: textColor,
-      ),
+      tabLabelTextStyle: TTextTheme.bodyStyle(fontSize: 10, color: textColor),
       pickerTextStyle: TTextTheme.bodyStyle(fontSize: 21, color: textColor),
       dateTimePickerTextStyle: TTextTheme.bodyStyle(
         fontSize: 21,

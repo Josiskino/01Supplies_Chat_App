@@ -12,6 +12,7 @@ import '../../presentation/main/main_page.dart';
 import '../../presentation/main/nav_destinations.dart';
 import '../../presentation/pages/auth/login_screen.dart';
 import '../../presentation/pages/auth/splash_screen.dart';
+import '../../presentation/pages/call/call_screen.dart';
 import '../../presentation/pages/conversation_detail/conversation_detail_screen.dart';
 import '../../presentation/pages/settings/settings_screen.dart';
 import '../../presentation/widgets/photo/image_viewer_widget.dart';
@@ -96,13 +97,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: destination.subPath,
               redirect: (context, state) {
-                ref
-                    .read(mainTabProvider.notifier)
-                    .select(destination.index);
+                ref.read(mainTabProvider.notifier).select(destination.index);
                 return AppUiRoute.main;
               },
             ),
         ],
+      ),
+
+      // Appel en cours. Poussé en plein écran plutôt que placé dans la
+      // coquille : un appel prend l'écran entier et n'a pas de barre d'onglets.
+      GoRoute(
+        path: AppUiRoute.call,
+        pageBuilder: (context, state) => AppPageTransitions.fadeUp(
+          key: state.pageKey,
+          child: CallScreen(title: state.extra as String?),
+        ),
       ),
 
       GoRoute(
@@ -147,8 +156,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   (extra['images'] as List?)?.cast<String>() ?? const [],
               initialIndex: extra['initialIndex'] as int? ?? 0,
             ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-                FadeTransition(opacity: animation, child: child),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) =>
+                    FadeTransition(opacity: animation, child: child),
           );
         },
       ),

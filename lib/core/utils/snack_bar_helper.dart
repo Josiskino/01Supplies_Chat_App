@@ -17,10 +17,9 @@ class SnackBarHelper {
           padding: const EdgeInsets.all(DesignTokens.spaceS),
           child: Text(
             message,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Colors.white,
-              fontSize: 14,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(color: Colors.white, fontSize: 14),
           ),
         ),
         backgroundColor: backgroundColor,

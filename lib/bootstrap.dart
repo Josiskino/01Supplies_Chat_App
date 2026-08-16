@@ -35,8 +35,7 @@ Future<bool> _resolveIsDarkTheme() async {
     'dark' => true,
     'light' => false,
     // 'system' ou aucune préférence : on suit la plateforme.
-    _ =>
-      PlatformDispatcher.instance.platformBrightness == Brightness.dark,
+    _ => PlatformDispatcher.instance.platformBrightness == Brightness.dark,
   };
 }
 
@@ -129,7 +128,5 @@ Future<void> bootstrap(Flavor flavor) async {
   final container = ProviderContainer();
   container.read(authStatusProvider);
 
-  runApp(
-    UncontrolledProviderScope(container: container, child: const MyApp()),
-  );
+  runApp(UncontrolledProviderScope(container: container, child: const MyApp()));
 }

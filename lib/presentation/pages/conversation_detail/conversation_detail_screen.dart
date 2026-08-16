@@ -2,10 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
+import '../../../core/constants/app_ui_route.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/utils/chat_date_formatter.dart';
@@ -300,7 +302,9 @@ class _ConversationDetailScreenState
           icon: isApple ? CupertinoIcons.video_camera : Iconsax.video,
           sfSymbol: 'video',
           label: 'Appel vidéo',
-          onPressed: () {},
+          // Le nom de la conversation devient le sujet de l'appel.
+          onPressed: () =>
+              context.push(AppUiRoute.call, extra: conversation.name),
         ),
       ],
       body: Column(

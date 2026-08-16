@@ -164,11 +164,7 @@ class AppLogger {
     info(
       '🧭 Navigation $action: $route',
       feature: 'Navigation',
-      data: {
-        'action': action,
-        'route': route,
-        'params': ?params,
-      },
+      data: {'action': action, 'route': route, 'params': ?params},
     );
   }
 
@@ -179,11 +175,7 @@ class AppLogger {
     Map<String, dynamic>? data,
     Object? error,
   }) {
-    final context = {
-      'action': action,
-      'userId': ?userId,
-      ...?data,
-    };
+    final context = {'action': action, 'userId': ?userId, ...?data};
 
     if (error != null) {
       this.error(

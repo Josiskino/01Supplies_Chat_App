@@ -106,8 +106,7 @@ abstract class BaseRepository {
   }
 
   /// Variante stricte : échoue si **un seul** model ne se convertit pas.
-  Either<Failure, List<TEntity>>
-  convertModelsToEntitiesStrict<TModel, TEntity>(
+  Either<Failure, List<TEntity>> convertModelsToEntitiesStrict<TModel, TEntity>(
     List<TModel> models,
     Either<Failure, TEntity> Function(TModel) mapper,
   ) {
