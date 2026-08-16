@@ -161,6 +161,7 @@ abstract interface class PlatformShell {
   /// — un avatar et un nom cliquable, par exemple. C'est la seule entorse à la
   /// règle « pas de widget dans le contrat », et elle est assumée : il s'agit de
   /// *contenu*, pas d'un contrôle dont l'apparence dépend de la plateforme.
+
   Widget buildPage({
     Key? key,
     required String title,

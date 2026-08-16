@@ -241,6 +241,24 @@ class _ConversationDetailScreenState
     _simulateDelivery('local-$id');
   }
 
+  /// Choix du type d'appel.
+  ///
+  /// Les deux appels partagent le même écran : c'est la présence de la vidéo qui
+  /// change, pas la conversation. Demander avant d'ouvrir évite d'allumer une
+  /// caméra que personne n'attendait.
+  Future<void> _openCallOptions(BuildContext context, String name) async {
+    final choice = await ref
+        .read(platformUiProvider)
+        .overlays
+        .pickOption(
+          context: context,
+          title: name,
+          labels: const ['Appel vocal', 'Appel vidéo'],
+        );
+    if (choice == null || !context.mounted) return;
+    context.push(AppUiRoute.call, extra: name);
+  }
+
   /// Actions proposées à l'appui long sur un message.
   ///
   /// « Modifier » et « Supprimer » ne concernent que ses propres messages : les
@@ -296,19 +314,18 @@ class _ConversationDetailScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final conversation = _conversation;
 
-    return platformUi.shell.buildPage(
-      title: conversation.name,
-      titleWidget: _ConversationHeaderTitle(conversation: conversation),
-      actions: [
-        PlatformAction(
-          icon: isApple ? CupertinoIcons.video_camera : Iconsax.video,
-          sfSymbol: 'video',
-          label: 'Appel vidéo',
-          // Le nom de la conversation devient le sujet de l'appel.
-          onPressed: () =>
-              context.push(AppUiRoute.call, extra: conversation.name),
-        ),
-      ],
+    // En-tête construit dans le corps, sans barre de navigation.
+    //
+    // C'est la seule façon d'aligner avatar et nom juste après la flèche : les
+    // deux plateformes bornent la zone de début de barre — 56 px pour Material,
+    // la largeur d'un bouton retour pour iOS — et un en-tête plus large y
+    // déborde. Passer par le titre l'aurait centré, iOS centrant sa zone du
+    // milieu quelle que soit sa largeur.
+    //
+    // Le geste de retour par balayage reste assuré par la route, pas par la
+    // barre : il n'est pas perdu.
+    return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           // Motif de fond, comme dans WhatsApp. Répété plutôt qu'étiré : une
@@ -332,6 +349,12 @@ class _ConversationDetailScreenState
           ),
           Column(
             children: [
+              _ConversationHeader(
+                conversation: conversation,
+                onBack: () => context.pop(),
+                onMore: () => _openCallOptions(context, conversation.name),
+                isApple: isApple,
+              ),
               Expanded(
                 child: StickyDateList(
                   now: DateTime.now(),
@@ -451,53 +474,98 @@ class _ConversationDetailScreenState
   }
 }
 
-/// Titre d'en-tête : avatar au-dessus du nom, comme dans Messages.
-class _ConversationHeaderTitle extends StatelessWidget {
-  const _ConversationHeaderTitle({required this.conversation});
+/// En-tête du fil : retour, avatar, nom, puis les actions.
+///
+/// Remplace la barre de navigation, dont la zone de début est trop étroite pour
+/// ce contenu sur les deux plateformes.
+class _ConversationHeader extends StatelessWidget {
+  const _ConversationHeader({
+    required this.conversation,
+    required this.onBack,
+    required this.onMore,
+    required this.isApple,
+  });
 
   final ConversationListItemData conversation;
+  final VoidCallback onBack;
+  final VoidCallback onMore;
+  final bool isApple;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return GestureDetector(
-      // Toute la zone est cliquable : sur iOS, toucher le nom ouvre la fiche du
-      // contact.
-      onTap: () {},
-      behavior: HitTestBehavior.opaque,
-      // Hauteur maîtrisée : une barre de navigation iOS fait 44 pt, et un avatar
-      // de 30 px surmonté d'une ligne de texte la débordait de quelques pixels.
-      // L'avatar est réduit et l'interligne resserré pour tenir dans le gabarit.
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return Container(
+      padding: EdgeInsets.only(
+        top: MediaQuery.paddingOf(context).top + DesignTokens.spaceS,
+        bottom: DesignTokens.spaceS,
+        left: DesignTokens.spaceS,
+        right: DesignTokens.spaceS,
+      ),
+      decoration: BoxDecoration(
+        // Aplat opaque : le fil défile juste en dessous, et un en-tête
+        // translucide laisserait les bulles le traverser.
+        color: theme.scaffoldBackgroundColor,
+        border: Border(
+          bottom: BorderSide(
+            color: DesignTokens.getBorderColor(isDark, opacity: 0.12),
+            width: DesignTokens.borderWidthThin,
+          ),
+        ),
+      ),
+      // Pas de `mainAxisSize.min` : la rangée doit accepter la largeur qu'on lui
+      // donne pour que le nom s'y ellipse.
+      child: Row(
         children: [
+          GestureDetector(
+            onTap: onBack,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              // Marge à droite du chevron : seul, il fait 26 px, très en deçà de
+              // la cible de 44 pt attendue sur iOS.
+              padding: const EdgeInsets.only(right: DesignTokens.spaceXs),
+              child: Icon(
+                CupertinoIcons.chevron_back,
+                size: 24,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
           PresenceAvatar(
             name: conversation.name,
             avatarUrl: conversation.avatarUrl,
             presence: conversation.presence,
-            size: 24,
+            size: 30,
           ),
-          const SizedBox(height: 1),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  conversation.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall
-                      ?.merge(AppleType.caption2)
-                      .copyWith(height: 1.1, fontWeight: FontWeight.w500),
-                ),
+          const SizedBox(width: DesignTokens.spaceS),
+          Flexible(
+            child: GestureDetector(
+              // Le nom mène à la fiche du contact, comme sur iOS.
+              onTap: () {},
+              behavior: HitTestBehavior.opaque,
+              child: Text(
+                conversation.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium
+                    ?.merge(AppleType.headline)
+                    .copyWith(fontWeight: FontWeight.w600),
               ),
-              Icon(
-                CupertinoIcons.chevron_right,
-                size: 10,
-                color: DesignTokens.getTextColorWithOpacity(context, 0.4),
+            ),
+          ),
+          // Les trois points ouvrent le choix du type d'appel.
+          GestureDetector(
+            onTap: onMore,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(DesignTokens.spaceS),
+              child: Icon(
+                isApple ? CupertinoIcons.ellipsis : Iconsax.more,
+                size: DesignTokens.iconM,
+                color: DesignTokens.getTextColorWithOpacity(context, 0.7),
               ),
-            ],
+            ),
           ),
         ],
       ),
