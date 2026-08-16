@@ -44,24 +44,23 @@ void main() {
       isMine: true,
       showStatus: true,
     );
-    // L'heure accompagne l'état : distribué sans horodatage ne dit pas quand.
-    expect(find.text('Distribué 12:35'), findsOneWidget);
+    // L'heure n'est plus reprise sous la bulle : elle y figure déjà.
+    expect(find.text('Distribué'), findsOneWidget);
   });
 
-  testWidgets('« Lu » porte l’heure', (tester) async {
+  testWidgets('« Lu » ne redouble pas l’heure de la bulle', (tester) async {
     await pump(
       tester,
       status: MessageStatus.read,
       isMine: true,
       showStatus: true,
     );
-    // L'heure compte plus que le fait de la lecture quand on relit un fil.
-    expect(find.text('Lu 12:35'), findsOneWidget);
+    expect(find.text('Lu'), findsOneWidget);
+    // Une seule occurrence : celle que porte la bulle.
+    expect(find.text('12:35'), findsOneWidget);
   });
 
-  testWidgets('« Envoyé » n’est pas nommé, mais son heure reste', (
-    tester,
-  ) async {
+  testWidgets('« Envoyé » n’est pas nommé', (tester) async {
     await pump(
       tester,
       status: MessageStatus.sent,
@@ -69,10 +68,23 @@ void main() {
       showStatus: true,
     );
     expect(find.textContaining('Envoy'), findsNothing);
+  });
+
+  testWidgets('chaque bulle porte son heure', (tester) async {
+    // Y compris les messages reçus et les plus anciens, qui n'ont pas de
+    // libellé d'état : c'est ce qui manquait.
+    await pump(
+      tester,
+      status: MessageStatus.read,
+      isMine: false,
+      showStatus: false,
+    );
     expect(find.text('12:35'), findsOneWidget);
   });
 
-  testWidgets('les messages plus anciens n’affichent rien', (tester) async {
+  testWidgets('les messages plus anciens n’affichent pas d’état', (
+    tester,
+  ) async {
     await pump(
       tester,
       status: MessageStatus.read,

@@ -180,11 +180,24 @@ class ChatBubble extends StatelessWidget {
                                     : theme.colorScheme.primary,
                               )
                             else
-                              Text(
-                                message.text,
-                                style: theme.textTheme.bodyMedium
-                                    ?.merge(AppleType.body)
-                                    .copyWith(color: foreground),
+                              _TextWithTime(
+                                text: message.text,
+                                timeLabel: message.timeLabel,
+                                foreground: foreground,
+                              ),
+                            // Les bulles sans texte portent leur heure en
+                            // dessous : il n'y a pas de ligne dans laquelle la
+                            // glisser.
+                            if (message.isVoice && message.timeLabel.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: _BubbleTime(
+                                    label: message.timeLabel,
+                                    foreground: foreground,
+                                  ),
+                                ),
                               ),
                           ],
                         ),
@@ -237,23 +250,18 @@ class _StatusLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // L'heure accompagne **tous** les états, pas seulement « Lu ».
-    //
-    // Sans elle, un message distribué n'avait aucun horodatage nulle part : les
-    // bulles n'en portent pas, et le séparateur de jour ne donne que la date.
-    // Savoir qu'un message est parti sans savoir quand ne sert à rien dans une
-    // messagerie de terrain, où l'écart entre deux échanges est précisément ce
-    // qu'on cherche.
-    final time = timeLabel.isEmpty ? '' : ' $timeLabel';
+    // L'heure n'est plus reprise ici : chaque bulle porte la sienne. La
+    // répéter juste en dessous donnait deux fois la même information à deux
+    // pixels d'écart.
     final subtle = DesignTokens.getTextColorWithOpacity(context, 0.45);
 
     // « Envoyé » n'est pas nommé : c'est l'état par défaut d'un message parti,
-    // et l'annoncer ne répond à aucune question. Son heure, elle, reste due.
+    // et l'annoncer ne répond à aucune question que le lecteur se pose.
     final (label, color) = switch (status) {
       MessageStatus.sending => ('Envoi…', subtle),
-      MessageStatus.sent => (timeLabel.isEmpty ? null : timeLabel, subtle),
-      MessageStatus.delivered => ('Distribué$time', subtle),
-      MessageStatus.read => ('Lu$time', subtle),
+      MessageStatus.sent => (null, subtle),
+      MessageStatus.delivered => ('Distribué', subtle),
+      MessageStatus.read => ('Lu', subtle),
       MessageStatus.failed => ('Non distribué', theme.colorScheme.error),
     };
 
@@ -506,6 +514,99 @@ class _QuotedMessage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Texte d'un message suivi de son heure, à la manière de WhatsApp.
+///
+/// L'heure se glisse **dans** la bulle, en bout de dernière ligne quand la place
+/// le permet, sinon sur une ligne à elle. C'est obtenu en réservant un blanc à
+/// la fin du texte, puis en y posant l'heure : sans cette réserve, l'heure
+/// recouvrirait les derniers mots.
+///
+/// Un simple `Row` ne conviendrait pas — il mettrait l'heure à côté du bloc de
+/// texte entier, et une bulle de trois lignes se retrouverait avec son heure
+/// centrée verticalement à droite, loin de la fin du message.
+class _TextWithTime extends StatelessWidget {
+  const _TextWithTime({
+    required this.text,
+    required this.timeLabel,
+    required this.foreground,
+  });
+
+  final String text;
+  final String timeLabel;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (timeLabel.isEmpty) {
+      return Text(
+        text,
+        style: theme.textTheme.bodyMedium
+            ?.merge(AppleType.body)
+            .copyWith(color: foreground),
+      );
+    }
+
+    return Stack(
+      children: [
+        Text.rich(
+          TextSpan(
+            text: text,
+            children: [
+              // Blanc réservé à l'heure. `WidgetSpan` plutôt qu'une suite
+              // d'espaces : la largeur est exacte quelle que soit la police, là
+              // où des espaces varient d'une plateforme à l'autre.
+              WidgetSpan(
+                child: SizedBox(width: _reservedWidth(context), height: 1),
+              ),
+            ],
+          ),
+          style: theme.textTheme.bodyMedium
+              ?.merge(AppleType.body)
+              .copyWith(color: foreground),
+        ),
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: _BubbleTime(label: timeLabel, foreground: foreground),
+        ),
+      ],
+    );
+  }
+
+  /// Largeur du blanc, mesurée sur l'heure elle-même.
+  double _reservedWidth(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: timeLabel,
+        style: AppleType.caption2.copyWith(fontWeight: FontWeight.w400),
+      ),
+      textDirection: Directionality.of(context),
+    )..layout();
+    // Quelques points de marge : collée au dernier mot, l'heure se lirait comme
+    // la suite du message.
+    return painter.width + 10;
+  }
+}
+
+/// Horodatage discret, dans la bulle.
+class _BubbleTime extends StatelessWidget {
+  const _BubbleTime({required this.label, required this.foreground});
+
+  final String label;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(context).textTheme.labelSmall
+          ?.merge(AppleType.caption2)
+          .copyWith(color: foreground.withValues(alpha: 0.6)),
     );
   }
 }
