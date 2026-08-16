@@ -90,7 +90,7 @@ final class AuthStatusNotifierProvider
 }
 
 String _$authStatusNotifierHash() =>
-    r'19c3b1450ee120321a7659008030fa9b65699536';
+    r'b25c3868ab70540b95704967a98e10e24e2b59f6';
 
 /// État d'authentification consommé par le routeur.
 ///
@@ -113,7 +113,7 @@ abstract class _$AuthStatusNotifier extends $Notifier<AuthGateStatus> {
   AuthGateStatus build();
   @$mustCallSuper
   @override
-  WhenComplete runBuild() {
+  void runBuild() {
     final ref = this.ref as $Ref<AuthGateStatus, AuthGateStatus>;
     final element =
         ref.element
@@ -123,6 +123,6 @@ abstract class _$AuthStatusNotifier extends $Notifier<AuthGateStatus> {
               Object?,
               Object?
             >;
-    return element.handleCreate(ref, build);
+    element.handleCreate(ref, build);
   }
 }

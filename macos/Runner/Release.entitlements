@@ -4,13 +4,17 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- Ajouté par `shorebird init` : le moteur de mise à jour exécute du code
+	     chargé à l'exécution, ce que le sandbox refuse sans cette clé. -->
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+	<!-- Lecture des fichiers choisis par l'utilisateur (pièces jointes). -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
 	<!-- Connexions sortantes. C'est LA clé à ne pas oublier en release : son
 	     absence ne produit aucune erreur de build, seulement une app incapable
 	     de joindre le serveur une fois distribuée. -->
 	<key>com.apple.security.network.client</key>
-	<true/>
-	<!-- Lecture des fichiers choisis par l'utilisateur (pièces jointes). -->
-	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
 </dict>
 </plist>

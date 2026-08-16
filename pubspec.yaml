@@ -110,13 +110,10 @@ flutter:
   generate: true
 
   assets:
-    # Les 3 environnements. Le flavor choisit lequel charger (cf. FlavorConfig).
     - .env.development
     - .env.staging
     - .env.production
     - assets/icon/
     - assets/images/
-    # Polices déposées ici : `google_fonts` les utilise en priorité et cesse
-    # de télécharger au runtime — indispensable pour un démarrage hors ligne
-    # sur desktop.
     - assets/google_fonts/
+    - shorebird.yaml
