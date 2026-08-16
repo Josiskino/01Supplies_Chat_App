@@ -1,46 +1,197 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 
+import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
+import '../../../core/platform/platform_ui.dart';
+import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/utils/localization_helper.dart';
+import '../../shared/fixtures/call_fixtures.dart';
+import '../../shared/models/call_view_data.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
+import 'widgets/call_log_row.dart';
 
-/// Historique des appels passés depuis les conversations.
-class CallsScreen extends StatelessWidget {
+/// Historique des appels.
+///
+/// ⚠️ Les entrées viennent de [CallFixtures] : la présentation est réelle, le
+/// contenu est une maquette.
+class CallsScreen extends ConsumerStatefulWidget {
   const CallsScreen({super.key});
+
+  @override
+  ConsumerState<CallsScreen> createState() => _CallsScreenState();
+}
+
+class _CallsScreenState extends ConsumerState<CallsScreen> {
+  /// Filtre « manqués » du sélecteur segmenté.
+  bool _missedOnly = false;
+
+  List<CallLogEntry> get _entries => _missedOnly
+      ? CallFixtures.history.where((e) => e.isMissed).toList()
+      : CallFixtures.history;
 
   @override
   Widget build(BuildContext context) {
     final l10n = LocalizationHelper.of(context);
+    final platformUi = ref.watch(platformUiProvider);
 
     return PlatformPage(
       title: l10n.callsTitle,
+      actions: [
+        PlatformAction(
+          icon: CupertinoIcons.add,
+          sfSymbol: 'plus',
+          label: 'Nouvel appel',
+          onPressed: () => context.push(AppUiRoute.call),
+        ),
+      ],
       body: Column(
         children: [
-          Expanded(
-            child: EmptyStateWidget(
-              icon: Iconsax.call,
-              title: l10n.callsEmptyTitle,
-              message: l10n.callsEmptyMessage,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              DesignTokens.spaceL,
+              DesignTokens.spaceS,
+              DesignTokens.spaceL,
+              DesignTokens.spaceM,
+            ),
+            child: _MissedFilter(
+              missedOnly: _missedOnly,
+              onChanged: (value) => setState(() => _missedOnly = value),
             ),
           ),
-          // Point d'entrée provisoire vers l'écran d'appel, le temps que
-          // l'historique existe. Sans lui, l'écran d'appel ne serait
-          // atteignable que depuis une conversation.
-          Padding(
-            padding: const EdgeInsets.all(DesignTokens.spaceL),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => context.push(AppUiRoute.call),
-                icon: const Icon(Iconsax.call, size: DesignTokens.iconS),
-                label: const Text('Démarrer un appel d’équipe'),
+          Expanded(
+            child: _entries.isEmpty
+                ? EmptyStateWidget(
+                    icon: Iconsax.call,
+                    title: l10n.callsEmptyTitle,
+                    message: l10n.callsEmptyMessage,
+                  )
+                : ListView.separated(
+                    padding: EdgeInsets.only(
+                      // Marge annoncée par la coquille : sur iOS, la barre
+                      // d'onglets est en verre et le contenu défile dessous.
+                      bottom:
+                          MediaQuery.paddingOf(context).bottom +
+                          DesignTokens.spaceM,
+                    ),
+                    itemCount: _entries.length,
+                    separatorBuilder: (context, index) => Divider(
+                      height: DesignTokens.borderWidthThin,
+                      thickness: DesignTokens.borderWidthThin,
+                      // Aligné sur le texte, comme dans les listes iOS.
+                      indent: 72,
+                      color: DesignTokens.getBorderColor(
+                        Theme.of(context).brightness == Brightness.dark,
+                        opacity: 0.10,
+                      ),
+                    ),
+                    itemBuilder: (context, index) {
+                      final entry = _entries[index];
+                      return CallLogRow(
+                        entry: entry,
+                        // Toucher la ligne rappelle : c'est le geste attendu
+                        // dans un historique, et il évite un menu pour l'action
+                        // que tout le monde vient chercher.
+                        onTap: () =>
+                            context.push(AppUiRoute.call, extra: entry.name),
+                        onInfo: () => _showInfo(context, platformUi, entry),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showInfo(
+    BuildContext context,
+    PlatformUi platformUi,
+    CallLogEntry entry,
+  ) async {
+    final choice = await platformUi.overlays.pickOption(
+      context: context,
+      title: entry.name,
+      labels: const ['Appel vocal', 'Appel vidéo', 'Ouvrir la conversation'],
+    );
+    if (choice == null || !context.mounted) return;
+    if (choice == 2) {
+      context.push(AppUiRoute.conversationDetailPath('c1'));
+    } else {
+      context.push(AppUiRoute.call, extra: entry.name);
+    }
+  }
+}
+
+/// Sélecteur « Tous / Manqués ».
+///
+/// Deux segments plutôt qu'un menu de filtres : c'est le seul tri que l'on
+/// cherche dans un historique d'appels, et il doit coûter un geste.
+class _MissedFilter extends StatelessWidget {
+  const _MissedFilter({required this.missedOnly, required this.onChanged});
+
+  final bool missedOnly;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: DesignTokens.getSubtleBackground(context, opacity: 0.07),
+        borderRadius: DesignTokens.borderRadiusS,
+      ),
+      child: Row(
+        children: [
+          for (final segment in [(false, 'Tous'), (true, 'Manqués')])
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(segment.$1),
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: DesignTokens.durationFast,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    color: missedOnly == segment.$1
+                        ? (isDark ? const Color(0xFF3A3A3F) : Colors.white)
+                        : Colors.transparent,
+                    borderRadius: DesignTokens.borderRadiusXs,
+                    boxShadow: missedOnly == segment.$1
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    segment.$2,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium
+                        ?.merge(AppleType.subheadline)
+                        .copyWith(
+                          fontWeight: missedOnly == segment.$1
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color: DesignTokens.getTextColorWithOpacity(
+                            context,
+                            missedOnly == segment.$1 ? 0.95 : 0.55,
+                          ),
+                        ),
+                  ),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
