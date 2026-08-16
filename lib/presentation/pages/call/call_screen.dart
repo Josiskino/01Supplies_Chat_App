@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
+import '../../../core/platform/platform_ui_provider.dart';
 import '../../shared/fixtures/call_fixtures.dart';
 import '../../shared/models/call_view_data.dart';
 import 'widgets/call_backdrop.dart';
@@ -45,9 +46,20 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   late final int _backdropSeed = DateTime.now().millisecondsSinceEpoch;
 
   Timer? _timer;
+  Timer? _speakerTimer;
   Duration _elapsed = Duration.zero;
   bool _isMuted = false;
   bool _isCameraOn = false;
+
+  /// Participants, tenus en état : ils changent quand quelqu'un prend la parole
+  /// ou quitte l'appel.
+  late List<CallParticipantData> _participants = List.of(_session.participants);
+
+  /// Mode retrait, armé par un appui long sur un avatar.
+  bool _editing = false;
+
+  /// La vignette caméra est-elle au premier plan ?
+  bool _selfInFront = false;
 
   /// Réaction en cours d'envol, affichée brièvement au centre.
   String? _flyingReaction;
@@ -58,11 +70,96 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _elapsed += const Duration(seconds: 1));
     });
+    // Rotation de la parole. Le socle n'a pas de flux audio : sans ce
+    // simulateur, le halo resterait figé sur le même participant et on ne
+    // verrait jamais ce que l'écran est censé montrer.
+    _speakerTimer = Timer.periodic(const Duration(milliseconds: 3600), (_) {
+      if (!mounted) return;
+      setState(() {
+        // Seuls les micros ouverts peuvent prendre la parole — un participant
+        // coupé qui « parlerait » serait un contresens.
+        final eligible = _participants
+            .where((p) => !p.isMuted)
+            .toList(growable: false);
+        if (eligible.isEmpty) return;
+        final current = _participants.indexWhere((p) => p.isSpeaking);
+        final next = eligible[(current + 1) % eligible.length];
+        _participants = [
+          for (final p in _participants) _withSpeaking(p, p.id == next.id),
+        ];
+      });
+    });
+  }
+
+  /// Copie d'un participant avec un état de parole donné.
+  CallParticipantData _withSpeaking(CallParticipantData p, bool speaking) =>
+      CallParticipantData(
+        id: p.id,
+        name: p.name,
+        handle: p.handle,
+        avatarUrl: p.avatarUrl,
+        isMuted: p.isMuted,
+        isSpeaking: speaking,
+        isSelf: p.isSelf,
+      );
+
+  /// Retire un participant, après confirmation.
+  Future<void> _confirmRemove(CallParticipantData participant) async {
+    final confirmed = await ref
+        .read(platformUiProvider)
+        .overlays
+        .confirm(
+          context: context,
+          title: 'Retirer ${participant.name} ?',
+          message: 'Cette personne quittera l’appel immédiatement.',
+          confirmLabel: 'Retirer',
+          cancelLabel: 'Annuler',
+          isDestructive: true,
+        );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _participants = _participants
+          .where((p) => p.id != participant.id)
+          .toList();
+      // Plus personne à retirer : on sort du mode plutôt que de laisser des
+      // avatars tressauter sans raison.
+      if (_participants.length <= 1) _editing = false;
+    });
+  }
+
+  /// Ouvre la liste des personnes qu'on peut faire entrer.
+  Future<void> _invite() async {
+    final overlays = ref.read(platformUiProvider).overlays;
+    final candidates = CallFixtures.invitables
+        .where((name) => !_participants.any((p) => p.name == name))
+        .toList();
+
+    if (candidates.isEmpty) {
+      overlays.notify(context: context, message: 'Tout le monde est déjà là');
+      return;
+    }
+
+    final choice = await overlays.pickOption(
+      context: context,
+      title: 'Ajouter à l’appel',
+      labels: candidates,
+    );
+    if (choice == null || !mounted) return;
+    setState(() {
+      _participants = [
+        ..._participants,
+        CallParticipantData(
+          id: 'invited-${_participants.length}',
+          name: candidates[choice],
+        ),
+      ];
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _speakerTimer?.cancel();
     super.dispose();
   }
 
@@ -99,8 +196,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     ),
                     Expanded(
                       child: _ParticipantConstellation(
-                        session: _session,
-                        onInvite: () {},
+                        participants: _participants,
+                        freeSlots: _session.freeSlots,
+                        isEditing: _editing,
+                        onInvite: _invite,
+                        onRemove: _confirmRemove,
+                        // L'appui long arme le retrait, comme la
+                        // réorganisation d'icônes sur iOS.
+                        onLongPressParticipant: () =>
+                            setState(() => _editing = true),
                       ),
                     ),
                     Padding(
@@ -131,6 +235,17 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   ],
                 ),
               ),
+              if (_isCameraOn)
+                _CameraPreview(
+                  selfInFront: _selfInFront,
+                  onSwap: () => setState(() => _selfInFront = !_selfInFront),
+                  remoteName: _participants
+                      .firstWhere(
+                        (p) => !p.isSelf,
+                        orElse: () => _participants.first,
+                      )
+                      .name,
+                ),
               if (_flyingReaction != null)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -301,35 +416,56 @@ class _CallTitle extends StatelessWidget {
 /// permet de se situer sans lire les noms.
 class _ParticipantConstellation extends StatelessWidget {
   const _ParticipantConstellation({
-    required this.session,
+    required this.participants,
+    required this.freeSlots,
+    required this.isEditing,
     required this.onInvite,
+    required this.onRemove,
+    required this.onLongPressParticipant,
   });
 
-  final CallSessionData session;
+  final List<CallParticipantData> participants;
+  final int freeSlots;
+  final bool isEditing;
   final VoidCallback onInvite;
+  final ValueChanged<CallParticipantData> onRemove;
+  final VoidCallback onLongPressParticipant;
 
   /// Décalage vertical par colonne, en points.
   static const List<double> _columnOffsets = [16, -18, 8];
 
   @override
   Widget build(BuildContext context) {
-    final others = session.others;
-    // Trois colonnes : les deux premières places de la colonne centrale sont
-    // réservées à l'utilisateur, qui doit tomber au milieu.
+    final others = participants.where((p) => !p.isSelf).toList();
     final slots = <Widget>[];
 
-    for (var i = 0; i < others.length; i++) {
-      slots.add(CallParticipantTile(participant: others[i]));
+    for (final participant in others) {
+      slots.add(
+        CallParticipantTile(
+          participant: participant,
+          isEditing: isEditing,
+          onRemove: () => onRemove(participant),
+          onLongPress: onLongPressParticipant,
+        ),
+      );
     }
-    for (var i = 0; i < session.freeSlots; i++) {
+    for (var i = 0; i < freeSlots; i++) {
       slots.add(CallInviteSlot(onTap: onInvite));
     }
 
-    // L'utilisateur est inséré au centre de la séquence.
+    // L'utilisateur est inséré au centre de la séquence : c'est le repère qui
+    // permet de se situer sans lire les noms.
     final middle = (slots.length / 2).floor();
-    final self = session.self;
+    final self = participants.where((p) => p.isSelf).firstOrNull;
     if (self != null) {
-      slots.insert(middle, CallParticipantTile(participant: self, size: 96));
+      slots.insert(
+        middle,
+        CallParticipantTile(
+          participant: self,
+          size: 96,
+          onLongPress: onLongPressParticipant,
+        ),
+      );
     }
 
     return SingleChildScrollView(
@@ -398,6 +534,127 @@ class _FlyingReactionState extends State<_FlyingReaction>
           ),
         );
       },
+    );
+  }
+}
+
+/// Vignette de la caméra, en bas à droite.
+///
+/// Toucher la vignette **échange les plans**. C'est le geste de FaceTime : le
+/// grand cadre montre l'interlocuteur, la vignette montre ce qu'on envoie, et
+/// on inverse d'un tap quand on veut se voir.
+///
+/// ⚠️ Aucune caméra n'est ouverte : les deux plans sont des aplats dégradés
+/// portant une initiale. Brancher une vraie prévisualisation revient à
+/// remplacer ces deux surfaces.
+class _CameraPreview extends StatelessWidget {
+  const _CameraPreview({
+    required this.selfInFront,
+    required this.onSwap,
+    required this.remoteName,
+  });
+
+  final bool selfInFront;
+  final VoidCallback onSwap;
+  final String remoteName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Positioned(
+      right: DesignTokens.spaceL,
+      // Au-dessus de la barre de contrôles, jamais dessus : une vignette qui
+      // recouvre le bouton de raccroché est un piège.
+      bottom: 200,
+      child: GestureDetector(
+        onTap: onSwap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: DesignTokens.durationNormal,
+          curve: Curves.easeOutCubic,
+          width: 96,
+          height: 132,
+          decoration: BoxDecoration(
+            borderRadius: DesignTokens.borderRadiusM,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.22),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _FakeVideoFeed(
+                // La vignette montre celui qui n'est pas au premier plan.
+                label: selfInFront ? remoteName : 'Vous',
+                accent: selfInFront
+                    ? theme.colorScheme.secondary
+                    : theme.colorScheme.primary,
+              ),
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.arrow_2_squarepath,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Aplat tenant lieu de flux vidéo.
+class _FakeVideoFeed extends StatelessWidget {
+  const _FakeVideoFeed({required this.label, required this.accent});
+
+  final String label;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.85),
+            accent.withValues(alpha: 0.35),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          label.characters.first.toUpperCase(),
+          style: theme.textTheme.headlineMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }

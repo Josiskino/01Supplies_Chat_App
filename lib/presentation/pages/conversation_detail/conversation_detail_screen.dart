@@ -332,7 +332,7 @@ class _ConversationDetailScreenState
           else
             MessageComposer(
               onSend: _send,
-              placeholder: isApple ? 'iMessage' : 'Message',
+              placeholder: 'Écrire un message…',
               replyTo: _replyTo,
               onCancelReply: () => setState(() => _replyTo = null),
               onRecordVoice: () => setState(() => _recording = true),

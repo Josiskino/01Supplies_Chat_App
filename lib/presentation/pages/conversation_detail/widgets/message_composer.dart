@@ -73,6 +73,30 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     super.dispose();
   }
 
+  /// Feuille des pièces jointes.
+  ///
+  /// Passe par `PlatformOverlays.pickOption` plutôt que d'ouvrir directement une
+  /// feuille Cupertino : le composer sert les deux plateformes, et c'est au
+  /// contrat de décider de la présentation.
+  Future<void> _openAttachments(BuildContext context) async {
+    final overlays = ref.read(platformUiProvider).overlays;
+    final choice = await overlays.pickOption(
+      context: context,
+      title: 'Joindre',
+      labels: const [
+        'Photothèque',
+        'Prendre une photo',
+        'Document',
+        'Position',
+        'Contact',
+      ],
+    );
+    if (choice == null || !context.mounted) return;
+    // Les actions elles-mêmes relèvent de la feature messagerie : ici, seul le
+    // point d'entrée est posé.
+    overlays.notify(context: context, message: 'Pièce jointe à venir');
+  }
+
   void _send() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -111,7 +135,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               children: [
                 _RoundButton(
                   icon: isApple ? CupertinoIcons.plus : Iconsax.add,
-                  onTap: () {},
+                  onTap: () => _openAttachments(context),
                   tooltip: 'Ajouter une pièce jointe',
                 ),
                 const SizedBox(width: DesignTokens.spaceS),
