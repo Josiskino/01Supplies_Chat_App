@@ -539,7 +539,10 @@ class _ConversationHeader extends StatelessWidget {
             size: 30,
           ),
           const SizedBox(width: DesignTokens.spaceS),
-          Flexible(
+          // `Expanded` et non `Flexible` : le second laisse le nom à sa largeur
+          // naturelle, et l'action de droite venait alors se coller au texte au
+          // lieu de rester au bord de l'en-tête.
+          Expanded(
             child: GestureDetector(
               // Le nom mène à la fiche du contact, comme sur iOS.
               onTap: () {},
