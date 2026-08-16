@@ -46,10 +46,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           children: [
             const PulsingLogo(),
             const SizedBox(height: DesignTokens.spaceXxl),
-            Text(
-              FlavorConfig.appName,
-              style: theme.textTheme.headlineSmall,
-            ),
+            Text(FlavorConfig.appName, style: theme.textTheme.headlineSmall),
             const SizedBox(height: DesignTokens.spaceS),
             Text(
               LocalizationHelper.of(context).appTagline,

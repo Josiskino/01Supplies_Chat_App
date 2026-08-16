@@ -1,9 +1,11 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../desktop/widgets/presence_avatar.dart';
 import '../../../shared/models/conversation_view_data.dart';
+import 'voice_note_bubble.dart';
 
 /// Bulle de message, présentation mobile.
 ///
@@ -123,14 +125,43 @@ class ChatBubble extends StatelessWidget {
                     color: background,
                     borderRadius: radius,
                   ),
-                  child: message.isTyping
-                      ? const TypingDots()
-                      : Text(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (message.replyTo != null)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: DesignTokens.spaceS,
+                          ),
+                          child: _QuotedMessage(
+                            reply: message.replyTo!,
+                            foreground: foreground,
+                            isMine: isMine,
+                          ),
+                        ),
+                      if (message.isTyping)
+                        const TypingDots()
+                      else if (message.isVoice)
+                        VoiceNoteBubble(
+                          voice: message.voice!,
+                          foreground: foreground,
+                          // Sur une bulle émise, l'accent de marque se
+                          // confondrait avec son fond : la partie lue est donc
+                          // peinte dans la couleur du texte.
+                          accent: isMine
+                              ? foreground
+                              : theme.colorScheme.primary,
+                        )
+                      else
+                        Text(
                           message.text,
                           style: theme.textTheme.bodyMedium
                               ?.merge(AppleType.body)
                               .copyWith(color: foreground),
                         ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -246,6 +277,81 @@ class ChatDayDivider extends StatelessWidget {
                 color: DesignTokens.getTextColorWithOpacity(context, 0.45),
               ),
         ),
+      ),
+    );
+  }
+}
+
+/// Extrait du message cité, en tête d'une bulle de réponse.
+///
+/// Un filet vertical et un fond légèrement contrasté : c'est la convention
+/// partagée par WhatsApp, Messages et Slack, et elle se lit sans légende.
+class _QuotedMessage extends StatelessWidget {
+  const _QuotedMessage({
+    required this.reply,
+    required this.foreground,
+    required this.isMine,
+  });
+
+  final ChatReplyPreview reply;
+  final Color foreground;
+  final bool isMine;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // La citation vit *dans* la bulle : ses couleurs dérivent du texte de
+    // celle-ci, sinon une réponse émise porterait un bloc clair sur fond
+    // violet.
+    final tint = foreground.withValues(alpha: 0.12);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: DesignTokens.borderRadiusS,
+        border: BorderDirectional(
+          start: BorderSide(color: foreground.withValues(alpha: 0.5), width: 3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            reply.author,
+            style: theme.textTheme.labelSmall
+                ?.merge(AppleType.caption2)
+                .copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: foreground.withValues(alpha: 0.9),
+                ),
+          ),
+          const SizedBox(height: 1),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (reply.isVoice) ...[
+                Icon(
+                  CupertinoIcons.mic_fill,
+                  size: 11,
+                  color: foreground.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 3),
+              ],
+              Flexible(
+                child: Text(
+                  reply.text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall
+                      ?.merge(AppleType.caption1)
+                      .copyWith(color: foreground.withValues(alpha: 0.65)),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

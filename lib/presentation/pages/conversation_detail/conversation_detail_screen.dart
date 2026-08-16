@@ -8,11 +8,16 @@ import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
+import '../../../core/utils/chat_date_formatter.dart';
 import '../../desktop/widgets/presence_avatar.dart';
 import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
 import 'widgets/chat_bubble.dart';
+import 'widgets/message_actions_overlay.dart';
 import 'widgets/message_composer.dart';
+import 'widgets/sticky_date_list.dart';
+import 'widgets/swipe_to_reply.dart';
+import 'widgets/voice_recorder_bar.dart';
 
 /// Fil de discussion, présentation mobile.
 ///
@@ -37,14 +42,27 @@ class ConversationDetailScreen extends ConsumerStatefulWidget {
       _ConversationDetailScreenState();
 }
 
+/// Sentinelle de paramètre non fourni.
+///
+/// `null` est une valeur *légitime* pour une réaction — c'est même ainsi qu'on
+/// la retire. Un défaut à `null` ne permettrait donc pas de distinguer « ne
+/// change pas » de « efface ».
+const Object _unset = Object();
+
 class _ConversationDetailScreenState
     extends ConsumerState<ConversationDetailScreen> {
-  late List<ChatThreadEntry> _entries;
+  late List<ChatMessageData> _messages;
+
+  /// Message auquel la saisie en cours répond, le cas échéant.
+  ChatReplyPreview? _replyTo;
+
+  /// Bascule le composer vers la barre d'enregistrement.
+  bool _recording = false;
 
   @override
   void initState() {
     super.initState();
-    _entries = List.of(ConversationFixtures.thread);
+    _messages = List.of(ConversationFixtures.datedThread);
   }
 
   ConversationListItemData get _conversation {
@@ -60,34 +78,96 @@ class _ConversationDetailScreenState
   /// l'entité message.
   ChatMessageData _withSender(ChatMessageData message) {
     if (message.isMine || message.senderName != null) return message;
+    return _copy(message, senderName: _conversation.name);
+  }
+
+  /// Copie d'un message, un champ à la fois.
+  ///
+  /// Le modèle est immuable et n'a pas de `copyWith` : l'écrire à la main ici
+  /// évite d'ajouter du code généré au socle, mais tout nouveau champ devra y
+  /// être reporté.
+  ChatMessageData _copy(
+    ChatMessageData m, {
+    String? senderName,
+    Object? reaction = _unset,
+  }) {
     return ChatMessageData(
-      id: message.id,
-      text: message.text,
-      timeLabel: message.timeLabel,
-      isMine: message.isMine,
-      senderName: _conversation.name,
-      avatarUrl: message.avatarUrl,
-      reaction: message.reaction,
-      isDelivered: message.isDelivered,
-      isTyping: message.isTyping,
+      id: m.id,
+      text: m.text,
+      timeLabel: m.timeLabel,
+      isMine: m.isMine,
+      sentAt: m.sentAt,
+      senderName: senderName ?? m.senderName,
+      avatarUrl: m.avatarUrl,
+      reaction: reaction == _unset ? m.reaction : reaction as String?,
+      replyTo: m.replyTo,
+      voice: m.voice,
+      isDelivered: m.isDelivered,
+      isTyping: m.isTyping,
     );
   }
 
-  void _send(String text) {
+  /// Repose la réaction d'un message, ou la retire quand [emoji] est nul.
+  void _react(ChatMessageData message, String? emoji) {
     setState(() {
-      _entries = [
-        ..._entries,
-        ChatMessageEntry(
-          ChatMessageData(
-            // Les fixtures n'ont pas d'horloge : l'identifiant dérive de la
-            // longueur de la liste, suffisant pour une maquette.
-            id: 'local-${_entries.length}',
-            text: text,
-            timeLabel: '',
-            isMine: true,
-          ),
+      _messages = [
+        for (final m in _messages)
+          if (m.id == message.id) _copy(m, reaction: emoji) else m,
+      ];
+    });
+  }
+
+  /// Prépare une réponse au message glissé.
+  void _startReply(ChatMessageData message) {
+    setState(() {
+      _replyTo = ChatReplyPreview(
+        author: message.isMine
+            ? 'Vous'
+            : (message.senderName ?? _conversation.name),
+        // Une note vocale n'a pas de texte à citer : on cite son nature.
+        text: message.isVoice ? 'Note vocale' : message.text,
+        isVoice: message.isVoice,
+      );
+    });
+  }
+
+  void _sendVoice(VoiceNoteData voice) {
+    final now = DateTime.now();
+    setState(() {
+      _recording = false;
+      _messages = [
+        ..._messages,
+        ChatMessageData(
+          id: 'local-${_messages.length}',
+          text: 'Note vocale',
+          timeLabel: ChatDateFormatter.timeLabel(now),
+          isMine: true,
+          sentAt: now,
+          voice: voice,
+          replyTo: _replyTo,
         ),
       ];
+      _replyTo = null;
+    });
+  }
+
+  void _send(String text) {
+    final now = DateTime.now();
+    setState(() {
+      _messages = [
+        ..._messages,
+        ChatMessageData(
+          // Les fixtures n'ont pas de séquence : l'identifiant dérive de la
+          // longueur de la liste, suffisant pour une maquette.
+          id: 'local-${_messages.length}',
+          text: text,
+          timeLabel: ChatDateFormatter.timeLabel(now),
+          isMine: true,
+          sentAt: now,
+          replyTo: _replyTo,
+        ),
+      ];
+      _replyTo = null;
     });
   }
 
@@ -159,23 +239,92 @@ class _ConversationDetailScreenState
       body: Column(
         children: [
           Expanded(
-            child: _ThreadList(
-              entries: _entries,
-              decorate: _withSender,
-              buildMenu: (context, message, child) =>
-                  platformUi.overlays.contextMenu(
-                    actions: _messageActions(context, message),
-                    child: child,
+            child: StickyDateList(
+              now: DateTime.now(),
+              padding: const EdgeInsets.symmetric(
+                vertical: DesignTokens.spaceM,
+              ),
+              messages: [
+                for (var i = 0; i < _messages.length; i++)
+                  DatedMessage(
+                    sentAt: _messages[i].sentAt ?? DateTime.now(),
+                    child: _buildBubble(context, platformUi, i),
                   ),
+              ],
             ),
           ),
-          MessageComposer(
-            onSend: _send,
-            placeholder: isApple ? 'iMessage' : 'Message',
-          ),
+          if (_recording)
+            VoiceRecorderBar(
+              onSend: _sendVoice,
+              onCancel: () => setState(() => _recording = false),
+            )
+          else
+            MessageComposer(
+              onSend: _send,
+              placeholder: isApple ? 'iMessage' : 'Message',
+              replyTo: _replyTo,
+              onCancelReply: () => setState(() => _replyTo = null),
+              onRecordVoice: () => setState(() => _recording = true),
+            ),
         ],
       ),
     );
+  }
+
+  /// Assemble une bulle et les trois gestes qui l'entourent.
+  ///
+  /// L'ordre d'emballage compte : le menu contextuel est **à l'intérieur** du
+  /// glissement. L'inverse ferait porter le drag horizontal par le widget que
+  /// `CupertinoContextMenu` extrait de l'arbre à l'ouverture, et le geste se
+  /// retrouverait orphelin.
+  Widget _buildBubble(BuildContext context, PlatformUi platformUi, int index) {
+    final message = _withSender(_messages[index]);
+
+    final position = _groupPosition(index);
+    final bubble = ChatBubble(
+      message: message,
+      isFirstOfGroup: position.isFirst,
+      isLastOfGroup: position.isLast,
+    );
+
+    // L'indicateur de saisie n'est pas un message : rien à citer, à copier ni
+    // sur quoi réagir.
+    if (message.isTyping) return bubble;
+
+    return SwipeToReply(
+      onReply: () => _startReply(message),
+      child: GestureDetector(
+        onLongPress: () => showMessageActions(
+          context: context,
+          bubble: bubble,
+          isMine: message.isMine,
+          selectedReaction: message.reaction,
+          actions: _messageActions(context, message),
+          onReact: (emoji) => _react(message, emoji),
+        ),
+        child: bubble,
+      ),
+    );
+  }
+
+  /// Détermine si l'entrée [index] ouvre ou ferme une série du même auteur.
+  ///
+  /// Une série est rompue par un changement d'auteur **ou** par un changement de
+  /// jour : deux messages du même auteur séparés par une nuit ne forment pas un
+  /// bloc.
+  ({bool isFirst, bool isLast}) _groupPosition(int index) {
+    final current = _messages[index];
+
+    bool sameGroup(int other) {
+      if (other < 0 || other >= _messages.length) return false;
+      final m = _messages[other];
+      if (m.isMine != current.isMine) return false;
+      if (m.sentAt == null || current.sentAt == null) return true;
+      return ChatDateFormatter.dayKey(m.sentAt!) ==
+          ChatDateFormatter.dayKey(current.sentAt!);
+    }
+
+    return (isFirst: !sameGroup(index - 1), isLast: !sameGroup(index + 1));
   }
 }
 
@@ -229,84 +378,6 @@ class _ConversationHeaderTitle extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Liste des messages, avec groupement des séries consécutives.
-class _ThreadList extends StatelessWidget {
-  const _ThreadList({
-    required this.entries,
-    required this.decorate,
-    required this.buildMenu,
-  });
-
-  final List<ChatThreadEntry> entries;
-  final ChatMessageData Function(ChatMessageData) decorate;
-
-  /// Enveloppe une bulle de son menu contextuel.
-  ///
-  /// Injecté plutôt que construit ici : la liste n'a pas à connaître le contrat
-  /// de plateforme, et la construction reste testable en isolation.
-  final Widget Function(BuildContext, ChatMessageData, Widget) buildMenu;
-
-  /// Détermine si l'entrée [index] ouvre ou ferme une série du même auteur.
-  ///
-  /// Une série est rompue par un changement d'auteur **ou** par un séparateur de
-  /// date : deux messages du même auteur séparés par une nuit ne forment pas un
-  /// bloc.
-  ({bool isFirst, bool isLast}) _groupPosition(int index) {
-    final entry = entries[index];
-    if (entry is! ChatMessageEntry) {
-      return (isFirst: true, isLast: true);
-    }
-
-    bool sameAuthorAt(int i) {
-      if (i < 0 || i >= entries.length) return false;
-      final other = entries[i];
-      if (other is! ChatMessageEntry) return false;
-      return other.message.isMine == entry.message.isMine;
-    }
-
-    return (
-      isFirst: !sameAuthorAt(index - 1),
-      isLast: !sameAuthorAt(index + 1),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      // Le fil se lit du bas : `reverse` ancre le défilement sur le dernier
-      // message sans piloter de ScrollController.
-      reverse: true,
-      padding: const EdgeInsets.only(bottom: DesignTokens.spaceM),
-      itemCount: entries.length,
-      itemBuilder: (context, reversedIndex) {
-        final index = entries.length - 1 - reversedIndex;
-        final entry = entries[index];
-
-        return switch (entry) {
-          ChatSeparatorEntry(separator: final separator) => ChatDayDivider(
-            label: separator.label,
-          ),
-          ChatMessageEntry(message: final message) => Builder(
-            builder: (context) {
-              final position = _groupPosition(index);
-              final decorated = decorate(message);
-              final bubble = ChatBubble(
-                message: decorated,
-                isFirstOfGroup: position.isFirst,
-                isLastOfGroup: position.isLast,
-              );
-              // L'indicateur de saisie n'est pas un message : rien à copier ni à
-              // supprimer dessus.
-              if (decorated.isTyping) return bubble;
-              return buildMenu(context, decorated, bubble);
-            },
-          ),
-        };
-      },
     );
   }
 }

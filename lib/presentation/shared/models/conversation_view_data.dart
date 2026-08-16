@@ -60,9 +60,12 @@ class ChatMessageData {
     required this.text,
     required this.timeLabel,
     required this.isMine,
+    this.sentAt,
     this.senderName,
     this.avatarUrl,
     this.reaction,
+    this.replyTo,
+    this.voice,
     this.isDelivered = true,
     this.isTyping = false,
   });
@@ -90,6 +93,57 @@ class ChatMessageData {
 
   /// Bulle d'indicateur de saisie, sans texte.
   final bool isTyping;
+
+  /// Horodatage réel, qui sert au regroupement par jour.
+  ///
+  /// Distinct de [timeLabel], déjà formaté : un libellé ne permet ni de trier ni
+  /// de décider où insérer un séparateur, et « Hier » cesse d'être vrai à
+  /// minuit. Nullable le temps que les fixtures migrent.
+  final DateTime? sentAt;
+
+  /// Message cité, quand celui-ci est une réponse.
+  final ChatReplyPreview? replyTo;
+
+  /// Contenu audio, si le message est une note vocale.
+  final VoiceNoteData? voice;
+
+  bool get isVoice => voice != null;
+}
+
+/// Extrait du message auquel on répond, affiché en tête de bulle.
+///
+/// Une copie figée plutôt qu'une référence vers le message d'origine : celui-ci
+/// peut être supprimé ou modifié, et la citation doit rester ce qu'elle était au
+/// moment de la réponse — c'est aussi le comportement de WhatsApp.
+class ChatReplyPreview {
+  const ChatReplyPreview({
+    required this.author,
+    required this.text,
+    this.isVoice = false,
+  });
+
+  final String author;
+  final String text;
+  final bool isVoice;
+}
+
+/// Note vocale.
+class VoiceNoteData {
+  const VoiceNoteData({required this.duration, required this.waveform});
+
+  final Duration duration;
+
+  /// Amplitudes normalisées entre 0 et 1, une par barre de la forme d'onde.
+  ///
+  /// Pré-calculées côté données : les recalculer au rendu obligerait à décoder
+  /// l'audio pour dessiner une liste, ce qui bloquerait le défilement.
+  final List<double> waveform;
+
+  String get durationLabel {
+    final m = duration.inMinutes;
+    final s = duration.inSeconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
 }
 
 /// Séparateur de jour inséré dans le fil.
