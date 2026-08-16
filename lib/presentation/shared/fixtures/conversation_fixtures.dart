@@ -600,6 +600,7 @@ abstract final class ConversationFixtures {
       String? reaction,
       ChatReplyPreview? replyTo,
       VoiceNoteData? voice,
+      MessageStatus status = MessageStatus.read,
     }) {
       final sentAt = day.add(Duration(hours: hour, minutes: minute));
       return ChatMessageData(
@@ -611,6 +612,7 @@ abstract final class ConversationFixtures {
         reaction: reaction,
         replyTo: replyTo,
         voice: voice,
+        status: status,
       );
     }
 

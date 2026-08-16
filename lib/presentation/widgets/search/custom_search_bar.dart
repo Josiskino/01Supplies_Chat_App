@@ -30,11 +30,7 @@ const String kSearchBarHeroTag = 'search-bar';
 /// Les écrans reliés par ce vol doivent tous passer par ce widget : c'est ce
 /// qui garantit qu'ils partagent le tag et ces trois précautions.
 class SearchBarHero extends StatelessWidget {
-  const SearchBarHero({
-    super.key,
-    required this.hintText,
-    required this.child,
-  });
+  const SearchBarHero({super.key, required this.hintText, required this.child});
 
   /// Placeholder affiché pendant un vol qui arrive sur cet écran.
   final String hintText;

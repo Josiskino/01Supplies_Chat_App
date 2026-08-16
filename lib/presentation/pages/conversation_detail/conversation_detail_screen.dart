@@ -90,6 +90,7 @@ class _ConversationDetailScreenState
     ChatMessageData m, {
     String? senderName,
     Object? reaction = _unset,
+    MessageStatus? status,
   }) {
     return ChatMessageData(
       id: m.id,
@@ -102,9 +103,31 @@ class _ConversationDetailScreenState
       reaction: reaction == _unset ? m.reaction : reaction as String?,
       replyTo: m.replyTo,
       voice: m.voice,
-      isDelivered: m.isDelivered,
+      status: status ?? m.status,
       isTyping: m.isTyping,
     );
+  }
+
+  /// Fait progresser l'état d'un message fraîchement émis.
+  ///
+  /// Le socle n'a pas de transport : cette progression est **simulée**, pour que
+  /// l'état affiché sous la dernière bulle soit autre chose qu'une constante. Le
+  /// jour où le socket arrive, ce sont ses accusés qui appelleront `_setStatus`.
+  Future<void> _simulateDelivery(String id) async {
+    for (final step in const [
+      (Duration(milliseconds: 700), MessageStatus.sent),
+      (Duration(milliseconds: 900), MessageStatus.delivered),
+      (Duration(seconds: 3), MessageStatus.read),
+    ]) {
+      await Future<void>.delayed(step.$1);
+      if (!mounted) return;
+      setState(() {
+        _messages = [
+          for (final m in _messages)
+            if (m.id == id) _copy(m, status: step.$2) else m,
+        ];
+      });
+    }
   }
 
   /// Repose la réaction d'un message, ou la retire quand [emoji] est nul.
@@ -133,42 +156,48 @@ class _ConversationDetailScreenState
 
   void _sendVoice(VoiceNoteData voice) {
     final now = DateTime.now();
+    final id = _messages.length;
     setState(() {
       _recording = false;
       _messages = [
         ..._messages,
         ChatMessageData(
-          id: 'local-${_messages.length}',
+          id: 'local-$id',
           text: 'Note vocale',
           timeLabel: ChatDateFormatter.timeLabel(now),
           isMine: true,
           sentAt: now,
           voice: voice,
           replyTo: _replyTo,
+          status: MessageStatus.sending,
         ),
       ];
       _replyTo = null;
     });
+    _simulateDelivery('local-$id');
   }
 
   void _send(String text) {
     final now = DateTime.now();
+    // Les fixtures n'ont pas de séquence : l'identifiant dérive de la longueur
+    // de la liste, suffisant pour une maquette.
+    final id = _messages.length;
     setState(() {
       _messages = [
         ..._messages,
         ChatMessageData(
-          // Les fixtures n'ont pas de séquence : l'identifiant dérive de la
-          // longueur de la liste, suffisant pour une maquette.
-          id: 'local-${_messages.length}',
+          id: 'local-$id',
           text: text,
           timeLabel: ChatDateFormatter.timeLabel(now),
           isMine: true,
           sentAt: now,
           replyTo: _replyTo,
+          status: MessageStatus.sending,
         ),
       ];
       _replyTo = null;
     });
+    _simulateDelivery('local-$id');
   }
 
   /// Actions proposées à l'appui long sur un message.
@@ -285,6 +314,7 @@ class _ConversationDetailScreenState
       message: message,
       isFirstOfGroup: position.isFirst,
       isLastOfGroup: position.isLast,
+      showStatus: index == _lastSentIndex,
     );
 
     // L'indicateur de saisie n'est pas un message : rien à citer, à copier ni
@@ -306,6 +336,14 @@ class _ConversationDetailScreenState
       ),
     );
   }
+
+  /// Index du dernier message émis, seul à porter son état d'acheminement.
+  ///
+  /// Recalculé à chaque construction plutôt que mémorisé : l'envoi d'un message
+  /// le déplace, et un index gardé en champ finirait par désigner une bulle
+  /// reçue.
+  int get _lastSentIndex =>
+      _messages.lastIndexWhere((m) => m.isMine && !m.isTyping);
 
   /// Détermine si l'entrée [index] ouvre ou ferme une série du même auteur.
   ///

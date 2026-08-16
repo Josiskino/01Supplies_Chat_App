@@ -40,9 +40,7 @@ class CustomNavRail extends StatelessWidget {
     return AnimatedContainer(
       duration: DesignTokens.durationNormal,
       curve: DesignTokens.curveDecelerate,
-      width: extended
-          ? DesignTokens.railWidthExtended
-          : DesignTokens.railWidth,
+      width: extended ? DesignTokens.railWidthExtended : DesignTokens.railWidth,
       decoration: BoxDecoration(
         color: isDarkMode
             ? AppColors.appBarColorDark

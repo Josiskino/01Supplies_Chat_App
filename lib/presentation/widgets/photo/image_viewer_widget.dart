@@ -15,7 +15,8 @@ import 'package:iconsax/iconsax.dart';
 /// - Support for both network and local images
 /// - Loading and error states
 class ImageViewerWidget extends StatefulWidget {
-  final List<String> imagePaths; // List of image paths (local File paths or HTTP URLs)
+  final List<String>
+  imagePaths; // List of image paths (local File paths or HTTP URLs)
   final int initialIndex; // Index of the image to display first
 
   const ImageViewerWidget({
@@ -73,7 +74,8 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget> {
       _transformationController.value = Matrix4.identity();
     } else {
       // Zoom to 2x centered
-      _transformationController.value = Matrix4.identity()..scaleByDouble(2.0, 2.0, 2.0, 1.0);
+      _transformationController.value = Matrix4.identity()
+        ..scaleByDouble(2.0, 2.0, 2.0, 1.0);
     }
   }
 
@@ -151,10 +153,7 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget> {
         child: SizedBox(
           width: 40,
           height: 40,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2,
-          ),
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
         ),
       ),
       errorWidget: (context, _, _) => _buildErrorWidget(),
@@ -177,11 +176,7 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
-          Iconsax.gallery_slash,
-          color: Colors.red.shade400,
-          size: 64,
-        ),
+        Icon(Iconsax.gallery_slash, color: Colors.red.shade400, size: 64),
         const SizedBox(height: 16),
         const Text(
           'Impossible de charger l\'image',

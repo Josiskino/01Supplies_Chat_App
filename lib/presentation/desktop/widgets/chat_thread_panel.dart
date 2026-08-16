@@ -262,8 +262,8 @@ class _MessageRow extends StatelessWidget {
             ),
           );
 
-    return Padding
-      (padding: const EdgeInsets.symmetric(vertical: 3),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         mainAxisAlignment: message.isMine
             ? MainAxisAlignment.end
@@ -533,7 +533,10 @@ class _MessageComposerState extends State<_MessageComposer> {
               child: Row(
                 children: [
                   const _ComposerAction(icon: Iconsax.add, tooltip: 'Ajouter'),
-                  const _ComposerAction(icon: Iconsax.emoji_happy, tooltip: 'Emoji'),
+                  const _ComposerAction(
+                    icon: Iconsax.emoji_happy,
+                    tooltip: 'Emoji',
+                  ),
                   const _ComposerAction(
                     icon: Iconsax.paperclip,
                     tooltip: 'Pièce jointe',

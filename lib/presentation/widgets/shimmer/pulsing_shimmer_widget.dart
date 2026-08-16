@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
 /// Shimmer widget with a pulsing heartbeat-like animation
-/// 
+///
 /// Creates a shimmer effect that pulses like a heartbeat, perfect for image loading
 class PulsingShimmerWidget extends StatefulWidget {
   final double? width;
@@ -28,24 +28,19 @@ class _PulsingShimmerWidgetState extends State<PulsingShimmerWidget>
   @override
   void initState() {
     super.initState();
-    
+
     // Create animation controller with heartbeat-like timing
     // Heartbeat pattern: quick pulse, pause, quick pulse, longer pause
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1400),
       vsync: this,
     )..repeat();
-    
+
     // Create pulse animation with heartbeat curve
     _pulseAnimation = Tween<double>(
       begin: 0.7,
       end: 1.0,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -57,7 +52,7 @@ class _PulsingShimmerWidgetState extends State<PulsingShimmerWidget>
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return AnimatedBuilder(
       animation: _pulseAnimation,
       builder: (context, child) {
@@ -85,7 +80,7 @@ class _PulsingShimmerWidgetState extends State<PulsingShimmerWidget>
   /// Heartbeat pattern: two quick pulses (lub-dub) followed by a longer pause
   double _getOpacity() {
     final progress = _controller.value;
-    
+
     // Heartbeat pattern: two quick pulses followed by a pause
     if (progress < 0.12) {
       // First pulse (lub): quick rise
@@ -106,4 +101,3 @@ class _PulsingShimmerWidgetState extends State<PulsingShimmerWidget>
     }
   }
 }
-

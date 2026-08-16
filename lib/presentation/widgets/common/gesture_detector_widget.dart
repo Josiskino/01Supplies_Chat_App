@@ -2,29 +2,29 @@ import 'package:flutter/material.dart';
 
 /// Reusable GestureDetector widget with common gesture handlers.
 /// Provides a convenient way to handle taps, long presses, and other gestures.
-/// 
+///
 /// This widget follows the Composition over Inheritance pattern:
 /// - Wraps any widget with gesture detection
 /// - Receives callbacks via Dependency Injection pattern
 class GestureDetectorWidget extends StatelessWidget {
   /// The child widget to wrap with gesture detection
   final Widget child;
-  
+
   /// Callback when tapped
   final VoidCallback? onTap;
-  
+
   /// Callback when long pressed
   final VoidCallback? onLongPress;
-  
+
   /// Callback when double tapped
   final VoidCallback? onDoubleTap;
-  
+
   /// Callback when tap is cancelled
   final VoidCallback? onTapCancel;
-  
+
   /// Behavior for tap gestures
   final HitTestBehavior? behavior;
-  
+
   /// Whether to exclude this widget from semantics
   final bool excludeFromSemantics;
 
@@ -58,19 +58,19 @@ class GestureDetectorWidget extends StatelessWidget {
 class InkWellWidget extends StatelessWidget {
   /// The child widget to wrap with InkWell
   final Widget child;
-  
+
   /// Callback when tapped
   final VoidCallback? onTap;
-  
+
   /// Callback when long pressed
   final VoidCallback? onLongPress;
-  
+
   /// Border radius for the ripple effect
   final BorderRadius? borderRadius;
-  
+
   /// Custom splash color
   final Color? splashColor;
-  
+
   /// Custom highlight color
   final Color? highlightColor;
 
@@ -96,4 +96,3 @@ class InkWellWidget extends StatelessWidget {
     );
   }
 }
-

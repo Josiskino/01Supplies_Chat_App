@@ -83,7 +83,9 @@ class CustomBottomAppBar extends StatelessWidget {
                               backgroundColor: Colors.red,
                               textColor: Colors.white,
                               label: Text(
-                                item.badgeCount > 9 ? '9+' : '${item.badgeCount}',
+                                item.badgeCount > 9
+                                    ? '9+'
+                                    : '${item.badgeCount}',
                                 style: const TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -104,20 +106,21 @@ class CustomBottomAppBar extends StatelessWidget {
                           const SizedBox(height: 2),
                           AnimatedDefaultTextStyle(
                             duration: DesignTokens.durationNormal,
-                            style: (theme.textTheme.labelSmall ??
-                                    const TextStyle())
-                                .copyWith(
-                                  color: isSelected
-                                      ? theme.colorScheme.primary
-                                      : DesignTokens.getTextColorWithOpacity(
-                                          context,
-                                          DesignTokens.opacityHigh,
-                                        ),
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                  fontSize: 10,
-                                ),
+                            style:
+                                (theme.textTheme.labelSmall ??
+                                        const TextStyle())
+                                    .copyWith(
+                                      color: isSelected
+                                          ? theme.colorScheme.primary
+                                          : DesignTokens.getTextColorWithOpacity(
+                                              context,
+                                              DesignTokens.opacityHigh,
+                                            ),
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                      fontSize: 10,
+                                    ),
                             child: Text(
                               item.text,
                               maxLines: 1,

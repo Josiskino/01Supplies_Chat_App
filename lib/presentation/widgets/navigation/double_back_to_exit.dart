@@ -60,7 +60,8 @@ class _DoubleBackToExitState extends State<DoubleBackToExit> {
 
     final now = DateTime.now();
     final lastBackPressedAt = _lastBackPressedAt;
-    final shouldExit = lastBackPressedAt != null &&
+    final shouldExit =
+        lastBackPressedAt != null &&
         now.difference(lastBackPressedAt) <= widget.timeout;
 
     if (shouldExit) {

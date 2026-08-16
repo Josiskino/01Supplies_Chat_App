@@ -54,8 +54,7 @@ class DesktopWorkspaceShell extends ConsumerStatefulWidget {
       _DesktopWorkspaceShellState();
 }
 
-class _DesktopWorkspaceShellState
-    extends ConsumerState<DesktopWorkspaceShell> {
+class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
   int _railIndex = 1; // Discussions
   String _sectionId = 'chats';
   String _conversationId = ConversationFixtures.conversations.first.id;
@@ -92,7 +91,6 @@ class _DesktopWorkspaceShellState
 
   @override
   Widget build(BuildContext context) {
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return LayoutBuilder(
@@ -120,9 +118,9 @@ class _DesktopWorkspaceShellState
                 topInset: WindowGlass.titleBarInset,
                 isDarkMode: isDark,
                 onToggleTheme: () {
-                  ref.read(themeProvider.notifier).setThemeMode(
-                    isDark ? ThemeMode.light : ThemeMode.dark,
-                  );
+                  ref
+                      .read(themeProvider.notifier)
+                      .setThemeMode(isDark ? ThemeMode.light : ThemeMode.dark);
                   // Le matériau de la fenêtre porte sa propre variante : sans ce
                   // réalignement, un verre clair resterait derrière une interface
                   // sombre.

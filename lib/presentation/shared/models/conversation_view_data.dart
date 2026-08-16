@@ -66,7 +66,7 @@ class ChatMessageData {
     this.reaction,
     this.replyTo,
     this.voice,
-    this.isDelivered = true,
+    this.status = MessageStatus.read,
     this.isTyping = false,
   });
 
@@ -89,7 +89,8 @@ class ChatMessageData {
   /// Emoji de réaction affiché sous la bulle.
   final String? reaction;
 
-  final bool isDelivered;
+  /// Acheminement du message. N'a de sens que sur les messages émis.
+  final MessageStatus status;
 
   /// Bulle d'indicateur de saisie, sans texte.
   final bool isTyping;
@@ -108,6 +109,31 @@ class ChatMessageData {
   final VoiceNoteData? voice;
 
   bool get isVoice => voice != null;
+}
+
+/// Étapes d'acheminement d'un message émis.
+///
+/// iOS n'affiche l'état que sous le **dernier** message envoyé, et sous forme de
+/// libellé : « Distribué », « Lu », et rien du tout tant que c'est simplement
+/// parti. Les coches de WhatsApp répondent à la même question, mais les répéter
+/// sur chaque bulle encombre le fil sans rien apprendre — l'état d'un message
+/// plus ancien se déduit de celui du dernier.
+enum MessageStatus {
+  /// Remis à la file d'envoi, pas encore acquitté par le serveur.
+  sending,
+
+  /// Accepté par le serveur.
+  sent,
+
+  /// Arrivé sur l'appareil du destinataire.
+  delivered,
+
+  /// Ouvert par le destinataire.
+  read,
+
+  /// L'envoi a échoué — le seul état qui mérite d'être signalé en rouge, et sur
+  /// la bulle concernée plutôt que sur la dernière.
+  failed,
 }
 
 /// Extrait du message auquel on répond, affiché en tête de bulle.

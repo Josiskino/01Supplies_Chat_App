@@ -52,15 +52,15 @@ class EmptyStateWidget extends StatelessWidget {
                 height: DesignTokens.iconEmptyLarge,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: theme.colorScheme.primary.withValues(alpha: 
-                    DesignTokens.opacityBackground20,
+                  color: theme.colorScheme.primary.withValues(
+                    alpha: DesignTokens.opacityBackground20,
                   ),
                 ),
                 child: Icon(
                   icon,
                   size: DesignTokens.iconXxxl,
-                  color: theme.colorScheme.primary.withValues(alpha: 
-                    DesignTokens.opacityHigh,
+                  color: theme.colorScheme.primary.withValues(
+                    alpha: DesignTokens.opacityHigh,
                   ),
                 ),
               ),

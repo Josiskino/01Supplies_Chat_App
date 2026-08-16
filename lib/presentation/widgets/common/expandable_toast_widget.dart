@@ -141,15 +141,21 @@ class _ExpandableToastWidgetState extends State<ExpandableToastWidget>
 
     return switch (severity) {
       'error' =>
-        isDark ? Colors.red.shade900.withValues(alpha: 0.95) : Colors.red.shade50,
+        isDark
+            ? Colors.red.shade900.withValues(alpha: 0.95)
+            : Colors.red.shade50,
       'warning' =>
         isDark
             ? Colors.orange.shade900.withValues(alpha: 0.95)
             : Colors.orange.shade50,
       'success' =>
-        isDark ? Colors.green.shade900.withValues(alpha: 0.95) : Colors.green.shade50,
+        isDark
+            ? Colors.green.shade900.withValues(alpha: 0.95)
+            : Colors.green.shade50,
       _ =>
-        isDark ? Colors.blue.shade900.withValues(alpha: 0.95) : Colors.blue.shade50,
+        isDark
+            ? Colors.blue.shade900.withValues(alpha: 0.95)
+            : Colors.blue.shade50,
     };
   }
 

@@ -24,6 +24,7 @@ class ChatBubble extends StatelessWidget {
     required this.message,
     required this.isFirstOfGroup,
     required this.isLastOfGroup,
+    this.showStatus = false,
     this.contactName = '',
   });
 
@@ -34,6 +35,12 @@ class ChatBubble extends StatelessWidget {
 
   /// Dernière bulle d'une série : porte l'avatar et l'ergot.
   final bool isLastOfGroup;
+
+  /// Affiche le libellé d'acheminement sous la bulle.
+  ///
+  /// Réservé au **dernier** message émis du fil : iOS n'en montre qu'un, et le
+  /// répéter transformerait la colonne de droite en litanie de « Distribué ».
+  final bool showStatus;
 
   final String contactName;
 
@@ -188,8 +195,70 @@ class ChatBubble extends StatelessWidget {
                 ),
               ),
             ),
+          if (isMine && (showStatus || message.status == MessageStatus.failed))
+            Padding(
+              padding: const EdgeInsets.only(
+                right: DesignTokens.spaceXs,
+                top: 2,
+              ),
+              child: _StatusLabel(
+                status: message.status,
+                timeLabel: message.timeLabel,
+              ),
+            ),
         ],
       ),
+    );
+  }
+}
+
+/// Libellé d'acheminement, sous le dernier message émis.
+class _StatusLabel extends StatelessWidget {
+  const _StatusLabel({required this.status, required this.timeLabel});
+
+  final MessageStatus status;
+  final String timeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // « Envoyé » n'est pas affiché : c'est l'état par défaut d'un message
+    // parti, et l'annoncer ne répond à aucune question que le lecteur se pose.
+    final (label, color) = switch (status) {
+      MessageStatus.sending => (
+        'Envoi…',
+        DesignTokens.getTextColorWithOpacity(context, 0.45),
+      ),
+      MessageStatus.sent => (
+        null,
+        DesignTokens.getTextColorWithOpacity(context, 0.45),
+      ),
+      MessageStatus.delivered => (
+        'Distribué',
+        DesignTokens.getTextColorWithOpacity(context, 0.45),
+      ),
+      // L'heure accompagne « Lu » : c'est l'information qui compte quand on
+      // relit un fil, bien plus que le fait de la lecture lui-même.
+      MessageStatus.read => (
+        timeLabel.isEmpty ? 'Lu' : 'Lu $timeLabel',
+        DesignTokens.getTextColorWithOpacity(context, 0.45),
+      ),
+      MessageStatus.failed => ('Non distribué', theme.colorScheme.error),
+    };
+
+    if (label == null) return const SizedBox.shrink();
+
+    return Text(
+      label,
+      style: theme.textTheme.labelSmall
+          ?.merge(AppleType.caption2)
+          .copyWith(
+            color: color,
+            fontWeight: status == MessageStatus.failed
+                ? FontWeight.w600
+                : FontWeight.w400,
+          ),
     );
   }
 }

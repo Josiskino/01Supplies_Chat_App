@@ -12,11 +12,7 @@ import 'presence_avatar.dart';
 /// Fermable : à partir de la maquette, c'est la première colonne sacrifiée quand
 /// la fenêtre se réduit, puisqu'elle ne porte que de la consultation.
 class ContactProfilePanel extends StatelessWidget {
-  const ContactProfilePanel({
-    super.key,
-    required this.contact,
-    this.onClose,
-  });
+  const ContactProfilePanel({super.key, required this.contact, this.onClose});
 
   final ContactProfileData contact;
   final VoidCallback? onClose;
@@ -116,10 +112,7 @@ class ContactProfilePanel extends StatelessWidget {
                           icon: Iconsax.message_text,
                           tooltip: 'Envoyer un message',
                         ),
-                        _ProfileAction(
-                          icon: Iconsax.call,
-                          tooltip: 'Appeler',
-                        ),
+                        _ProfileAction(icon: Iconsax.call, tooltip: 'Appeler'),
                         _ProfileAction(
                           icon: Iconsax.sms,
                           tooltip: 'Envoyer un e-mail',
@@ -305,7 +298,10 @@ class _ProfileField extends StatelessWidget {
                     child: Icon(
                       Iconsax.copy,
                       size: 13,
-                      color: DesignTokens.getTextColorWithOpacity(context, 0.45),
+                      color: DesignTokens.getTextColorWithOpacity(
+                        context,
+                        0.45,
+                      ),
                     ),
                   ),
               ],
