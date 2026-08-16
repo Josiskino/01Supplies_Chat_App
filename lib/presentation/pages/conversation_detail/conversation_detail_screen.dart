@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 
+import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
@@ -214,11 +215,9 @@ class _ConversationHeaderTitle extends StatelessWidget {
                   conversation.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontSize: 11,
-                    height: 1.1,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: theme.textTheme.labelSmall
+                      ?.merge(AppleType.caption2)
+                      .copyWith(height: 1.1, fontWeight: FontWeight.w500),
                 ),
               ),
               Icon(

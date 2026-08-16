@@ -4,6 +4,7 @@ import 'package:iconsax/iconsax.dart';
 
 import 'package:go_router/go_router.dart';
 
+import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/platform/platform_ui.dart';
@@ -177,13 +178,14 @@ class _PinnedStrip extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontSize: 12,
-                          color: DesignTokens.getTextColorWithOpacity(
-                            context,
-                            0.7,
-                          ),
-                        ),
+                        style: theme.textTheme.labelSmall
+                            ?.merge(AppleType.caption1)
+                            .copyWith(
+                              color: DesignTokens.getTextColorWithOpacity(
+                                context,
+                                0.7,
+                              ),
+                            ),
                       ),
                     ],
                   ),

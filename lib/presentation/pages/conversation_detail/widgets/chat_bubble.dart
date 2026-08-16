@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../desktop/widgets/presence_avatar.dart';
 import '../../../shared/models/conversation_view_data.dart';
@@ -81,10 +82,11 @@ class ChatBubble extends StatelessWidget {
               ),
               child: Text(
                 message.senderName!,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  fontSize: 11,
-                  color: DesignTokens.getTextColorWithOpacity(context, 0.5),
-                ),
+                style: theme.textTheme.labelSmall
+                    ?.merge(AppleType.caption2)
+                    .copyWith(
+                      color: DesignTokens.getTextColorWithOpacity(context, 0.5),
+                    ),
               ),
             ),
           Row(
@@ -125,11 +127,9 @@ class ChatBubble extends StatelessWidget {
                       ? const TypingDots()
                       : Text(
                           message.text,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontSize: 16,
-                            height: 1.3,
-                            color: foreground,
-                          ),
+                          style: theme.textTheme.bodyMedium
+                              ?.merge(AppleType.body)
+                              .copyWith(color: foreground),
                         ),
                 ),
               ),
@@ -143,10 +143,7 @@ class ChatBubble extends StatelessWidget {
                 top: 2,
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF2C2C34) : Colors.white,
                   borderRadius: DesignTokens.borderRadiusPill,
@@ -242,11 +239,12 @@ class ChatDayDivider extends StatelessWidget {
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: theme.textTheme.labelSmall?.copyWith(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: DesignTokens.getTextColorWithOpacity(context, 0.45),
-          ),
+          style: theme.textTheme.labelSmall
+              ?.merge(AppleType.footnote)
+              .copyWith(
+                fontWeight: FontWeight.w600,
+                color: DesignTokens.getTextColorWithOpacity(context, 0.45),
+              ),
         ),
       ),
     );

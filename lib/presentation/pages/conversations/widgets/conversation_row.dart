@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 
+import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../../core/platform/platform_ui.dart';
 import '../../../../core/platform/platform_ui_provider.dart';
@@ -97,8 +98,10 @@ class _CupertinoConversationRow extends StatelessWidget {
         padding: const EdgeInsets.only(
           left: DesignTokens.spaceS,
           right: DesignTokens.spaceL,
-          top: DesignTokens.spaceS + 2,
-          bottom: DesignTokens.spaceS + 2,
+          // 8 pt comme iOS : à 10, la ligne dépassait de 8 pt celle de
+          // Messages sans que rien ne le justifie.
+          top: DesignTokens.spaceS,
+          bottom: DesignTokens.spaceS,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,14 +139,13 @@ class _CupertinoConversationRow extends StatelessWidget {
                 children: [
                   Text(
                     data.name,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: theme.textTheme.bodyLarge?.merge(AppleType.headline),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
+                  // Aucun écart entre le nom et l'aperçu : les interlignes
+                  // d'iOS incluent déjà leur respiration, et 2 pt de plus
+                  // suffisaient à faire dépasser la ligne de la référence.
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -163,16 +165,16 @@ class _CupertinoConversationRow extends StatelessWidget {
                           // tronque trop tôt pour juger de l'urgence d'un message.
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontSize: 15,
-                            height: 1.25,
-                            color: data.isMissedCall
-                                ? theme.colorScheme.error
-                                : DesignTokens.getTextColorWithOpacity(
-                                    context,
-                                    isDark ? 0.6 : 0.55,
-                                  ),
-                          ),
+                          style: theme.textTheme.bodyMedium
+                              ?.merge(AppleType.subheadline)
+                              .copyWith(
+                                color: data.isMissedCall
+                                    ? theme.colorScheme.error
+                                    : DesignTokens.getTextColorWithOpacity(
+                                        context,
+                                        isDark ? 0.6 : 0.55,
+                                      ),
+                              ),
                         ),
                       ),
                     ],
@@ -186,10 +188,14 @@ class _CupertinoConversationRow extends StatelessWidget {
               children: [
                 Text(
                   data.timeLabel,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 14,
-                    color: DesignTokens.getTextColorWithOpacity(context, 0.45),
-                  ),
+                  style: theme.textTheme.bodySmall
+                      ?.merge(AppleType.footnote)
+                      .copyWith(
+                        color: DesignTokens.getTextColorWithOpacity(
+                          context,
+                          0.45,
+                        ),
+                      ),
                 ),
                 const SizedBox(height: 6),
                 Row(
@@ -209,7 +215,10 @@ class _CupertinoConversationRow extends StatelessWidget {
                     Icon(
                       CupertinoIcons.chevron_right,
                       size: 13,
-                      color: DesignTokens.getTextColorWithOpacity(context, 0.25),
+                      color: DesignTokens.getTextColorWithOpacity(
+                        context,
+                        0.25,
+                      ),
                     ),
                   ],
                 ),
@@ -246,95 +255,95 @@ class _MaterialConversationRow extends StatelessWidget {
             horizontal: DesignTokens.spaceL,
             vertical: DesignTokens.spaceM,
           ),
-        child: Row(
-          children: [
-            PresenceAvatar(
-              name: data.name,
-              avatarUrl: data.avatarUrl,
-              presence: data.presence,
-              size: DesignTokens.avatarL,
-            ),
-            const SizedBox(width: DesignTokens.spaceL),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          data.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: data.hasUnread
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        data.timeLabel,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: data.hasUnread
-                              ? theme.colorScheme.primary
-                              : DesignTokens.getTextColorWithOpacity(
-                                  context,
-                                  0.45,
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      if (data.isMissedCall)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: Icon(
-                            Iconsax.call_slash,
-                            size: 13,
-                            color: theme.colorScheme.error,
+          child: Row(
+            children: [
+              PresenceAvatar(
+                name: data.name,
+                avatarUrl: data.avatarUrl,
+                presence: data.presence,
+                size: DesignTokens.avatarL,
+              ),
+              const SizedBox(width: DesignTokens.spaceL),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            data.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: data.hasUnread
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      Expanded(
-                        child: Text(
-                          data.preview,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: data.isMissedCall
-                                ? theme.colorScheme.error
+                        Text(
+                          data.timeLabel,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: data.hasUnread
+                                ? theme.colorScheme.primary
                                 : DesignTokens.getTextColorWithOpacity(
                                     context,
-                                    0.55,
+                                    0.45,
                                   ),
                           ),
                         ),
-                      ),
-                      if (data.hasUnread)
-                        Container(
-                          margin: const EdgeInsets.only(left: 6),
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: theme.colorScheme.primary,
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        if (data.isMissedCall)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Icon(
+                              Iconsax.call_slash,
+                              size: 13,
+                              color: theme.colorScheme.error,
+                            ),
                           ),
-                        ),
-                      if (data.isStarred)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: Icon(
-                            Iconsax.star1,
-                            size: 12,
-                            color: DesignTokens.getTextColorWithOpacity(
-                              context,
-                              0.35,
+                        Expanded(
+                          child: Text(
+                            data.preview,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: data.isMissedCall
+                                  ? theme.colorScheme.error
+                                  : DesignTokens.getTextColorWithOpacity(
+                                      context,
+                                      0.55,
+                                    ),
                             ),
                           ),
                         ),
+                        if (data.hasUnread)
+                          Container(
+                            margin: const EdgeInsets.only(left: 6),
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        if (data.isStarred)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Icon(
+                              Iconsax.star1,
+                              size: 12,
+                              color: DesignTokens.getTextColorWithOpacity(
+                                context,
+                                0.35,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ],

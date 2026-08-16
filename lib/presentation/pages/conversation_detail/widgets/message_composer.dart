@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 
+import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../../core/platform/platform_ui_provider.dart';
 
@@ -114,19 +115,20 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                         // Le champ grandit avec le texte, jusqu'à cinq lignes.
                         maxLines: 5,
                         textCapitalization: TextCapitalization.sentences,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontSize: 16,
+                        style: theme.textTheme.bodyMedium?.merge(
+                          AppleType.body,
                         ),
                         decoration: InputDecoration(
                           isDense: true,
                           hintText: widget.placeholder ?? 'Message',
-                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                            fontSize: 16,
-                            color: DesignTokens.getTextColorWithOpacity(
-                              context,
-                              0.4,
-                            ),
-                          ),
+                          hintStyle: theme.textTheme.bodyMedium
+                              ?.merge(AppleType.body)
+                              .copyWith(
+                                color: DesignTokens.getTextColorWithOpacity(
+                                  context,
+                                  0.4,
+                                ),
+                              ),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
