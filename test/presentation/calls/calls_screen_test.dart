@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
+import 'package:supplies_chat_app/config/theme/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations.dart';
@@ -31,10 +33,7 @@ void main() {
 
   testWidgets('l’historique liste les appels', (tester) async {
     await pump(tester);
-    expect(
-      find.byType(CallLogRow),
-      findsNWidgets(CallFixtures.history.length),
-    );
+    expect(find.byType(CallLogRow), findsNWidgets(CallFixtures.history.length));
   });
 
   testWidgets('le filtre ne garde que les manqués', (tester) async {
@@ -80,6 +79,21 @@ void main() {
       CallFixtures.history.any((e) => e.repeatCount > 1),
       isTrue,
       reason: 'les fixtures doivent exercer le regroupement',
+    );
+  });
+
+  test('un manqué porte le combiné raccroché sur les deux plateformes', () {
+    // macOS partage le langage d'iOS : c'est le même dessin qu'en liste de
+    // conversations, et il dit que l'appel a échoué — une flèche ne dirait que
+    // d'où il venait.
+    expect(
+      AppIcons.of(AppIcons.missedCall, isApple: true),
+      CupertinoIcons.phone_down_fill,
+    );
+    // Chaque rôle a bien deux dessins, jamais un seul par défaut.
+    expect(
+      AppIcons.of(AppIcons.missedCall, isApple: false),
+      isNot(CupertinoIcons.phone_down_fill),
     );
   });
 }

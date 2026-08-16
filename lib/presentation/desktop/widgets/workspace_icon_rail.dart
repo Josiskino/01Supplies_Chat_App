@@ -1,6 +1,7 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
-import 'package:iconsax/iconsax.dart';
 
+import '../../../config/theme/app_icons.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../config/theme/glass_surfaces.dart';
 import '../../../core/constants/app_images.dart';
@@ -42,13 +43,18 @@ class WorkspaceIconRail extends StatelessWidget {
   /// les laisserait déborder sur la navigation — où ils capteraient le clic.
   static const double width = 64;
 
-  static const List<({IconData icon, String tooltip, bool hasDot})> _entries = [
-    (icon: Iconsax.home_2, tooltip: 'Accueil', hasDot: false),
-    (icon: Iconsax.message_text, tooltip: 'Discussions', hasDot: true),
-    (icon: Iconsax.task_square, tooltip: 'Demandes', hasDot: false),
-    (icon: Iconsax.calendar_1, tooltip: 'Planning', hasDot: false),
-    (icon: Iconsax.chart_2, tooltip: 'Supervision', hasDot: false),
-    (icon: Iconsax.folder_2, tooltip: 'Documents', hasDot: false),
+  /// Icônes prises dans la table des rôles, en variante Apple.
+  ///
+  /// macOS partage le langage visuel d'iOS : un rail en icônes Material à côté
+  /// d'un iPhone en Cupertino donnait deux dessins pour la même destination.
+  static const List<({AppIconPair icon, String tooltip, bool hasDot})>
+  _entries = [
+    (icon: AppIcons.home, tooltip: 'Accueil', hasDot: false),
+    (icon: AppIcons.messages, tooltip: 'Discussions', hasDot: true),
+    (icon: AppIcons.requests, tooltip: 'Demandes', hasDot: false),
+    (icon: AppIcons.planning, tooltip: 'Planning', hasDot: false),
+    (icon: AppIcons.supervision, tooltip: 'Supervision', hasDot: false),
+    (icon: AppIcons.documents, tooltip: 'Documents', hasDot: false),
   ];
 
   @override
@@ -101,7 +107,7 @@ class WorkspaceIconRail extends StatelessWidget {
                     children: [
                       for (var i = 0; i < _entries.length; i++)
                         _RailIcon(
-                          icon: _entries[i].icon,
+                          icon: AppIcons.of(_entries[i].icon, isApple: true),
                           tooltip: _entries[i].tooltip,
                           hasDot: _entries[i].hasDot,
                           isSelected: selectedIndex == i,
@@ -117,7 +123,9 @@ class WorkspaceIconRail extends StatelessWidget {
               // en un clic évite de passer par les réglages pour comparer.
               if (onToggleTheme != null)
                 _RailIcon(
-                  icon: isDarkMode ? Iconsax.sun_1 : Iconsax.moon,
+                  icon: isDarkMode
+                      ? CupertinoIcons.sun_max
+                      : AppIcons.of(AppIcons.theme, isApple: true),
                   tooltip: isDarkMode ? 'Thème clair' : 'Thème sombre',
                   isSelected: false,
                   onTap: onToggleTheme!,
@@ -125,7 +133,7 @@ class WorkspaceIconRail extends StatelessWidget {
 
               // Réglages et compte, ancrés en bas comme sur la maquette.
               _RailIcon(
-                icon: Iconsax.setting_2,
+                icon: AppIcons.of(AppIcons.settings, isApple: true),
                 tooltip: 'Réglages',
                 isSelected: false,
                 onTap: () {},

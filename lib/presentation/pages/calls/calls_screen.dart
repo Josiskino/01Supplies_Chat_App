@@ -1,9 +1,9 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 
+import '../../../config/theme/app_icons.dart';
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
@@ -44,7 +44,7 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
       title: l10n.callsTitle,
       actions: [
         PlatformAction(
-          icon: CupertinoIcons.add,
+          icon: AppIcons.of(AppIcons.add, isApple: platformUi.platform.isApple),
           sfSymbol: 'plus',
           label: 'Nouvel appel',
           onPressed: () => context.push(AppUiRoute.call),
@@ -94,6 +94,7 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
                       final entry = _entries[index];
                       return CallLogRow(
                         entry: entry,
+                        isApple: platformUi.platform.isApple,
                         // Toucher la ligne rappelle : c'est le geste attendu
                         // dans un historique, et il évite un menu pour l'action
                         // que tout le monde vient chercher.

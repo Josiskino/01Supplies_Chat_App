@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../config/theme/app_icons.dart';
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../desktop/widgets/presence_avatar.dart';
@@ -20,9 +20,11 @@ class CallLogRow extends StatelessWidget {
     required this.entry,
     required this.onTap,
     required this.onInfo,
+    required this.isApple,
   });
 
   final CallLogEntry entry;
+  final bool isApple;
   final VoidCallback onTap;
   final VoidCallback onInfo;
 
@@ -43,7 +45,11 @@ class CallLogRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            PresenceAvatar(name: entry.name, avatarUrl: entry.avatarUrl, size: 44),
+            PresenceAvatar(
+              name: entry.name,
+              avatarUrl: entry.avatarUrl,
+              size: 44,
+            ),
             const SizedBox(width: DesignTokens.spaceM),
             Expanded(
               child: Column(
@@ -79,12 +85,16 @@ class CallLogRow extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        _directionIcon,
+                        AppIcons.of(_directionIcon, isApple: isApple),
                         size: 13,
-                        color: DesignTokens.getTextColorWithOpacity(
-                          context,
-                          0.45,
-                        ),
+                        // Le manqué garde la couleur d'alerte jusque dans son
+                        // icône : c'est le seul état qui appelle une action.
+                        color: entry.isMissed
+                            ? theme.colorScheme.error
+                            : DesignTokens.getTextColorWithOpacity(
+                                context,
+                                0.45,
+                              ),
                       ),
                       const SizedBox(width: 4),
                       Flexible(
@@ -122,7 +132,7 @@ class CallLogRow extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.only(left: DesignTokens.spaceS),
                 child: Icon(
-                  CupertinoIcons.info_circle,
+                  AppIcons.of(AppIcons.info, isApple: isApple),
                   size: 22,
                   color: theme.colorScheme.primary,
                 ),
@@ -134,10 +144,13 @@ class CallLogRow extends StatelessWidget {
     );
   }
 
-  IconData get _directionIcon => switch (entry.direction) {
-    CallDirection.incoming => CupertinoIcons.arrow_down_left,
-    CallDirection.outgoing => CupertinoIcons.arrow_up_right,
-    CallDirection.missed => CupertinoIcons.arrow_down_left,
+  /// Un manqué porte le combiné raccroché, comme dans la liste des
+  /// conversations. Une flèche dirait d'où venait l'appel, pas qu'il a échoué —
+  /// et la couleur restait alors seule à porter l'information.
+  AppIconPair get _directionIcon => switch (entry.direction) {
+    CallDirection.incoming => AppIcons.incomingCall,
+    CallDirection.outgoing => AppIcons.outgoingCall,
+    CallDirection.missed => AppIcons.missedCall,
   };
 
   /// Sous-titre : nature de l'appel, puis sa durée quand il a eu lieu.
@@ -145,8 +158,7 @@ class CallLogRow extends StatelessWidget {
     final kind = entry.isVideo ? 'Vidéo' : 'Audio';
     return switch (entry.direction) {
       CallDirection.missed => '$kind · manqué',
-      _ when entry.durationLabel != null =>
-        '$kind · ${entry.durationLabel}',
+      _ when entry.durationLabel != null => '$kind · ${entry.durationLabel}',
       _ => kind,
     };
   }
