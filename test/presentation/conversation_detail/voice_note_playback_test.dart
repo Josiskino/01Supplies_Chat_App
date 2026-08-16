@@ -66,6 +66,18 @@ void main() {
     );
   });
 
+  testWidgets('la forme d’onde se vide en fin de lecture', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byIcon(CupertinoIcons.play_fill));
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+    // La tête de lecture est remise à zéro : laissée pleine, la forme d'onde
+    // donnait un message définitivement barré.
+    final state = tester.state(find.byType(VoiceNoteBubble));
+    // ignore: avoid_dynamic_calls
+    expect((state as dynamic).playbackProgress, 0);
+  });
+
   testWidgets('relancer après la fin repart du début', (tester) async {
     await pump(tester);
     await tester.tap(find.byIcon(CupertinoIcons.play_fill));

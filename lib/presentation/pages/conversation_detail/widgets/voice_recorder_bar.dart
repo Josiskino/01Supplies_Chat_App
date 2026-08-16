@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart';
 
 import '../../../../config/theme/apple_type.dart';
@@ -33,27 +34,48 @@ class VoiceRecorderBar extends StatefulWidget {
   State<VoiceRecorderBar> createState() => _VoiceRecorderBarState();
 }
 
-class _VoiceRecorderBarState extends State<VoiceRecorderBar> {
+class _VoiceRecorderBarState extends State<VoiceRecorderBar>
+    with SingleTickerProviderStateMixin {
+  /// Intervalle entre deux amplitudes — la cadence d'un vrai flux de capture.
+  static const Duration _sampleInterval = Duration(milliseconds: 80);
+
   Timer? _timer;
   Duration _elapsed = Duration.zero;
   final List<double> _waveform = [];
   final _random = math.Random();
 
+  /// Fraction écoulée depuis la dernière amplitude, entre 0 et 1.
+  ///
+  /// Sans elle, le tracé sautait d'une barre entière tous les dixièmes de
+  /// seconde. Le ticker fait glisser la forme d'onde **entre** deux échantillons
+  /// et le défilement devient continu.
+  late final Ticker _ticker;
+  DateTime _lastSample = DateTime.now();
+  double _fraction = 0;
+
   @override
   void initState() {
     super.initState();
     HapticFeedback.mediumImpact();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+    _timer = Timer.periodic(_sampleInterval, (_) {
+      _lastSample = DateTime.now();
       setState(() {
-        _elapsed += const Duration(milliseconds: 100);
-        // Une amplitude par 100 ms, comme le ferait un vrai flux.
+        _elapsed += _sampleInterval;
         _waveform.add(0.25 + _random.nextDouble() * 0.75);
       });
     });
+    _ticker = createTicker((_) {
+      final since = DateTime.now().difference(_lastSample).inMicroseconds;
+      final next = (since / _sampleInterval.inMicroseconds)
+          .clamp(0.0, 1.0)
+          .toDouble();
+      if (next != _fraction) setState(() => _fraction = next);
+    })..start();
   }
 
   @override
   void dispose() {
+    _ticker.dispose();
     _timer?.cancel();
     super.dispose();
   }
@@ -112,6 +134,7 @@ class _VoiceRecorderBarState extends State<VoiceRecorderBar> {
                   size: const Size(double.infinity, 24),
                   painter: _LiveWaveformPainter(
                     amplitudes: _waveform,
+                    fraction: _fraction,
                     color: theme.colorScheme.primary.withValues(alpha: 0.75),
                   ),
                 ),
@@ -184,9 +207,18 @@ class _PulsingDotState extends State<_PulsingDot>
 
 /// Forme d'onde qui défile pendant la capture : les barres récentes à droite.
 class _LiveWaveformPainter extends CustomPainter {
-  const _LiveWaveformPainter({required this.amplitudes, required this.color});
+  const _LiveWaveformPainter({
+    required this.amplitudes,
+    required this.fraction,
+    required this.color,
+  });
 
   final List<double> amplitudes;
+
+  /// Avancement entre deux échantillons : décale le tracé d'une fraction de
+  /// barre, ce qui rend le défilement continu au lieu de saccadé.
+  final double fraction;
+
   final Color color;
 
   @override
@@ -194,7 +226,7 @@ class _LiveWaveformPainter extends CustomPainter {
     const barWidth = 2.5;
     const gap = 2.0;
     const step = barWidth + gap;
-    final capacity = (size.width / step).floor();
+    final capacity = (size.width / step).ceil();
     if (capacity <= 0 || amplitudes.isEmpty) return;
 
     // Seules les dernières barres tiennent : le tracé défile vers la gauche.
@@ -202,11 +234,14 @@ class _LiveWaveformPainter extends CustomPainter {
         ? amplitudes
         : amplitudes.sublist(amplitudes.length - capacity);
     final paint = Paint()..color = color;
+    // Le décalage sub-pixel qui lisse le mouvement.
+    final shift = step * fraction;
 
     for (var i = 0; i < visible.length; i++) {
       final height = (size.height * visible[i]).clamp(3.0, size.height);
       // Aligné à droite : la barre la plus récente reste au bord.
-      final x = size.width - (visible.length - i) * step;
+      final x = size.width - (visible.length - i) * step - shift;
+      if (x + barWidth < 0) continue;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(x, (size.height - height) / 2, barWidth, height),
@@ -219,5 +254,7 @@ class _LiveWaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LiveWaveformPainter old) =>
-      old.amplitudes.length != amplitudes.length || old.color != color;
+      old.amplitudes.length != amplitudes.length ||
+      old.fraction != fraction ||
+      old.color != color;
 }

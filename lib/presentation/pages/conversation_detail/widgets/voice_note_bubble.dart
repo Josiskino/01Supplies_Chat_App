@@ -49,12 +49,20 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble>
     _controller.addStatusListener(_onStatus);
   }
 
+  /// Avancement de la tête de lecture, exposé pour les tests.
+  @visibleForTesting
+  double get playbackProgress => _controller.value;
+
   void _onStatus(AnimationStatus status) {
     if (!mounted) return;
-    if (status == AnimationStatus.completed ||
-        status == AnimationStatus.dismissed) {
-      setState(() {});
+    if (status == AnimationStatus.completed) {
+      // Remise à zéro en fin de lecture : la forme d'onde repart vierge et le
+      // message redevient « à écouter ». Laissée pleine, elle donnait un
+      // message définitivement barré, et le prochain appui semblait sans effet
+      // le temps que la tête reparte du début.
+      _controller.value = 0;
     }
+    setState(() {});
   }
 
   @override
@@ -160,25 +168,41 @@ class _WaveformPainter extends CustomPainter {
     const gap = 2.0;
     const step = barWidth + gap;
     final count = (size.width / step).floor().clamp(1, amplitudes.length);
-    final playedUntil = count * progress;
 
-    for (var i = 0; i < count; i++) {
-      // Rééchantillonnage : la forme d'onde stockée est plus fine que le nombre
-      // de barres qui tiennent dans la bulle.
-      final amplitude = amplitudes[(i * amplitudes.length / count).floor()];
-      // Hauteur plancher : une barre nulle laisserait un trou dans le tracé.
-      final height = (size.height * amplitude).clamp(3.0, size.height);
-      final x = i * step;
-      final top = (size.height - height) / 2;
-
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, top, barWidth, height),
-          const Radius.circular(1.5),
-        ),
-        Paint()..color = i < playedUntil ? played : pending,
-      );
+    void drawBars(Paint paint) {
+      for (var i = 0; i < count; i++) {
+        // Rééchantillonnage : la forme d'onde stockée est plus fine que le
+        // nombre de barres qui tiennent dans la bulle.
+        final amplitude = amplitudes[(i * amplitudes.length / count).floor()];
+        // Hauteur plancher : une barre nulle laisserait un trou dans le tracé.
+        final height = (size.height * amplitude).clamp(3.0, size.height);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+              i * step,
+              (size.height - height) / 2,
+              barWidth,
+              height,
+            ),
+            const Radius.circular(1.5),
+          ),
+          paint,
+        );
+      }
     }
+
+    // Deux passes et un découpage au pixel, plutôt qu'une couleur choisie barre
+    // par barre. Comparer l'index à une progression fait basculer une barre
+    // entière d'un coup : sur une trentaine de barres pour quatorze secondes,
+    // la tête de lecture avançait par à-coups d'une demi-seconde. Le découpage
+    // colore la barre en cours **partiellement**, et le mouvement devient
+    // continu.
+    drawBars(Paint()..color = pending);
+
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width * progress, size.height));
+    drawBars(Paint()..color = played);
+    canvas.restore();
   }
 
   @override
