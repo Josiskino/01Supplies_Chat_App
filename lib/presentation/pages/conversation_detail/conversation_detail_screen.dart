@@ -59,6 +59,16 @@ class _ConversationDetailScreenState
   /// Bascule le composer vers la barre d'enregistrement.
   bool _recording = false;
 
+  /// Une clé par message, pour pouvoir défiler jusqu'à lui.
+  ///
+  /// `Scrollable.ensureVisible` a besoin du `BuildContext` de la cible : il faut
+  /// donc une clé montée sur la bulle elle-même, qu'aucun index de liste ne peut
+  /// remplacer.
+  final Map<String, GlobalKey> _messageKeys = {};
+
+  /// Message mis en évidence après un retour depuis une citation.
+  String? _highlighted;
+
   @override
   void initState() {
     super.initState();
@@ -144,14 +154,42 @@ class _ConversationDetailScreenState
   void _startReply(ChatMessageData message) {
     setState(() {
       _replyTo = ChatReplyPreview(
+        messageId: message.id,
         author: message.isMine
             ? 'Vous'
             : (message.senderName ?? _conversation.name),
-        // Une note vocale n'a pas de texte à citer : on cite son nature.
+        // Une note vocale n'a pas de texte à citer : on cite sa nature.
         text: message.isVoice ? 'Note vocale' : message.text,
         isVoice: message.isVoice,
       );
     });
+  }
+
+  /// Remonte au message cité et le signale brièvement.
+  ///
+  /// Le simple défilement ne suffit pas : arrivé en haut d'un fil dense, rien ne
+  /// dit *lequel* des messages visibles était celui qu'on cherchait. Le
+  /// surlignage répond à cette question, puis s'efface pour ne pas rester comme
+  /// un état.
+  Future<void> _scrollToMessage(String id) async {
+    final key = _messageKeys[id];
+    final context = key?.currentContext;
+    if (context == null) return;
+
+    await Scrollable.ensureVisible(
+      context,
+      duration: DesignTokens.durationSlow,
+      curve: Curves.easeOutCubic,
+      // Un peu au-dessus du bord : collé en haut, le message se retrouverait
+      // sous la barre de navigation.
+      alignment: 0.3,
+    );
+    if (!mounted) return;
+
+    setState(() => _highlighted = id);
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+    setState(() => _highlighted = null);
   }
 
   void _sendVoice(VoiceNoteData voice) {
@@ -310,29 +348,47 @@ class _ConversationDetailScreenState
     final message = _withSender(_messages[index]);
 
     final position = _groupPosition(index);
+    final key = _messageKeys.putIfAbsent(message.id, GlobalKey.new);
+
+    // Deux exemplaires distincts, et c'est nécessaire : celui de la liste porte
+    // une `GlobalKey` — indispensable pour `ensureVisible` — et une clé ne peut
+    // être montée qu'à un seul endroit. Passer ce même widget au panneau
+    // d'actions la dupliquait, et la mise en page partait en contraintes
+    // infinies.
     final bubble = ChatBubble(
       message: message,
       isFirstOfGroup: position.isFirst,
       isLastOfGroup: position.isLast,
       showStatus: index == _lastSentIndex,
+      onTapQuote: _scrollToMessage,
+    );
+
+    final keyed = KeyedSubtree(
+      key: key,
+      child: _Highlightable(active: _highlighted == message.id, child: bubble),
     );
 
     // L'indicateur de saisie n'est pas un message : rien à citer, à copier ni
     // sur quoi réagir.
-    if (message.isTyping) return bubble;
+    if (message.isTyping) return keyed;
 
     return SwipeToReply(
       onReply: () => _startReply(message),
       child: GestureDetector(
         onLongPress: () => showMessageActions(
           context: context,
-          bubble: bubble,
+          // L'exemplaire sans clé : le panneau en affiche une copie.
+          bubble: ChatBubble(
+            message: message,
+            isFirstOfGroup: position.isFirst,
+            isLastOfGroup: position.isLast,
+          ),
           isMine: message.isMine,
           selectedReaction: message.reaction,
           actions: _messageActions(context, message),
           onReact: (emoji) => _react(message, emoji),
         ),
-        child: bubble,
+        child: keyed,
       ),
     );
   }
@@ -416,6 +472,32 @@ class _ConversationHeaderTitle extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Voile passager posé sur une bulle qu'on vient de rejoindre.
+///
+/// Un fond translucide plutôt qu'une bordure : la bulle a déjà la sienne, et
+/// deux traits concurrents se lisent comme un défaut d'alignement.
+class _Highlightable extends StatelessWidget {
+  const _Highlightable({required this.child, required this.active});
+
+  final Widget child;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: DesignTokens.durationSlow,
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: active
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.14)
+            : Colors.transparent,
+        borderRadius: DesignTokens.borderRadiusM,
+      ),
+      child: child,
     );
   }
 }

@@ -9,12 +9,14 @@ import 'package:supplies_chat_app/core/platform/platform_ui_provider.dart';
 import 'package:supplies_chat_app/core/utils/chat_date_formatter.dart';
 import 'package:supplies_chat_app/flavors.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/conversation_detail_screen.dart';
+import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets/chat_bubble.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets/reaction_bar.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets/sticky_date_list.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets/swipe_to_reply.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets/voice_note_bubble.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets/voice_recorder_bar.dart';
 import 'package:supplies_chat_app/presentation/shared/fixtures/conversation_fixtures.dart';
+import 'package:supplies_chat_app/presentation/shared/models/conversation_view_data.dart';
 
 /// Couvre les quatre comportements portés depuis l'app cliente : séparateurs de
 /// jour, réponse par glissement, réactions à l'appui long, note vocale.
@@ -114,5 +116,47 @@ void main() {
     expect(find.byType(ReactionBar), findsOneWidget);
     expect(find.text('Répondre'), findsOneWidget);
     expect(find.text('Copier'), findsOneWidget);
+  });
+
+  testWidgets('la citation renvoie vers le message d’origine', (tester) async {
+    await pump(tester);
+
+    // La citation porte l'identifiant de sa cible : sans lui elle serait
+    // affichée mais inerte, ce qui est le défaut le plus courant du motif.
+    final quoted = ConversationFixtures.datedThread
+        .firstWhere((m) => m.replyTo != null)
+        .replyTo!;
+    expect(quoted.messageId, isNotNull);
+    expect(
+      ConversationFixtures.datedThread.any((m) => m.id == quoted.messageId),
+      isTrue,
+      reason: 'la citation doit désigner un message qui existe',
+    );
+  });
+
+  testWidgets('une réaction est posée à cheval sur la bulle', (tester) async {
+    // Testée sur la bulle seule : celle des fixtures est sur un message de la
+    // veille, donc hors du viewport au premier rendu.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ChatBubble(
+            message: ChatMessageData(
+              id: 'm1',
+              text: 'Ça me paraît bien',
+              timeLabel: '09:28',
+              isMine: false,
+              reaction: '❤️',
+            ),
+            contactName: 'Kofi',
+            isFirstOfGroup: true,
+            isLastOfGroup: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('❤️'), findsOneWidget);
   });
 }

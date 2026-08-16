@@ -708,6 +708,9 @@ abstract final class ConversationFixtures {
         text: "Oui, c'est fait. Dans l'ensemble tout est cohérent",
         isMine: true,
         replyTo: const ChatReplyPreview(
+          // Désigne m9 : sans identifiant, la citation s'affiche mais reste
+          // inerte au toucher.
+          messageId: 'm9',
           author: 'Kofi Adjei',
           text: 'Avez-vous eu le temps de regarder les adresses ?',
         ),

@@ -145,8 +145,15 @@ class ChatReplyPreview {
   const ChatReplyPreview({
     required this.author,
     required this.text,
+    this.messageId,
     this.isVoice = false,
   });
+
+  /// Identifiant du message cité, pour pouvoir y remonter d'un tap.
+  ///
+  /// Nullable : le message d'origine peut avoir été supprimé, et la citation
+  /// reste alors affichée mais devient inerte.
+  final String? messageId;
 
   final String author;
   final String text;

@@ -25,6 +25,7 @@ class ChatBubble extends StatelessWidget {
     required this.isFirstOfGroup,
     required this.isLastOfGroup,
     this.showStatus = false,
+    this.onTapQuote,
     this.contactName = '',
   });
 
@@ -42,7 +43,13 @@ class ChatBubble extends StatelessWidget {
   /// répéter transformerait la colonne de droite en litanie de « Distribué ».
   final bool showStatus;
 
+  /// Appelé au tap sur la citation, avec l'identifiant du message d'origine.
+  final ValueChanged<String>? onTapQuote;
+
   final String contactName;
+
+  /// Débordement de la pastille de réaction sous la bulle.
+  static const double _reactionOverhang = 12;
 
   static const double _avatarSize = 28;
   static const double _avatarGutter = _avatarSize + DesignTokens.spaceS;
@@ -98,103 +105,110 @@ class ChatBubble extends StatelessWidget {
                     ),
               ),
             ),
-          Row(
-            mainAxisAlignment: isMine
-                ? MainAxisAlignment.end
-                : MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: isMine ? Alignment.bottomRight : Alignment.bottomLeft,
             children: [
-              if (!isMine)
-                SizedBox(
-                  width: _avatarGutter,
-                  // La gouttière est réservée même sans avatar : sans elle, les
-                  // bulles d'une même série ne seraient pas alignées.
-                  child: isLastOfGroup
-                      ? PresenceAvatar(
-                          name: message.senderName ?? contactName,
-                          avatarUrl: message.avatarUrl,
-                          size: _avatarSize,
-                        )
-                      : null,
+              Padding(
+                // Place réservée sous la bulle pour la moitié basse de la
+                // pastille : sans elle, `Clip.none` la ferait bien déborder,
+                // mais elle chevaucherait le message suivant.
+                padding: EdgeInsets.only(
+                  bottom: message.reaction != null ? _reactionOverhang : 0,
                 ),
-              Flexible(
-                child: Container(
-                  constraints: BoxConstraints(
-                    // Une bulle qui traverse tout l'écran empêche de distinguer
-                    // l'émetteur d'un coup d'œil.
-                    maxWidth: MediaQuery.sizeOf(context).width * 0.72,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: DesignTokens.spaceM + 2,
-                    vertical: DesignTokens.spaceS + 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: background,
-                    borderRadius: radius,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (message.replyTo != null)
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: DesignTokens.spaceS,
-                          ),
-                          child: _QuotedMessage(
-                            reply: message.replyTo!,
-                            foreground: foreground,
-                            isMine: isMine,
-                          ),
+                child: Row(
+                  mainAxisAlignment: isMine
+                      ? MainAxisAlignment.end
+                      : MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (!isMine)
+                      SizedBox(
+                        width: _avatarGutter,
+                        // La gouttière est réservée même sans avatar : sans elle, les
+                        // bulles d'une même série ne seraient pas alignées.
+                        child: isLastOfGroup
+                            ? PresenceAvatar(
+                                name: message.senderName ?? contactName,
+                                avatarUrl: message.avatarUrl,
+                                size: _avatarSize,
+                              )
+                            : null,
+                      ),
+                    Flexible(
+                      child: Container(
+                        constraints: BoxConstraints(
+                          // Une bulle qui traverse tout l'écran empêche de distinguer
+                          // l'émetteur d'un coup d'œil.
+                          maxWidth: MediaQuery.sizeOf(context).width * 0.72,
                         ),
-                      if (message.isTyping)
-                        const TypingDots()
-                      else if (message.isVoice)
-                        VoiceNoteBubble(
-                          voice: message.voice!,
-                          foreground: foreground,
-                          // Sur une bulle émise, l'accent de marque se
-                          // confondrait avec son fond : la partie lue est donc
-                          // peinte dans la couleur du texte.
-                          accent: isMine
-                              ? foreground
-                              : theme.colorScheme.primary,
-                        )
-                      else
-                        Text(
-                          message.text,
-                          style: theme.textTheme.bodyMedium
-                              ?.merge(AppleType.body)
-                              .copyWith(color: foreground),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: DesignTokens.spaceM + 2,
+                          vertical: DesignTokens.spaceS + 2,
                         ),
-                    ],
-                  ),
+                        decoration: BoxDecoration(
+                          color: background,
+                          borderRadius: radius,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (message.replyTo != null)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: DesignTokens.spaceS,
+                                ),
+                                child: _QuotedMessage(
+                                  reply: message.replyTo!,
+                                  foreground: foreground,
+                                  isMine: isMine,
+                                  onTap: onTapQuote,
+                                ),
+                              ),
+                            if (message.isTyping)
+                              const TypingDots()
+                            else if (message.isVoice)
+                              VoiceNoteBubble(
+                                voice: message.voice!,
+                                foreground: foreground,
+                                // Sur une bulle émise, l'accent de marque se
+                                // confondrait avec son fond : la partie lue est donc
+                                // peinte dans la couleur du texte.
+                                accent: isMine
+                                    ? foreground
+                                    : theme.colorScheme.primary,
+                              )
+                            else
+                              Text(
+                                message.text,
+                                style: theme.textTheme.bodyMedium
+                                    ?.merge(AppleType.body)
+                                    .copyWith(color: foreground),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              if (message.reaction != null)
+                Positioned(
+                  bottom: 0,
+                  right: isMine ? DesignTokens.spaceM : null,
+                  left: isMine ? null : _avatarGutter + DesignTokens.spaceM,
+                  child: _ReactionChip(
+                    // La clé porte l'emoji : en changer remonte le widget, et
+                    // l'animation rejoue. Sans elle, remplacer 👍 par ❤️
+                    // échangerait le glyphe sans que rien ne bouge.
+                    key: ValueKey(message.reaction),
+                    emoji: message.reaction!,
+                    isDark: isDark,
+                  ),
+                ),
             ],
           ),
-          if (message.reaction != null)
-            Padding(
-              padding: EdgeInsets.only(
-                left: isMine ? 0 : _avatarGutter + DesignTokens.spaceS,
-                right: isMine ? DesignTokens.spaceS : 0,
-                top: 2,
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2C2C34) : Colors.white,
-                  borderRadius: DesignTokens.borderRadiusPill,
-                  border: Border.all(
-                    color: DesignTokens.getBorderColor(isDark, opacity: 0.12),
-                  ),
-                ),
-                child: Text(
-                  message.reaction!,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ),
           if (isMine && (showStatus || message.status == MessageStatus.failed))
             Padding(
               padding: const EdgeInsets.only(
@@ -255,6 +269,67 @@ class _StatusLabel extends StatelessWidget {
                 ? FontWeight.w600
                 : FontWeight.w400,
           ),
+    );
+  }
+}
+
+/// Pastille de réaction, posée à cheval sur le bord bas de la bulle.
+///
+/// Chevaucher plutôt que suivre : détachée sous la bulle, la pastille flottait
+/// entre deux messages sans qu'on sache lequel elle qualifiait. C'est la
+/// disposition d'iOS et de WhatsApp, et elle répond seule à la question.
+class _ReactionChip extends StatefulWidget {
+  const _ReactionChip({super.key, required this.emoji, required this.isDark});
+
+  final String emoji;
+  final bool isDark;
+
+  @override
+  State<_ReactionChip> createState() => _ReactionChipState();
+}
+
+class _ReactionChipState extends State<_ReactionChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 320),
+  )..forward();
+
+  late final Animation<double> _scale = CurvedAnimation(
+    parent: _controller,
+    // Rebond à l'arrivée : la réaction est un accusé de réception, elle doit se
+    // voir sans qu'on ait à la chercher. Une apparition en fondu seul passerait
+    // inaperçue sur une pastille de cette taille.
+    curve: Curves.elasticOut,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scale,
+      child: FadeTransition(
+        opacity: _controller.drive(CurveTween(curve: Curves.easeOut)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: widget.isDark ? const Color(0xFF2C2C34) : Colors.white,
+            borderRadius: DesignTokens.borderRadiusPill,
+            // Anneau de la couleur du fond : c'est lui qui détache la pastille
+            // de la bulle qu'elle recouvre.
+            border: Border.all(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              width: 2,
+            ),
+          ),
+          child: Text(widget.emoji, style: const TextStyle(fontSize: 13)),
+        ),
+      ),
     );
   }
 }
@@ -356,11 +431,13 @@ class _QuotedMessage extends StatelessWidget {
     required this.reply,
     required this.foreground,
     required this.isMine,
+    this.onTap,
   });
 
   final ChatReplyPreview reply;
   final Color foreground;
   final bool isMine;
+  final ValueChanged<String>? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -370,53 +447,64 @@ class _QuotedMessage extends StatelessWidget {
     // violet.
     final tint = foreground.withValues(alpha: 0.12);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: tint,
-        borderRadius: DesignTokens.borderRadiusS,
-        border: BorderDirectional(
-          start: BorderSide(color: foreground.withValues(alpha: 0.5), width: 3),
+    return GestureDetector(
+      // Toucher la citation ramène au message d'origine : c'est le geste que
+      // tout le monde essaie, et sans lui la citation n'est qu'une image.
+      onTap: reply.messageId == null
+          ? null
+          : () => onTap?.call(reply.messageId!),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: tint,
+          borderRadius: DesignTokens.borderRadiusS,
+          border: BorderDirectional(
+            start: BorderSide(
+              color: foreground.withValues(alpha: 0.5),
+              width: 3,
+            ),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            reply.author,
-            style: theme.textTheme.labelSmall
-                ?.merge(AppleType.caption2)
-                .copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: foreground.withValues(alpha: 0.9),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              reply.author,
+              style: theme.textTheme.labelSmall
+                  ?.merge(AppleType.caption2)
+                  .copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: foreground.withValues(alpha: 0.9),
+                  ),
+            ),
+            const SizedBox(height: 1),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (reply.isVoice) ...[
+                  Icon(
+                    CupertinoIcons.mic_fill,
+                    size: 11,
+                    color: foreground.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: 3),
+                ],
+                Flexible(
+                  child: Text(
+                    reply.text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall
+                        ?.merge(AppleType.caption1)
+                        .copyWith(color: foreground.withValues(alpha: 0.65)),
+                  ),
                 ),
-          ),
-          const SizedBox(height: 1),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (reply.isVoice) ...[
-                Icon(
-                  CupertinoIcons.mic_fill,
-                  size: 11,
-                  color: foreground.withValues(alpha: 0.6),
-                ),
-                const SizedBox(width: 3),
               ],
-              Flexible(
-                child: Text(
-                  reply.text,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall
-                      ?.merge(AppleType.caption1)
-                      .copyWith(color: foreground.withValues(alpha: 0.65)),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
