@@ -106,30 +106,15 @@ class _CupertinoConversationRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Pastille de non-lu à gauche de l'avatar : c'est la convention iOS,
-            // là où Material la place à droite du nom.
-            SizedBox(
-              width: 20,
-              child: data.hasUnread
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 18),
-                      child: Center(
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    )
-                  : null,
-            ),
+            const SizedBox(width: DesignTokens.spaceS),
             PresenceAvatar(
               name: data.name,
               avatarUrl: data.avatarUrl,
-              presence: data.presence,
+              // Pas de pastille de présence dans la liste : elle se logeait sur
+              // le bord de l'avatar, où l'œil la confondait avec le point de
+              // non-lu. Le statut reste visible sur la fiche du contact et en
+              // tête de conversation, là où il sert vraiment.
+              presence: PresenceStatus.offline,
               size: DesignTokens.avatarL,
             ),
             const SizedBox(width: DesignTokens.spaceM),
@@ -191,15 +176,25 @@ class _CupertinoConversationRow extends StatelessWidget {
                   style: theme.textTheme.bodySmall
                       ?.merge(AppleType.footnote)
                       .copyWith(
-                        color: DesignTokens.getTextColorWithOpacity(
-                          context,
-                          0.45,
-                        ),
+                        // L'heure se teinte quand il reste des non-lus : le
+                        // compteur en dessous n'est plus la seule chose à
+                        // remarquer dans une liste de trente lignes.
+                        color: data.unreadCount > 0
+                            ? theme.colorScheme.primary
+                            : DesignTokens.getTextColorWithOpacity(
+                                context,
+                                0.45,
+                              ),
                       ),
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
+                    if (data.unreadCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: _UnreadBadge(count: data.unreadCount),
+                      ),
                     if (data.isStarred)
                       Padding(
                         padding: const EdgeInsets.only(right: 4),
@@ -351,6 +346,49 @@ class _MaterialConversationRow extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compteur de messages non lus.
+///
+/// Remplace le point de non-lu : à surface presque égale, il dit *combien* de
+/// messages attendent, ce qu'un point ne pouvait pas.
+///
+/// La pastille est un rectangle très arrondi et non un cercle fixe : au-delà de
+/// deux chiffres, un cercle force soit un texte rogné, soit un disque
+/// disproportionné. La largeur suit le contenu, la hauteur reste constante.
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({required this.count});
+
+  final int count;
+
+  static const double _height = 20;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      height: _height,
+      constraints: const BoxConstraints(minWidth: _height),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary,
+        borderRadius: BorderRadius.circular(_height / 2),
+      ),
+      child: Text(
+        // Au-delà de 99, le nombre exact n'aide plus personne à décider quoi
+        // ouvrir en premier.
+        count > 99 ? '99+' : '$count',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onPrimary,
+          fontSize: 12,
+          height: 1,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

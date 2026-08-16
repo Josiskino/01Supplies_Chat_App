@@ -77,6 +77,7 @@ abstract final class ConversationFixtures {
       timeLabel: '12:10',
       presence: PresenceStatus.online,
       hasUnread: true,
+      unreadCount: 3,
     ),
     ConversationListItemData(
       id: 'c2',
@@ -85,6 +86,7 @@ abstract final class ConversationFixtures {
       timeLabel: '10:21',
       presence: PresenceStatus.online,
       hasUnread: true,
+      unreadCount: 12,
     ),
     ConversationListItemData(
       id: 'c3',
