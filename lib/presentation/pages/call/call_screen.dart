@@ -163,6 +163,21 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     super.dispose();
   }
 
+  /// Réactions, ouvertes depuis « Plus ».
+  ///
+  /// Une rangée d'emojis posée en permanence occupait une bande entière au bas
+  /// de l'écran, alors qu'on y réagit une fois par appel. Elle est passée
+  /// derrière un bouton : la place revient aux visages, qui sont le sujet.
+  Future<void> _openReactions(BuildContext context) async {
+    const emojis = ['👏', '👍', '🎉', '💯', '🔥', '😮', '😂'];
+    final choice = await ref
+        .read(platformUiProvider)
+        .overlays
+        .pickOption(context: context, title: 'Réagir', labels: emojis);
+    if (choice == null || !mounted) return;
+    _react(emojis[choice]);
+  }
+
   void _react(String emoji) {
     setState(() => _flyingReaction = emoji);
     Future<void>.delayed(const Duration(milliseconds: 1400), () {
@@ -220,13 +235,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: DesignTokens.spaceL,
-                      ),
-                      child: CallReactionsBar(onReact: _react),
-                    ),
-                    const SizedBox(height: DesignTokens.spaceXl),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
                         horizontal: DesignTokens.spaceS,
                       ),
                       child: CallControlsBar(
@@ -239,7 +247,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                             setState(() => _isCameraOn = !_isCameraOn),
                         onHangUp: () => context.pop(),
                         onShowParticipants: () {},
-                        onMore: () {},
+                        onMore: () => _openReactions(context),
                       ),
                     ),
                     const SizedBox(height: DesignTokens.spaceL),
@@ -479,22 +487,29 @@ class _ParticipantConstellation extends StatelessWidget {
       );
     }
 
+    // Centrée dans la place disponible : ancrée en haut, elle laissait sous
+    // elle un vide de la moitié de l'écran. Le défilement reste là pour les
+    // appels nombreux, mais ne s'impose plus quand tout tient.
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(
         horizontal: DesignTokens.spaceL,
         vertical: DesignTokens.spaceXl,
       ),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: DesignTokens.spaceXl,
-        runSpacing: DesignTokens.spaceL,
-        children: [
-          for (var i = 0; i < slots.length; i++)
-            Transform.translate(
-              offset: Offset(0, _columnOffsets[i % _columnOffsets.length]),
-              child: slots[i],
-            ),
-        ],
+      // Sans cela, `Center` n'aurait aucun effet dans une zone défilante.
+      physics: const ClampingScrollPhysics(),
+      child: Center(
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: DesignTokens.spaceXl,
+          runSpacing: DesignTokens.spaceL,
+          children: [
+            for (var i = 0; i < slots.length; i++)
+              Transform.translate(
+                offset: Offset(0, _columnOffsets[i % _columnOffsets.length]),
+                child: slots[i],
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -67,23 +67,13 @@ void main() {
     expect(find.text('Activer'), findsOneWidget);
   });
 
-  testWidgets('une réaction traverse l’écran puis disparaît', (tester) async {
+  testWidgets('les réactions sont derrière le bouton « Plus »', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.text('🔥'));
-    await tester.pump();
-    // Deux exemplaires : celui de la barre et celui qui s'envole.
-    expect(find.text('🔥'), findsNWidgets(2));
-
-    // Pas de `pumpAndSettle` : le halo de parole ne s'arrête jamais, et
-    // l'attente ne rendrait pas la main.
-    await tester.pump(const Duration(milliseconds: 1500));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      find.text('🔥'),
-      findsOneWidget,
-      reason: 'la réaction est un événement, elle ne doit pas rester affichée',
-    );
+    // La rangée permanente occupait une bande entière au bas de l'écran pour
+    // un geste qu'on fait une fois par appel.
+    expect(find.text('🔥'), findsNothing);
+    expect(find.text('Plus'), findsOneWidget);
   });
 
   testWidgets('le raccroché est distinct des autres contrôles', (tester) async {

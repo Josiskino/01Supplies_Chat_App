@@ -5,53 +5,6 @@ import 'package:flutter/services.dart';
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 
-/// Réactions rapides envoyées pendant l'appel.
-///
-/// Une rangée d'emojis toujours visible, sans menu à ouvrir : pendant un appel,
-/// les mains sont prises et l'attention est ailleurs. Réagir doit coûter un
-/// seul geste.
-class CallReactionsBar extends StatelessWidget {
-  const CallReactionsBar({
-    super.key,
-    required this.onReact,
-    this.emojis = const ['👏', '👍', '🎉', '💯', '🔥', '😮', '😂'],
-  });
-
-  final ValueChanged<String> onReact;
-  final List<String> emojis;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.spaceS,
-        vertical: DesignTokens.spaceS,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: DesignTokens.borderRadiusL,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          for (final emoji in emojis)
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                onReact(emoji);
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                child: Text(emoji, style: const TextStyle(fontSize: 26)),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Barre de contrôles de l'appel.
 ///
 /// Le bouton de raccroché est au centre, plus gros et rouge : c'est la seule

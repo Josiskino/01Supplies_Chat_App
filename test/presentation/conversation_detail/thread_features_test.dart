@@ -46,15 +46,15 @@ void main() {
   }
 
   group('séparateurs de jour', () {
-    test('les fixtures couvrent deux jours', () {
+    test('le fil s’étale sur plusieurs jours', () {
       final days = ConversationFixtures.datedThread
           .map((m) => ChatDateFormatter.dayKey(m.sentAt!))
           .toSet();
-      expect(
-        days,
-        hasLength(2),
-        reason: 'sans deux jours, aucun séparateur ne se voit',
-      );
+      // Plusieurs journées et assez de messages pour que le fil défile : la
+      // pilule de date flottante ne se voit pas sur une conversation qui tient
+      // dans un écran.
+      expect(days.length, greaterThanOrEqualTo(3));
+      expect(ConversationFixtures.datedThread.length, greaterThan(20));
     });
 
     test('les horodatages sont relatifs à maintenant', () {

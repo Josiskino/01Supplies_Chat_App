@@ -589,6 +589,8 @@ abstract final class ConversationFixtures {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
+    final twoDaysAgo = today.subtract(const Duration(days: 2));
+    final lastWeek = today.subtract(const Duration(days: 5));
 
     ChatMessageData at(
       DateTime day,
@@ -617,6 +619,99 @@ abstract final class ConversationFixtures {
     }
 
     return [
+      at(
+        lastWeek,
+        8,
+        12,
+        id: 'w1',
+        text: 'Bonjour Kofi, je prends la suite du dossier de Mariam',
+        isMine: true,
+      ),
+      at(
+        lastWeek,
+        8,
+        15,
+        id: 'w2',
+        text: 'Bonjour ! Parfait, elle m’avait prévenu',
+        isMine: false,
+      ),
+      at(
+        lastWeek,
+        8,
+        16,
+        id: 'w3',
+        text: 'Vous avez le récapitulatif des trois derniers enlèvements ?',
+        isMine: false,
+      ),
+      at(
+        lastWeek,
+        8,
+        22,
+        id: 'w4',
+        text: 'Oui, je vous l’envoie dans la journée',
+        isMine: true,
+      ),
+      at(
+        lastWeek,
+        14,
+        5,
+        id: 'w5',
+        text: 'Reçu, merci beaucoup',
+        isMine: false,
+        reaction: '👍',
+      ),
+      at(
+        twoDaysAgo,
+        7,
+        45,
+        id: 'd1',
+        text:
+            'Petit point avant la tournée : deux colis sont en attente au '
+            'dépôt nord',
+        isMine: false,
+      ),
+      at(
+        twoDaysAgo,
+        7,
+        52,
+        id: 'd2',
+        text: 'Je les ajoute au passage de 10 h',
+        isMine: true,
+      ),
+      at(
+        twoDaysAgo,
+        7,
+        53,
+        id: 'd3',
+        text: 'Le client a été prévenu ?',
+        isMine: true,
+      ),
+      at(
+        twoDaysAgo,
+        8,
+        1,
+        id: 'd4',
+        text: 'Pas encore, je m’en occupe tout de suite',
+        isMine: false,
+      ),
+      at(
+        twoDaysAgo,
+        8,
+        40,
+        id: 'd5',
+        text: 'C’est fait, il attend entre 10 h et 12 h',
+        isMine: false,
+      ),
+      at(twoDaysAgo, 9, 2, id: 'd6', text: 'Nickel, merci', isMine: true),
+      at(
+        twoDaysAgo,
+        16,
+        30,
+        id: 'd7',
+        text: 'Les deux colis sont partis, tout s’est bien passé',
+        isMine: false,
+        reaction: '🎉',
+      ),
       at(
         yesterday,
         9,
