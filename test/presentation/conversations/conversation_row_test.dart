@@ -1,4 +1,3 @@
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,21 +61,27 @@ void main() {
       expect(find.byIcon(CupertinoIcons.chevron_right), findsNothing);
     });
 
-    testWidgets('iOS enveloppe la ligne du menu contextuel du système', (
-      tester,
-    ) async {
+    testWidgets('l’appui long ouvre le panneau d’actions', (tester) async {
       await pumpRow(tester, platform: AppPlatform.ios);
 
-      // Le menu iOS vient du package : appui long, flou d'arrière-plan et aperçu
-      // agrandi. On vérifie que le bon chemin de code est pris, pas le rendu
-      // natif — impossible à observer hors appareil.
-      expect(find.byType(AdaptiveContextMenu), findsOneWidget);
+      // Le panneau maison a remplacé `CupertinoContextMenu`, qui extrait son
+      // enfant de l'arbre et lui fait perdre ses contraintes de largeur. Un
+      // seul panneau sert désormais la liste et le fil de discussion.
+      await tester.longPress(find.text('Kofi Adjei'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Archiver'), findsOneWidget);
+      expect(find.text('Supprimer'), findsOneWidget);
     });
 
-    testWidgets('Android n\'utilise pas le menu iOS', (tester) async {
+    testWidgets('les deux plateformes ouvrent le même panneau', (tester) async {
       await pumpRow(tester, platform: AppPlatform.android);
 
-      expect(find.byType(AdaptiveContextMenu), findsNothing);
+      // Le panneau ne dépend plus de la plateforme : c'est le contenu qui
+      // change, pas le contenant.
+      await tester.longPress(find.text('Kofi Adjei'));
+      await tester.pumpAndSettle();
+      expect(find.text('Archiver'), findsOneWidget);
       // Le menu Material est ouvert par `showMenu` au long press : il n'existe
       // pas dans l'arbre avant le geste.
       expect(find.byType(GestureDetector), findsWidgets);

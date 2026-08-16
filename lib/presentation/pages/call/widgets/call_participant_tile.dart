@@ -53,9 +53,11 @@ class CallParticipantTile extends StatelessWidget {
                     top: -size * 0.55,
                     child: SpeakingAura(
                       size: size,
-                      color: participant.isSelf
-                          ? theme.colorScheme.primary
-                          : CupertinoColors.systemGreen,
+                      // La teinte de la pastille : le halo doit paraître émaner
+                      // de l'avatar. Un vert uniforme pour tout le monde en
+                      // faisait un badge posé par-dessus, sans lien avec la
+                      // personne qui parle.
+                      color: PresenceAvatar.colorForName(participant.name),
                     ),
                   ),
                 _Jitter(

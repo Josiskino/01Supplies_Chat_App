@@ -195,16 +195,27 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                       subtitle: _session.subtitle,
                     ),
                     Expanded(
-                      child: _ParticipantConstellation(
-                        participants: _participants,
-                        freeSlots: _session.freeSlots,
-                        isEditing: _editing,
-                        onInvite: _invite,
-                        onRemove: _confirmRemove,
-                        // L'appui long arme le retrait, comme la
-                        // réorganisation d'icônes sur iOS.
-                        onLongPressParticipant: () =>
-                            setState(() => _editing = true),
+                      // Toucher le vide autour des avatars quitte le mode
+                      // retrait. Un détecteur plein écran posé sous le contenu
+                      // ne suffisait pas : la zone de défilement captait le tap
+                      // avant lui, et il fallait retirer quelqu'un pour sortir
+                      // du mode.
+                      child: GestureDetector(
+                        onTap: _editing
+                            ? () => setState(() => _editing = false)
+                            : null,
+                        behavior: HitTestBehavior.opaque,
+                        child: _ParticipantConstellation(
+                          participants: _participants,
+                          freeSlots: _session.freeSlots,
+                          isEditing: _editing,
+                          onInvite: _invite,
+                          onRemove: _confirmRemove,
+                          // L'appui long arme le retrait, comme la
+                          // réorganisation d'icônes sur iOS.
+                          onLongPressParticipant: () =>
+                              setState(() => _editing = true),
+                        ),
                       ),
                     ),
                     Padding(

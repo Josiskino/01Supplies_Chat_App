@@ -7,6 +7,7 @@ import 'package:iconsax/iconsax.dart';
 
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
+import '../../../core/constants/app_images.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
@@ -15,7 +16,7 @@ import '../../desktop/widgets/presence_avatar.dart';
 import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
 import 'widgets/chat_bubble.dart';
-import 'widgets/message_actions_overlay.dart';
+import '../../widgets/common/context_actions_panel.dart';
 import 'widgets/message_composer.dart';
 import 'widgets/sticky_date_list.dart';
 import 'widgets/swipe_to_reply.dart';
@@ -292,6 +293,7 @@ class _ConversationDetailScreenState
   Widget build(BuildContext context) {
     final platformUi = ref.watch(platformUiProvider);
     final isApple = platformUi.platform.isApple;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final conversation = _conversation;
 
     return platformUi.shell.buildPage(
@@ -307,36 +309,59 @@ class _ConversationDetailScreenState
               context.push(AppUiRoute.call, extra: conversation.name),
         ),
       ],
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: StickyDateList(
-              now: DateTime.now(),
-              padding: const EdgeInsets.symmetric(
-                vertical: DesignTokens.spaceM,
+          // Motif de fond, comme dans WhatsApp. Répété plutôt qu'étiré : une
+          // image unique déformée sur un iPad n'aurait plus rien du dessin
+          // d'origine.
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Opacity(
+                // Discret : le motif doit se deviner derrière les bulles, pas
+                // concurrencer le texte qu'elles portent.
+                opacity: isDark ? 0.5 : 0.7,
+                child: Image.asset(
+                  isDark
+                      ? AppImages.chatPatternDark
+                      : AppImages.chatPatternLight,
+                  repeat: ImageRepeat.repeat,
+                  alignment: Alignment.topLeft,
+                ),
               ),
-              messages: [
-                for (var i = 0; i < _messages.length; i++)
-                  DatedMessage(
-                    sentAt: _messages[i].sentAt ?? DateTime.now(),
-                    child: _buildBubble(context, platformUi, i),
-                  ),
-              ],
             ),
           ),
-          if (_recording)
-            VoiceRecorderBar(
-              onSend: _sendVoice,
-              onCancel: () => setState(() => _recording = false),
-            )
-          else
-            MessageComposer(
-              onSend: _send,
-              placeholder: 'Écrire un message…',
-              replyTo: _replyTo,
-              onCancelReply: () => setState(() => _replyTo = null),
-              onRecordVoice: () => setState(() => _recording = true),
-            ),
+          Column(
+            children: [
+              Expanded(
+                child: StickyDateList(
+                  now: DateTime.now(),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: DesignTokens.spaceM,
+                  ),
+                  messages: [
+                    for (var i = 0; i < _messages.length; i++)
+                      DatedMessage(
+                        sentAt: _messages[i].sentAt ?? DateTime.now(),
+                        child: _buildBubble(context, platformUi, i),
+                      ),
+                  ],
+                ),
+              ),
+              if (_recording)
+                VoiceRecorderBar(
+                  onSend: _sendVoice,
+                  onCancel: () => setState(() => _recording = false),
+                )
+              else
+                MessageComposer(
+                  onSend: _send,
+                  placeholder: 'Écrire un message…',
+                  replyTo: _replyTo,
+                  onCancelReply: () => setState(() => _replyTo = null),
+                  onRecordVoice: () => setState(() => _recording = true),
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -379,15 +404,15 @@ class _ConversationDetailScreenState
     return SwipeToReply(
       onReply: () => _startReply(message),
       child: GestureDetector(
-        onLongPress: () => showMessageActions(
+        onLongPress: () => showContextActions(
           context: context,
           // L'exemplaire sans clé : le panneau en affiche une copie.
-          bubble: ChatBubble(
+          preview: ChatBubble(
             message: message,
             isFirstOfGroup: position.isFirst,
             isLastOfGroup: position.isLast,
           ),
-          isMine: message.isMine,
+          alignEnd: message.isMine,
           selectedReaction: message.reaction,
           actions: _messageActions(context, message),
           onReact: (emoji) => _react(message, emoji),

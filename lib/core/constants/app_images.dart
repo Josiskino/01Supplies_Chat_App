@@ -17,4 +17,12 @@ class AppImages {
   /// voir qu'une bande verticale, amputée de ses deux lobes.
   static const String authBackgroundWide =
       'assets/images/auth_background_wide.jpg';
+
+  /// Motif de fond du fil de discussion, en clair et en sombre.
+  ///
+  /// Deux fichiers plutôt qu'un seul teinté : le motif dessine des traits fins
+  /// dont la couleur change de rôle entre les deux thèmes. Un simple filtre de
+  /// couleur les aurait rendus gris dans un cas et illisibles dans l'autre.
+  static const String chatPatternLight = 'assets/images/chat_pattern_light.png';
+  static const String chatPatternDark = 'assets/images/chat_pattern_dark.png';
 }

@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supplies_chat_app/presentation/pages/call/call_screen.dart';
 import 'package:supplies_chat_app/presentation/pages/call/widgets/call_backdrop.dart';
 import 'package:supplies_chat_app/presentation/pages/call/widgets/call_controls_bar.dart';
+import 'package:supplies_chat_app/presentation/desktop/widgets/presence_avatar.dart';
 import 'package:supplies_chat_app/presentation/pages/call/widgets/call_participant_tile.dart';
+import 'package:supplies_chat_app/presentation/pages/call/widgets/speaking_aura.dart';
 import 'package:supplies_chat_app/presentation/shared/fixtures/call_fixtures.dart';
 
 /// Couvre l'écran d'appel de groupe.
@@ -179,5 +181,40 @@ void main() {
 
     // Le repère d'échange de plans signale que la vignette est cliquable.
     expect(find.byIcon(CupertinoIcons.arrow_2_squarepath), findsOneWidget);
+  });
+
+  testWidgets('toucher le vide quitte le mode retrait', (tester) async {
+    await pump(tester);
+
+    bool editing() => tester
+        .widgetList<CallParticipantTile>(find.byType(CallParticipantTile))
+        .any((t) => t.isEditing);
+
+    await tester.longPress(find.text('@awa'));
+    await tester.pump();
+    expect(editing(), isTrue);
+
+    // Le sujet de l'appel est hors de la constellation : on tape à côté des
+    // avatars, pas sur l'un d'eux.
+    await tester.tapAt(const Offset(200, 430));
+    await tester.pump();
+    expect(
+      editing(),
+      isFalse,
+      reason: 'sans porte de sortie, il faudrait retirer quelqu’un pour sortir',
+    );
+  });
+
+  testWidgets('le halo reprend la couleur de l’avatar', (tester) async {
+    await pump(tester);
+
+    final speaking = tester
+        .widgetList<CallParticipantTile>(find.byType(CallParticipantTile))
+        .firstWhere((t) => t.participant.isSpeaking);
+    final aura = tester.widget<SpeakingAura>(find.byType(SpeakingAura).first);
+
+    // Une teinte uniforme ferait du halo un badge posé par-dessus, sans lien
+    // avec la personne qui parle.
+    expect(aura.color, PresenceAvatar.colorForName(speaking.participant.name));
   });
 }

@@ -5,6 +5,7 @@ import 'package:iconsax/iconsax.dart';
 
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
+import '../../../widgets/common/context_actions_panel.dart';
 import '../../../../core/platform/platform_ui.dart';
 import '../../../../core/platform/platform_ui_provider.dart';
 import '../../../desktop/widgets/presence_avatar.dart';
@@ -44,36 +45,52 @@ class ConversationRow extends ConsumerWidget {
         ? _CupertinoConversationRow(data: data, onTap: onTap)
         : _MaterialConversationRow(data: data, onTap: onTap);
 
-    // Le menu contextuel passe par l'abstraction : appui long et rendu iOS sur
-    // iPhone, menu Material ancré ailleurs.
-    return platformUi.overlays.contextMenu(
-      actions: [
-        PlatformMenuAction(
-          label: data.hasUnread ? 'Marquer comme lu' : 'Marquer comme non lu',
-          icon: data.hasUnread ? Iconsax.tick_circle : Iconsax.message_notif,
-          sfSymbol: data.hasUnread ? 'envelope.open' : 'envelope.badge',
-          onPressed: onMarkRead ?? () {},
+    final actions = <PlatformMenuAction>[
+      PlatformMenuAction(
+        label: data.hasUnread ? 'Marquer comme lu' : 'Marquer comme non lu',
+        icon: data.hasUnread ? Iconsax.tick_circle : Iconsax.message_notif,
+        sfSymbol: data.hasUnread ? 'envelope.open' : 'envelope.badge',
+        onPressed: onMarkRead ?? () {},
+      ),
+      PlatformMenuAction(
+        label: data.isStarred ? 'Retirer des favoris' : 'Ajouter aux favoris',
+        icon: data.isStarred ? Iconsax.star_slash : Iconsax.star1,
+        sfSymbol: data.isStarred ? 'star.slash' : 'star',
+        onPressed: () {},
+      ),
+      PlatformMenuAction(
+        label: 'Archiver',
+        icon: Iconsax.archive_1,
+        sfSymbol: 'archivebox',
+        onPressed: onArchive ?? () {},
+      ),
+      PlatformMenuAction(
+        label: 'Supprimer',
+        icon: Iconsax.trash,
+        sfSymbol: 'trash',
+        isDestructive: true,
+        onPressed: onDelete ?? () {},
+      ),
+    ];
+
+    // Le même panneau que le fil de discussion, et non `CupertinoContextMenu` :
+    // celui-ci extrait son enfant de l'arbre, ce qui lui fait perdre ses
+    // contraintes de largeur et demandait un contournement par appelant. Un
+    // seul panneau pour les deux écrans, c'est aussi un seul comportement à
+    // tenir.
+    return GestureDetector(
+      onLongPress: () => showContextActions(
+        context: context,
+        preview: ConstrainedBox(
+          // L'aperçu est borné : hors de la liste, la ligne n'a plus de largeur
+          // imposée et s'étalerait sur tout l'écran.
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width - DesignTokens.spaceXxl,
+          ),
+          child: row,
         ),
-        PlatformMenuAction(
-          label: data.isStarred ? 'Retirer des favoris' : 'Ajouter aux favoris',
-          icon: data.isStarred ? Iconsax.star_slash : Iconsax.star1,
-          sfSymbol: data.isStarred ? 'star.slash' : 'star',
-          onPressed: () {},
-        ),
-        PlatformMenuAction(
-          label: 'Archiver',
-          icon: Iconsax.archive_1,
-          sfSymbol: 'archivebox',
-          onPressed: onArchive ?? () {},
-        ),
-        PlatformMenuAction(
-          label: 'Supprimer',
-          icon: Iconsax.trash,
-          sfSymbol: 'trash',
-          isDestructive: true,
-          onPressed: onDelete ?? () {},
-        ),
-      ],
+        actions: actions,
+      ),
       child: row,
     );
   }

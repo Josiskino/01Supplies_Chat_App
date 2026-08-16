@@ -4,30 +4,36 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../config/theme/apple_type.dart';
-import '../../../../config/theme/design_tokens.dart';
-import '../../../../core/platform/platform_ui.dart';
-import 'reaction_bar.dart';
+import '../../../config/theme/apple_type.dart';
+import '../../../config/theme/design_tokens.dart';
+import '../../../core/platform/platform_ui.dart';
+import '../../pages/conversation_detail/widgets/reaction_bar.dart';
 
-/// Panneau ouvert à l'appui long sur une bulle : réactions, aperçu du message,
-/// puis actions.
+/// Panneau ouvert à l'appui long : aperçu de l'élément, puis ses actions.
+///
+/// Sert au fil de discussion comme à la liste de conversations, avec ou sans
+/// barre de réactions selon ce que l'élément accepte.
 ///
 /// **Un seul geste, un seul panneau.** Une première version posait la barre de
 /// réactions sur un `GestureDetector` par-dessus le menu contextuel natif : les
 /// deux réclamaient l'appui long, et le menu gagnait systématiquement. iOS ne
 /// superpose jamais deux interactions au même endroit — dans Messages, l'appui
 /// long ouvre un panneau unique qui porte les Tapbacks en haut et les actions en
-/// dessous. C'est ce que reproduit cet écran.
+/// dessous.
 ///
-/// L'ensemble est centré verticalement plutôt qu'ancré sur la bulle : une bulle
-/// proche du composer laisserait la barre de réactions sous le clavier, et les
-/// actions hors écran.
-Future<void> showMessageActions({
+/// Il remplace aussi `CupertinoContextMenu`, dont l'extraction de l'enfant hors
+/// de l'arbre lui fait perdre ses contraintes de largeur et exige des
+/// contournements à chaque appelant.
+///
+/// L'ensemble est centré verticalement plutôt qu'ancré sur l'élément : un
+/// élément proche du bas laisserait la barre de réactions sous le clavier, et
+/// les actions hors écran.
+Future<void> showContextActions({
   required BuildContext context,
-  required Widget bubble,
+  required Widget preview,
   required List<PlatformMenuAction> actions,
-  required ValueChanged<String?> onReact,
-  required bool isMine,
+  ValueChanged<String?>? onReact,
+  bool alignEnd = false,
   String? selectedReaction,
 }) {
   HapticFeedback.mediumImpact();
@@ -42,10 +48,10 @@ Future<void> showMessageActions({
     transitionDuration: DesignTokens.durationNormal,
     pageBuilder: (dialogContext, animation, _) {
       return _ActionsPanel(
-        bubble: bubble,
+        preview: preview,
         actions: actions,
         onReact: onReact,
-        isMine: isMine,
+        alignEnd: alignEnd,
         selectedReaction: selectedReaction,
       );
     },
@@ -70,17 +76,21 @@ Future<void> showMessageActions({
 
 class _ActionsPanel extends StatelessWidget {
   const _ActionsPanel({
-    required this.bubble,
+    required this.preview,
     required this.actions,
-    required this.onReact,
-    required this.isMine,
+    required this.alignEnd,
+    this.onReact,
     this.selectedReaction,
   });
 
-  final Widget bubble;
+  final Widget preview;
   final List<PlatformMenuAction> actions;
-  final ValueChanged<String?> onReact;
-  final bool isMine;
+
+  /// Sans callback, la barre de réactions n'est pas montée : on ne réagit pas à
+  /// une conversation comme on réagit à un message.
+  final ValueChanged<String?>? onReact;
+
+  final bool alignEnd;
   final String? selectedReaction;
 
   @override
@@ -110,22 +120,23 @@ class _ActionsPanel extends StatelessWidget {
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: isMine
+                crossAxisAlignment: alignEnd
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  ReactionBar(
-                    selected: selectedReaction,
-                    onSelect: (emoji) {
-                      Navigator.of(context).pop();
-                      onReact(emoji);
-                    },
-                  ),
-                  const SizedBox(height: DesignTokens.spaceM),
-                  // La bulle est rendue telle quelle, sans son geste de
-                  // glissement : dans le panneau elle n'est plus manipulable,
-                  // elle sert de repère.
-                  IgnorePointer(child: bubble),
+                  if (onReact != null) ...[
+                    ReactionBar(
+                      selected: selectedReaction,
+                      onSelect: (emoji) {
+                        Navigator.of(context).pop();
+                        onReact!(emoji);
+                      },
+                    ),
+                    const SizedBox(height: DesignTokens.spaceM),
+                  ],
+                  // L'aperçu est rendu tel quel, sans ses gestes : dans le
+                  // panneau il n'est plus manipulable, il sert de repère.
+                  IgnorePointer(child: preview),
                   const SizedBox(height: DesignTokens.spaceM),
                   _ActionList(actions: actions),
                 ],

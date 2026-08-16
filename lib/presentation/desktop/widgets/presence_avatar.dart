@@ -31,20 +31,26 @@ class PresenceAvatar extends StatelessWidget {
         .toUpperCase();
   }
 
+  static const List<Color> _palette = [
+    Color(0xFF6F52ED),
+    Color(0xFFFF7D28),
+    Color(0xFF2E9E6B),
+    Color(0xFF3B7DD8),
+    Color(0xFFD1487F),
+    Color(0xFF9B6BD6),
+    Color(0xFFC2871B),
+  ];
+
   /// Couleur dérivée du nom : stable d'un rendu à l'autre, et deux contacts
   /// voisins dans la liste ont peu de chances de partager la même teinte.
-  Color _avatarColor(BuildContext context) {
-    const palette = [
-      Color(0xFF6F52ED),
-      Color(0xFFFF7D28),
-      Color(0xFF2E9E6B),
-      Color(0xFF3B7DD8),
-      Color(0xFFD1487F),
-      Color(0xFF9B6BD6),
-      Color(0xFFC2871B),
-    ];
-    return palette[name.hashCode.abs() % palette.length];
-  }
+  ///
+  /// Exposée : d'autres éléments doivent s'accorder à la pastille — le halo de
+  /// parole, par exemple, qui doit paraître émaner de l'avatar et non lui être
+  /// posé dessus.
+  static Color colorForName(String name) =>
+      _palette[name.hashCode.abs() % _palette.length];
+
+  Color _avatarColor(BuildContext context) => colorForName(name);
 
   @override
   Widget build(BuildContext context) {
