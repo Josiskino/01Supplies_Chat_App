@@ -44,27 +44,28 @@ void main() {
     expect(find.byIcon(CupertinoIcons.pause_fill), findsOneWidget);
   });
 
-  testWidgets('à la fin, le bouton redevient lecture et le compteur est plein', (
-    tester,
-  ) async {
-    await pump(tester);
-    await tester.tap(find.byIcon(CupertinoIcons.play_fill));
-    await tester.pump();
+  testWidgets(
+    'à la fin, le bouton redevient lecture et le compteur est plein',
+    (tester) async {
+      await pump(tester);
+      await tester.tap(find.byIcon(CupertinoIcons.play_fill));
+      await tester.pump();
 
-    // Laisser l'animation aller jusqu'au bout.
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      // Laisser l'animation aller jusqu'au bout.
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
 
-    expect(
-      find.byIcon(CupertinoIcons.play_fill),
-      findsOneWidget,
-      reason: 'la lecture terminée doit rendre le bouton à son état initial',
-    );
-    expect(
-      find.text('0:02'),
-      findsOneWidget,
-      reason: 'le compteur doit retomber sur la durée annoncée',
-    );
-  });
+      expect(
+        find.byIcon(CupertinoIcons.play_fill),
+        findsOneWidget,
+        reason: 'la lecture terminée doit rendre le bouton à son état initial',
+      );
+      expect(
+        find.text('0:02'),
+        findsOneWidget,
+        reason: 'le compteur doit retomber sur la durée annoncée',
+      );
+    },
+  );
 
   testWidgets('la forme d’onde se vide en fin de lecture', (tester) async {
     await pump(tester);

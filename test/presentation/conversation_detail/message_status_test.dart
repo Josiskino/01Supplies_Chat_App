@@ -44,7 +44,8 @@ void main() {
       isMine: true,
       showStatus: true,
     );
-    expect(find.text('Distribué'), findsOneWidget);
+    // L'heure accompagne l'état : distribué sans horodatage ne dit pas quand.
+    expect(find.text('Distribué 12:35'), findsOneWidget);
   });
 
   testWidgets('« Lu » porte l’heure', (tester) async {
@@ -58,7 +59,9 @@ void main() {
     expect(find.text('Lu 12:35'), findsOneWidget);
   });
 
-  testWidgets('« Envoyé » ne s’affiche pas', (tester) async {
+  testWidgets('« Envoyé » n’est pas nommé, mais son heure reste', (
+    tester,
+  ) async {
     await pump(
       tester,
       status: MessageStatus.sent,
@@ -66,6 +69,7 @@ void main() {
       showStatus: true,
     );
     expect(find.textContaining('Envoy'), findsNothing);
+    expect(find.text('12:35'), findsOneWidget);
   });
 
   testWidgets('les messages plus anciens n’affichent rien', (tester) async {

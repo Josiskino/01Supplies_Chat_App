@@ -223,27 +223,23 @@ class _StatusLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // « Envoyé » n'est pas affiché : c'est l'état par défaut d'un message
-    // parti, et l'annoncer ne répond à aucune question que le lecteur se pose.
+    // L'heure accompagne **tous** les états, pas seulement « Lu ».
+    //
+    // Sans elle, un message distribué n'avait aucun horodatage nulle part : les
+    // bulles n'en portent pas, et le séparateur de jour ne donne que la date.
+    // Savoir qu'un message est parti sans savoir quand ne sert à rien dans une
+    // messagerie de terrain, où l'écart entre deux échanges est précisément ce
+    // qu'on cherche.
+    final time = timeLabel.isEmpty ? '' : ' $timeLabel';
+    final subtle = DesignTokens.getTextColorWithOpacity(context, 0.45);
+
+    // « Envoyé » n'est pas nommé : c'est l'état par défaut d'un message parti,
+    // et l'annoncer ne répond à aucune question. Son heure, elle, reste due.
     final (label, color) = switch (status) {
-      MessageStatus.sending => (
-        'Envoi…',
-        DesignTokens.getTextColorWithOpacity(context, 0.45),
-      ),
-      MessageStatus.sent => (
-        null,
-        DesignTokens.getTextColorWithOpacity(context, 0.45),
-      ),
-      MessageStatus.delivered => (
-        'Distribué',
-        DesignTokens.getTextColorWithOpacity(context, 0.45),
-      ),
-      // L'heure accompagne « Lu » : c'est l'information qui compte quand on
-      // relit un fil, bien plus que le fait de la lecture lui-même.
-      MessageStatus.read => (
-        timeLabel.isEmpty ? 'Lu' : 'Lu $timeLabel',
-        DesignTokens.getTextColorWithOpacity(context, 0.45),
-      ),
+      MessageStatus.sending => ('Envoi…', subtle),
+      MessageStatus.sent => (timeLabel.isEmpty ? null : timeLabel, subtle),
+      MessageStatus.delivered => ('Distribué$time', subtle),
+      MessageStatus.read => ('Lu$time', subtle),
       MessageStatus.failed => ('Non distribué', theme.colorScheme.error),
     };
 
