@@ -220,6 +220,21 @@ abstract interface class PlatformOverlays {
     bool isError,
   });
 
+  /// Demande de choisir une valeur parmi plusieurs, et renvoie son index.
+  ///
+  /// Les deux plateformes présentent cela très différemment — feuille d'actions
+  /// remontant du bas sur iOS, feuille modale sur Android — pour une même
+  /// question. C'est exactement le genre de divergence que le contrat absorbe,
+  /// plutôt que de laisser chaque écran ouvrir le composant de son choix.
+  ///
+  /// Renvoie `null` si l'utilisateur referme sans choisir.
+  Future<int?> pickOption({
+    required BuildContext context,
+    required String title,
+    required List<String> labels,
+    int? selectedIndex,
+  });
+
   /// Enveloppe [child] d'un menu contextuel.
   ///
   /// Déclenché par un appui long sur mobile, par un clic droit sur desktop. Le

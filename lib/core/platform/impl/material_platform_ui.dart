@@ -180,6 +180,43 @@ class MaterialControls implements PlatformControls {
 }
 
 class MaterialOverlays implements PlatformOverlays {
+  @override
+  Future<int?> pickOption({
+    required BuildContext context,
+    required String title,
+    required List<String> labels,
+    int? selectedIndex,
+  }) {
+    // Feuille modale : la réponse de Material à la même question, avec la coche
+    // à droite plutôt qu'au centre.
+    return showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+              child: Text(
+                title,
+                style: Theme.of(sheetContext).textTheme.titleMedium,
+              ),
+            ),
+            for (var i = 0; i < labels.length; i++)
+              ListTile(
+                title: Text(labels[i]),
+                trailing: i == selectedIndex ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.of(sheetContext).pop(i),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   const MaterialOverlays();
 
   @override

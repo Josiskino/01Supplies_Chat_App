@@ -292,6 +292,45 @@ class CupertinoControls implements PlatformControls {
 }
 
 class CupertinoOverlays implements PlatformOverlays {
+  @override
+  Future<int?> pickOption({
+    required BuildContext context,
+    required String title,
+    required List<String> labels,
+    int? selectedIndex,
+  }) {
+    // Feuille d'actions remontant du bas : la présentation d'iOS pour un choix
+    // court. Au-delà d'une poignée d'options, le système attend une sous-page —
+    // les réglages de cette app n'en ont pas.
+    return showCupertinoModalPopup<int>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: Text(title),
+        actions: [
+          for (var i = 0; i < labels.length; i++)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(sheetContext).pop(i),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(labels[i]),
+                  if (i == selectedIndex) ...[
+                    const SizedBox(width: 8),
+                    const Icon(CupertinoIcons.check_mark, size: 18),
+                  ],
+                ],
+              ),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.of(sheetContext).pop(),
+          child: const Text('Annuler'),
+        ),
+      ),
+    );
+  }
+
   const CupertinoOverlays();
 
   @override
