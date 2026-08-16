@@ -4,18 +4,17 @@ import 'package:iconsax/iconsax.dart';
 
 import 'package:go_router/go_router.dart';
 
-import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/utils/localization_helper.dart';
-import '../../desktop/widgets/presence_avatar.dart';
 import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
 import 'widgets/conversation_row.dart';
+import 'widgets/pinned_strip_header.dart';
 
 /// Liste des fils de discussion avec les clients.
 ///
@@ -68,131 +67,65 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
           onPressed: () => setState(() => _isEditing = !_isEditing),
         ),
       ],
-      body: ListView.separated(
-        // Marge **interne** reprise du `MediaQuery` : la coquille y a annoncé la
-        // hauteur de la tab bar. Le dernier élément reste donc atteignable, tout
-        // en défilant sous le verre — c'est ce qui donne son effet à la barre.
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.paddingOf(context).bottom + DesignTokens.spaceM,
-        ),
-        // +1 pour la bande de contacts épinglés en tête de liste.
-        itemCount: conversations.length + 1,
-        separatorBuilder: (context, index) {
-          // Pas de séparateur sous la bande d'épinglés : elle se détache déjà par
-          // sa hauteur.
-          if (index == 0) return const SizedBox.shrink();
-
-          // iOS aligne le séparateur sur le texte et non sur le bord de l'écran :
-          // c'est ce qui donne à la liste son rythme caractéristique.
-          return Divider(
-            height: DesignTokens.borderWidthThin,
-            thickness: DesignTokens.borderWidthThin,
-            indent: isApple ? 88 : DesignTokens.spaceL,
-            endIndent: 0,
-            color: DesignTokens.getBorderColor(
-              Theme.of(context).brightness == Brightness.dark,
-              opacity: 0.10,
-            ),
-          );
-        },
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return _PinnedStrip(favorites: _pinned);
-          }
-
-          final conversation = conversations[index - 1];
-          return ConversationRow(
-            data: conversation,
-            onTap: () => context.push(
-              AppUiRoute.conversationDetailPath(conversation.id),
-              extra: {'contactName': conversation.name},
-            ),
-            onMarkRead: () {},
-            onArchive: () {},
-            onDelete: () {},
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Bande horizontale de contacts épinglés.
-class _PinnedStrip extends StatelessWidget {
-  const _PinnedStrip({required this.favorites});
-
-  final List<WorkspaceFavoriteData> favorites;
-
-  @override
-  Widget build(BuildContext context) {
-    if (favorites.isEmpty) return const SizedBox.shrink();
-
-    final theme = Theme.of(context);
-
-    return Padding(
-      // Marge haute généreuse : le compteur du `Badge` est dessiné en débordement
-      // de l'avatar, et la zone de défilement le rogne — ce qui tronquait le haut
-      // des pastilles. `Clip.none` seul ne suffit pas, il faut aussi la place.
-      padding: const EdgeInsets.only(
-        top: DesignTokens.spaceL,
-        bottom: DesignTokens.spaceL,
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spaceL),
-        child: Row(
-          children: [
-            for (final favorite in favorites)
-              Padding(
-                padding: const EdgeInsets.only(right: DesignTokens.spaceL),
-                child: SizedBox(
-                  width: 68,
-                  child: Column(
-                    children: [
-                      Badge(
-                        isLabelVisible: favorite.badgeCount > 0,
-                        backgroundColor: theme.colorScheme.primary,
-                        textColor: theme.colorScheme.onPrimary,
-                        label: Text(
-                          favorite.badgeCount > 9
-                              ? '9+'
-                              : '${favorite.badgeCount}',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        child: PresenceAvatar(
-                          name: favorite.name,
-                          avatarUrl: favorite.avatarUrl,
-                          presence: favorite.presence,
-                          size: DesignTokens.avatarXl,
-                        ),
-                      ),
-                      const SizedBox(height: DesignTokens.spaceS),
-                      Text(
-                        // Prénom seul : un nom complet sous une pastille de 64 px
-                        // se tronque systématiquement.
-                        favorite.name.split(' ').first,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.labelSmall
-                            ?.merge(AppleType.caption1)
-                            .copyWith(
-                              color: DesignTokens.getTextColorWithOpacity(
-                                context,
-                                0.7,
-                              ),
-                            ),
-                      ),
-                    ],
-                  ),
+      // `CustomScrollView` et non `ListView` : la bande d'épinglés doit rester
+      // accrochée en haut tout en se repliant, ce qu'un simple premier élément
+      // de liste ne sait pas faire — il défile et disparaît.
+      body: CustomScrollView(
+        slivers: [
+          if (_pinned.isNotEmpty)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: PinnedStripHeader(
+                favorites: _pinned,
+                background: Theme.of(context).scaffoldBackgroundColor,
+                borderColor: DesignTokens.getBorderColor(
+                  Theme.of(context).brightness == Brightness.dark,
+                  opacity: 0.10,
                 ),
               ),
-          ],
-        ),
+            ),
+          SliverPadding(
+            // Marge **interne** reprise du `MediaQuery` : la coquille y a
+            // annoncé la hauteur de la tab bar. Le dernier élément reste donc
+            // atteignable, tout en défilant sous le verre — c'est ce qui donne
+            // son effet à la barre.
+            padding: EdgeInsets.only(
+              bottom:
+                  MediaQuery.paddingOf(context).bottom + DesignTokens.spaceM,
+            ),
+            sliver: SliverList.separated(
+              itemCount: conversations.length,
+              separatorBuilder: (context, index) {
+                // iOS aligne le séparateur sur le texte et non sur le bord de
+                // l'écran : c'est ce qui donne à la liste son rythme
+                // caractéristique.
+                return Divider(
+                  height: DesignTokens.borderWidthThin,
+                  thickness: DesignTokens.borderWidthThin,
+                  indent: isApple ? 88 : DesignTokens.spaceL,
+                  endIndent: 0,
+                  color: DesignTokens.getBorderColor(
+                    Theme.of(context).brightness == Brightness.dark,
+                    opacity: 0.10,
+                  ),
+                );
+              },
+              itemBuilder: (context, index) {
+                final conversation = conversations[index];
+                return ConversationRow(
+                  data: conversation,
+                  onTap: () => context.push(
+                    AppUiRoute.conversationDetailPath(conversation.id),
+                    extra: {'contactName': conversation.name},
+                  ),
+                  onMarkRead: () {},
+                  onArchive: () {},
+                  onDelete: () {},
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
