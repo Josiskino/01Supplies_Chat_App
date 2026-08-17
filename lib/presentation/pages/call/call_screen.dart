@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -427,12 +428,21 @@ class _CallTitle extends StatelessWidget {
   }
 }
 
-/// Disposition des participants autour de l'utilisateur courant.
+/// Participants disposés en **orbite** autour de l'utilisateur courant.
 ///
-/// Trois colonnes décalées verticalement plutôt qu'une grille alignée : la
-/// grille régulière donne un tableau de contacts, le décalage donne un groupe.
-/// L'utilisateur courant occupe le centre, plus grand — c'est le repère qui
-/// permet de se situer sans lire les noms.
+/// Lui au centre exact, les autres répartis à intervalles égaux sur un cercle.
+/// La version précédente les rangeait en trois colonnes décalées : le résultat
+/// se lisait comme une grille bousculée, et surtout l'utilisateur ne tombait pas
+/// au milieu — il n'était qu'un élément parmi les autres, inséré au rang médian.
+///
+/// Le rayon est calculé, pas choisi :
+///
+/// - un **plancher** empêche les tuiles voisines de se toucher. Sur un cercle de
+///   rayon R, l'arc séparant deux tuiles vaut 2πR/n ; il doit rester supérieur à
+///   la largeur d'une tuile, d'où R ≥ n·largeur/2π ;
+/// - un **plafond** garde l'orbite dans la place disponible ;
+/// - si le plancher dépasse le plafond — trop de participants pour l'écran — ce
+///   sont les tuiles qui rétrécissent, jamais l'orbite qui débord.
 class _ParticipantConstellation extends StatelessWidget {
   const _ParticipantConstellation({
     required this.participants,
@@ -450,67 +460,116 @@ class _ParticipantConstellation extends StatelessWidget {
   final ValueChanged<CallParticipantData> onRemove;
   final VoidCallback onLongPressParticipant;
 
-  /// Décalage vertical par colonne, en points.
-  static const List<double> _columnOffsets = [16, -18, 8];
+  /// Diamètre de l'avatar de l'utilisateur courant.
+  static const double _selfAvatar = 96;
+
+  /// Diamètre de référence des autres avatars, avant réduction éventuelle.
+  static const double _orbitAvatar = 64;
+
+  /// Écart minimal entre deux tuiles voisines sur l'orbite.
+  static const double _gap = 14;
+
+  /// Hauteur ajoutée par le libellé sous l'avatar.
+  static const double _labelHeight = 26;
+
+  /// Débord horizontal du libellé de part et d'autre de l'avatar.
+  ///
+  /// C'est **cette** largeur qui décide de l'écartement, pas le diamètre de
+  /// l'avatar : le libellé dépasse de la pastille, et deux tuiles séparées à la
+  /// mesure des seuls avatars se recouvraient par les noms.
+  static const double _labelOverhang = 26;
 
   @override
   Widget build(BuildContext context) {
     final others = participants.where((p) => !p.isSelf).toList();
-    final slots = <Widget>[];
-
-    for (final participant in others) {
-      slots.add(
-        CallParticipantTile(
-          participant: participant,
-          isEditing: isEditing,
-          onRemove: () => onRemove(participant),
-          onLongPress: onLongPressParticipant,
-        ),
-      );
-    }
-    for (var i = 0; i < freeSlots; i++) {
-      slots.add(CallInviteSlot(onTap: onInvite));
-    }
-
-    // L'utilisateur est inséré au centre de la séquence : c'est le repère qui
-    // permet de se situer sans lire les noms.
-    final middle = (slots.length / 2).floor();
     final self = participants.where((p) => p.isSelf).firstOrNull;
-    if (self != null) {
-      slots.insert(
-        middle,
-        CallParticipantTile(
-          participant: self,
-          size: 96,
-          onLongPress: onLongPressParticipant,
-        ),
-      );
-    }
+    final count = others.length + freeSlots;
 
-    // Centrée dans la place disponible : ancrée en haut, elle laissait sous
-    // elle un vide de la moitié de l'écran. Le défilement reste là pour les
-    // appels nombreux, mais ne s'impose plus quand tout tient.
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.spaceL,
-        vertical: DesignTokens.spaceXl,
-      ),
-      // Sans cela, `Center` n'aurait aucun effet dans une zone défilante.
-      physics: const ClampingScrollPhysics(),
-      child: Center(
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          spacing: DesignTokens.spaceXl,
-          runSpacing: DesignTokens.spaceL,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        final center = Offset(width / 2, height / 2);
+
+        // Place disponible entre le bord de l'avatar central et celui de
+        // l'écran, une fois retirée la moitié d'une tuile d'orbite.
+        var avatar = _orbitAvatar;
+        // Rayon **maximal** tenant dans la place, et non le minimum acceptable :
+        // une orbite calée sur son plancher se resserre autour du centre et le
+        // cercle cesse de se lire comme tel. Occuper la largeur disponible le
+        // rend évident.
+        final maxRadius =
+            math.min(width, height) / 2 -
+            (_orbitAvatar + _labelOverhang) / 2 -
+            _gap / 2;
+
+        // Plancher de non-chevauchement : sur un cercle de rayon R, l'arc entre
+        // deux tuiles vaut 2πR/n, il doit dépasser la largeur d'une tuile.
+        final minRadius = count == 0
+            ? 0.0
+            : count * (avatar + _labelOverhang + _gap) / (2 * math.pi);
+
+        var radius = maxRadius;
+        // Trop de monde pour le cercle : ce sont les avatars qui cèdent, jamais
+        // l'orbite qui sort de l'écran.
+        if (minRadius > maxRadius && maxRadius > 0) {
+          final ratio = maxRadius / minRadius;
+          avatar = (avatar * ratio).clamp(34.0, _orbitAvatar);
+        }
+        // Jamais plus près que le bord de l'avatar central.
+        radius = math.max(radius, _selfAvatar / 2 + avatar / 2 + _gap);
+
+        Widget place(Widget child, double angle, double boxWidth) {
+          return Positioned(
+            left: center.dx + radius * math.cos(angle) - boxWidth / 2,
+            top:
+                center.dy +
+                radius * math.sin(angle) -
+                (avatar + _labelHeight) / 2,
+            width: boxWidth,
+            child: child,
+          );
+        }
+
+        final boxWidth = avatar + _labelOverhang;
+        return Stack(
+          clipBehavior: Clip.none,
           children: [
-            for (var i = 0; i < slots.length; i++)
-              Transform.translate(
-                offset: Offset(0, _columnOffsets[i % _columnOffsets.length]),
-                child: slots[i],
+            for (var i = 0; i < others.length; i++)
+              place(
+                CallParticipantTile(
+                  participant: others[i],
+                  size: avatar,
+                  isEditing: isEditing,
+                  onRemove: () => onRemove(others[i]),
+                  onLongPress: onLongPressParticipant,
+                ),
+                // Premier participant en haut : partir de la droite ferait
+                // commencer la lecture au milieu du cercle.
+                -math.pi / 2 + 2 * math.pi * i / math.max(count, 1),
+                boxWidth,
+              ),
+            for (var i = 0; i < freeSlots; i++)
+              place(
+                CallInviteSlot(onTap: onInvite, size: avatar),
+                -math.pi / 2 +
+                    2 * math.pi * (others.length + i) / math.max(count, 1),
+                boxWidth,
+              ),
+            if (self != null)
+              Positioned(
+                left: center.dx - (_selfAvatar + 26) / 2,
+                top: center.dy - (_selfAvatar + _labelHeight) / 2,
+                width: _selfAvatar + 26,
+                child: CallParticipantTile(
+                  participant: self,
+                  size: _selfAvatar,
+                  onLongPress: onLongPressParticipant,
+                ),
               ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }

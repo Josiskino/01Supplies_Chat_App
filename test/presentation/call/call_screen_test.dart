@@ -207,4 +207,46 @@ void main() {
     // avec la personne qui parle.
     expect(aura.color, PresenceAvatar.colorForName(speaking.participant.name));
   });
+
+  testWidgets('les participants forment un cercle autour de soi', (
+    tester,
+  ) async {
+    await pump(tester);
+
+    final tiles = find.byType(CallParticipantTile);
+    final self = tester
+        .widgetList<CallParticipantTile>(tiles)
+        .toList()
+        .indexWhere((t) => t.participant.isSelf);
+    final selfCentre = tester.getCenter(tiles.at(self));
+
+    final distances = <double>[];
+    for (var i = 0; i < tiles.evaluate().length; i++) {
+      if (i == self) continue;
+      distances.add((tester.getCenter(tiles.at(i)) - selfCentre).distance);
+    }
+    // Les places libres sont sur la même orbite.
+    for (var i = 0; i < find.byType(CallInviteSlot).evaluate().length; i++) {
+      distances.add(
+        (tester.getCenter(find.byType(CallInviteSlot).at(i)) - selfCentre)
+            .distance,
+      );
+    }
+
+    // Toutes à la même distance : c'est ce qui fait le cercle, plutôt qu'une
+    // grille décalée où chacun tombe où il peut.
+    final first = distances.first;
+    for (final d in distances) {
+      expect(
+        d,
+        moreOrLessEquals(first, epsilon: 1.5),
+        reason: 'rayons inégaux : ${distances.map((v) => v.round()).toList()}',
+      );
+    }
+
+    // Et réparties à intervalles réguliers : deux voisins ne doivent pas se
+    // toucher.
+    expect(distances.length, greaterThanOrEqualTo(6));
+    expect(first, greaterThan(80), reason: 'orbite trop serrée sur le centre');
+  });
 }
