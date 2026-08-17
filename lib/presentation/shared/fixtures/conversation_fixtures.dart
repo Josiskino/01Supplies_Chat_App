@@ -769,6 +769,17 @@ abstract final class ConversationFixtures {
       ),
       at(
         yesterday,
+        10,
+        14,
+        id: 'm4c',
+        text: 'Et le détail des trois palettes du fond',
+        isMine: false,
+        // Trois images : sous le seuil du paquet, donc en escalier — les deux
+        // dispositions se voient ainsi dans le même fil.
+        attachments: _demoPhotos.skip(5).take(3).toList(),
+      ),
+      at(
+        yesterday,
         9,
         30,
         id: 'm5',
@@ -857,6 +868,13 @@ abstract final class ConversationFixtures {
     'assets/images/demo/photo_3.jpg',
     'assets/images/demo/photo_4.jpg',
     'assets/images/demo/photo_5.jpg',
+    'assets/images/demo/photo_6.jpg',
+    'assets/images/demo/photo_7.jpg',
+    'assets/images/demo/photo_8.jpg',
+    'assets/images/demo/photo_9.jpg',
+    'assets/images/demo/photo_10.jpg',
+    'assets/images/demo/photo_11.jpg',
+    'assets/images/demo/photo_12.jpg',
   ];
 
   static const List<double> _sampleWaveform = [

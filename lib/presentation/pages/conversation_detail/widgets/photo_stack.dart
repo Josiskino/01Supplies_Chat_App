@@ -16,17 +16,29 @@ import '../../../widgets/photo/image_source.dart';
 /// il en contient, puisque le compte est peint au centre. Le fil garde alors sa
 /// hauteur, et le détail se consulte en plein écran.
 ///
+/// ## Deux dispositions, selon l'ampleur du lot
+///
+/// Jusqu'à cinq images, les cartes s'échelonnent de gauche à droite : chacune
+/// reste assez découverte pour qu'on devine ce qu'elle montre, et l'escalier
+/// suffit à dire qu'il y en a plusieurs.
+///
+/// Au-delà, cet échelonnement mentirait — trois cartes rangées côte à côte
+/// donnent l'image d'un petit lot, quand il y en a vingt. La pile prend alors la
+/// forme d'un **paquet** : deux tirages de front, penchés en sens contraires, et
+/// entre eux des bords qui affleurent par le bas. Ce sont eux qui disent qu'il y
+/// a « du fond » derrière, ce que le compteur seul ne montrerait pas.
+///
 /// ## Ce que porte l'aperçu
 ///
-/// Au plus trois cartes sont dessinées, quel que soit le nombre d'images : la
-/// quatrième n'apporterait qu'un bord de plus, déjà illisible sous les autres.
-/// C'est le compteur, non la pile, qui porte la quantité — et il annonce le total
-/// réel, pas les cartes visibles.
+/// Le nombre de cartes dessinées est plafonné dans les deux cas : au-delà, on
+/// n'ajoute que des liserés déjà illisibles. C'est le compteur, non la pile, qui
+/// porte la quantité — et il annonce le total réel, pas les cartes visibles.
 class PhotoStack extends StatelessWidget {
   const PhotoStack({
     super.key,
     required this.images,
     required this.onTap,
+    this.timeLabel,
     this.height = 190,
   });
 
@@ -38,6 +50,14 @@ class PhotoStack extends StatelessWidget {
   /// contraire ouvrirait au hasard.
   final VoidCallback onTap;
 
+  /// Heure d'envoi, posée sur le tirage de front lorsqu'aucune bulle ne
+  /// l'accueille.
+  ///
+  /// Portée par la pile et non par la bulle : sa place dépend de la hauteur cédée
+  /// aux bords entrevus, que seule la mise en page connaît. Posée de l'extérieur,
+  /// elle tombait sous le tirage de front, dans la tranche du paquet.
+  final String? timeLabel;
+
   /// Hauteur de l'aperçu.
   ///
   /// Calée sur ~0,65 de la largeur d'une bulle : au-delà, un envoi de photos
@@ -45,12 +65,19 @@ class PhotoStack extends StatelessWidget {
   /// le message qui l'accompagnait.
   final double height;
 
-  /// Part de la largeur disponible occupée par une carte.
+  /// Part de la largeur disponible occupée par une carte, en escalier.
   ///
   /// En dessous de ~0,6 les cartes se chevauchent trop pour qu'on distingue deux
   /// photos ; au-dessus, l'éventail se referme et la pile ressemble à une image
   /// unique mal cadrée.
   static const double _cardWidthRatio = 0.66;
+
+  /// Part occupée par chacun des deux tirages de front, en paquet.
+  ///
+  /// Plus large que dans l'escalier : à deux cartes seulement, il faut couvrir
+  /// la largeur tout en laissant un franc recouvrement au centre, sous lequel les
+  /// bords entrevus prennent place.
+  static const double _bundleCardWidthRatio = 0.62;
 
   /// Inclinaison maximale d'une carte, en radians (~3,2°).
   ///
@@ -58,7 +85,23 @@ class PhotoStack extends StatelessWidget {
   /// paraît tombée plutôt que posée, et les coins mordent les bulles voisines.
   static const double _maxTilt = 0.056;
 
+  /// Au-delà de ce nombre d'images, la pile passe en paquet.
+  static const int _bundleThreshold = 5;
+
+  /// Cartes dessinées en escalier.
   static const int _maxCards = 3;
+
+  /// Bords entrevus au centre d'un paquet.
+  ///
+  /// Deux suffisent à créer une profondeur ; un troisième liseré se confondrait
+  /// avec l'ombre des tirages de front.
+  static const int _peekCards = 2;
+
+  /// Décalage vertical d'un bord entrevu.
+  ///
+  /// En dessous de ~8 le liseré se confond avec l'ombre du tirage de front, et le
+  /// paquet redevient une simple paire de photos.
+  static const double _peekStep = 11;
 
   /// Marge réservée au débordement de l'inclinaison.
   ///
@@ -68,56 +111,57 @@ class PhotoStack extends StatelessWidget {
   /// défaut invisible sur la pile de gauche, systématique sur celle de droite.
   static double _tiltMarginFor(double height) => height * math.sin(_maxTilt);
 
+  bool get _isBundle => images.length > _bundleThreshold;
+
+  /// Hauteur cédée aux bords entrevus, sous le tirage de front.
+  double get _peekReserve => _isBundle ? _peekCards * _peekStep : 0;
+
   @override
   Widget build(BuildContext context) {
     if (images.isEmpty) return const SizedBox.shrink();
-
-    final visible = images.length.clamp(1, _maxCards);
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          // Une seule photo n'a rien à empiler : elle prend toute la largeur,
-          // d'aplomb, comme dans Messages — et n'a donc pas de marge à réserver.
-          final margin = visible == 1 ? 0.0 : _tiltMarginFor(height);
-          final usableWidth = width - 2 * margin;
-          final cardHeight = height - 2 * margin;
-          final cardWidth = visible == 1
-              ? usableWidth
-              : usableWidth * _cardWidthRatio;
-          final travel = usableWidth - cardWidth;
+          final cards = _layout(constraints.maxWidth);
 
           return SizedBox(
-            width: width,
+            width: constraints.maxWidth,
             height: height,
             child: Stack(
               children: [
-                // Peint de la dernière carte à la première : dans un Stack le
-                // dernier enfant est au-dessus, et c'est la photo de tête qui
+                // `_layout` rend les cartes du fond vers l'avant : dans un Stack
+                // le dernier enfant est au-dessus, et c'est le tirage de tête qui
                 // doit couvrir les autres.
-                for (var i = visible - 1; i >= 0; i--)
+                for (final card in cards)
                   Positioned(
-                    left:
-                        margin +
-                        (visible == 1 ? 0 : travel * i / (visible - 1)),
-                    top: margin,
+                    left: card.left,
+                    top: card.top,
                     child: Transform.rotate(
-                      angle: visible == 1
-                          ? 0
-                          : (i - (visible - 1) / 2) * 2 * _maxTilt,
+                      angle: card.angle,
                       child: _PhotoCard(
-                        path: images[i],
-                        width: cardWidth,
-                        height: cardHeight,
+                        path: images[card.imageIndex],
+                        width: card.width,
+                        height: card.height,
                       ),
                     ),
                   ),
                 if (images.length > 1)
                   Positioned.fill(
                     child: Center(child: _CountBadge(count: images.length)),
+                  ),
+                if (timeLabel != null && timeLabel!.isNotEmpty)
+                  Positioned(
+                    // Calée sur le coin du tirage de front, marge de rotation et
+                    // tranche du paquet déduites.
+                    right: _tiltMarginFor(height) + DesignTokens.spaceS,
+                    bottom:
+                        _tiltMarginFor(height) +
+                        _peekReserve +
+                        DesignTokens.spaceS,
+                    child: _TimeBadge(label: timeLabel!),
                   ),
               ],
             ),
@@ -126,6 +170,119 @@ class PhotoStack extends StatelessWidget {
       ),
     );
   }
+
+  /// Position de chaque carte, **du fond vers l'avant**.
+  ///
+  /// Séparé de `build` parce que c'est la seule part de la pile qui se raisonne :
+  /// une géométrie faite d'un ratio, d'un angle et d'une réserve de rotation se
+  /// vérifie sur des nombres, là où l'arbre de widgets ne se vérifie qu'à l'œil.
+  List<_CardPlacement> _layout(double width) {
+    if (images.length == 1) {
+      // Une seule photo n'a rien à empiler : elle prend toute la largeur,
+      // d'aplomb, comme dans Messages — et n'a donc pas de marge à réserver.
+      return [
+        _CardPlacement(
+          left: 0,
+          top: 0,
+          width: width,
+          height: height,
+          angle: 0,
+          imageIndex: 0,
+        ),
+      ];
+    }
+
+    final margin = _tiltMarginFor(height);
+    final usableWidth = width - 2 * margin;
+
+    if (!_isBundle) {
+      final count = math.min(images.length, _maxCards);
+      final cardWidth = usableWidth * _cardWidthRatio;
+      final travel = usableWidth - cardWidth;
+      final cardHeight = height - 2 * margin;
+
+      return [
+        for (var i = count - 1; i >= 0; i--)
+          _CardPlacement(
+            left: margin + travel * i / (count - 1),
+            top: margin,
+            width: cardWidth,
+            height: cardHeight,
+            // Normalisé pour que la carte extrême atteigne exactement
+            // [_maxTilt] : à trois cartes, la forme naïve
+            // `(i - (count - 1) / 2) * 2 * _maxTilt` en donnait le double, que
+            // la marge de rotation ne couvrait pas — l'escalier débordait alors
+            // à gauche.
+            angle: ((i - (count - 1) / 2) / ((count - 1) / 2)) * _maxTilt,
+            imageIndex: i,
+          ),
+      ];
+    }
+
+    // Les bords entrevus descendent sous les tirages de front : la hauteur qui
+    // leur est cédée doit être retirée des cartes, sinon le paquet dépasse de la
+    // boîte annoncée.
+    final cardHeight = height - 2 * margin - _peekCards * _peekStep;
+    final cardWidth = usableWidth * _bundleCardWidthRatio;
+    final peekWidth = cardWidth * 0.86;
+    final peekLeft = margin + (usableWidth - peekWidth) / 2;
+
+    return [
+      // Du plus enfoui au plus proche : le dernier bord entrevu est celui qui
+      // affleure le moins.
+      for (var i = _peekCards; i >= 1; i--)
+        _CardPlacement(
+          left: peekLeft,
+          top: margin + _peekStep * i,
+          width: peekWidth,
+          height: cardHeight,
+          // D'aplomb : incliné, un bord entrevu ne se lirait plus comme la
+          // tranche d'un paquet mais comme une quatrième photo de travers.
+          angle: 0,
+          imageIndex: i + 1,
+        ),
+      // La droite avant la gauche : c'est le tirage de gauche qui chevauche
+      // l'autre sur la référence, donc lui qui doit être peint en dernier.
+      _CardPlacement(
+        left: margin + usableWidth - cardWidth,
+        top: margin,
+        width: cardWidth,
+        height: cardHeight,
+        angle: _maxTilt,
+        imageIndex: 1,
+      ),
+      _CardPlacement(
+        left: margin,
+        top: margin,
+        width: cardWidth,
+        height: cardHeight,
+        angle: -_maxTilt,
+        imageIndex: 0,
+      ),
+    ];
+  }
+}
+
+/// Position calculée d'une carte dans la pile.
+class _CardPlacement {
+  const _CardPlacement({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+    required this.angle,
+    required this.imageIndex,
+  });
+
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+
+  /// Inclinaison en radians, positive vers la droite.
+  final double angle;
+
+  final int imageIndex;
 }
 
 /// Une photo de la pile, bordée de blanc comme un tirage papier.
@@ -184,6 +341,33 @@ class _PhotoCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Heure d'envoi posée sur la photo.
+///
+/// Le voile sombre est indispensable : une heure blanche sur un ciel clair
+/// disparaît, et sur un bâtiment sombre une heure grise en fait autant.
+class _TimeBadge extends StatelessWidget {
+  const _TimeBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall
+            ?.merge(AppleType.caption2)
+            .copyWith(color: Colors.white),
       ),
     );
   }

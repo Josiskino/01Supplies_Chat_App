@@ -171,10 +171,11 @@ class ChatBubble extends StatelessWidget {
                                 padding: EdgeInsets.only(
                                   bottom: hasBubble ? DesignTokens.spaceS : 0,
                                 ),
-                                child: _AttachmentPreview(
+                                child: PhotoStack(
                                   images: message.attachments,
                                   // Sans bulle, l'heure n'a aucune ligne où se
-                                  // glisser : elle se pose alors sur la photo.
+                                  // glisser : la pile la pose sur la photo, à la
+                                  // place que sa géométrie lui laisse.
                                   timeLabel: hasBubble
                                       ? null
                                       : message.timeLabel,
@@ -281,57 +282,6 @@ class ChatBubble extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-/// Aperçu d'un lot de photos, avec son heure quand aucune bulle ne l'accueille.
-class _AttachmentPreview extends StatelessWidget {
-  const _AttachmentPreview({
-    required this.images,
-    required this.onTap,
-    this.timeLabel,
-  });
-
-  final List<String> images;
-  final VoidCallback onTap;
-
-  /// Nul dès qu'une bulle accompagne les photos : l'heure y est déjà, et la
-  /// répéter sur l'image ferait deux horodatages pour un seul message.
-  final String? timeLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final time = timeLabel;
-
-    return Stack(
-      children: [
-        PhotoStack(images: images, onTap: onTap),
-        if (time != null && time.isNotEmpty)
-          Positioned(
-            // Décalée de la marge d'inclinaison en plus de sa propre gouttière :
-            // posée à ras du cadre, la pastille chevauchait le bord de la carte
-            // de queue, qui est penchée.
-            right: DesignTokens.spaceM + 2,
-            bottom: DesignTokens.spaceM + 2,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                // Le voile sombre est indispensable : une heure blanche posée
-                // sur un ciel clair disparaît, et sur un bâtiment sombre une
-                // heure grise en fait autant.
-                color: Colors.black.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                time,
-                style: Theme.of(context).textTheme.labelSmall
-                    ?.merge(AppleType.caption2)
-                    .copyWith(color: Colors.white),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
