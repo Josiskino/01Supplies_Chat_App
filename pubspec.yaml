@@ -115,5 +115,6 @@ flutter:
     - .env.production
     - assets/icon/
     - assets/images/
+    - assets/images/demo/
     - assets/google_fonts/
     - shorebird.yaml

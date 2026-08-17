@@ -602,6 +602,7 @@ abstract final class ConversationFixtures {
       String? reaction,
       ChatReplyPreview? replyTo,
       VoiceNoteData? voice,
+      List<String> attachments = const [],
       MessageStatus status = MessageStatus.read,
     }) {
       final sentAt = day.add(Duration(hours: hour, minutes: minute));
@@ -614,6 +615,7 @@ abstract final class ConversationFixtures {
         reaction: reaction,
         replyTo: replyTo,
         voice: voice,
+        attachments: attachments,
         status: status,
       );
     }
@@ -747,6 +749,26 @@ abstract final class ConversationFixtures {
       ),
       at(
         yesterday,
+        10,
+        5,
+        id: 'm4a',
+        text: 'Voici les photos de l’entrepôt, prises ce matin',
+        isMine: false,
+        attachments: _demoPhotos,
+      ),
+      at(
+        yesterday,
+        10,
+        11,
+        id: 'm4b',
+        // Un lot sans un mot : c'est le cas où l'heure doit se poser sur la
+        // photo, faute de bulle où la glisser.
+        text: '',
+        isMine: true,
+        attachments: _demoPhotos.take(2).toList(),
+      ),
+      at(
+        yesterday,
         9,
         30,
         id: 'm5',
@@ -825,6 +847,18 @@ abstract final class ConversationFixtures {
 
   /// Forme d'onde d'exemple : une enveloppe qui monte puis retombe, plutôt que
   /// des valeurs au hasard, pour ressembler à une phrase prononcée.
+  /// Photos de démonstration, tirées du bundle.
+  ///
+  /// Des assets et non des URL : la maquette doit s'afficher hors ligne, et une
+  /// galerie qui montre cinq icônes d'erreur ne prouve rien de sa mise en page.
+  static const List<String> _demoPhotos = [
+    'assets/images/demo/photo_1.jpg',
+    'assets/images/demo/photo_2.jpg',
+    'assets/images/demo/photo_3.jpg',
+    'assets/images/demo/photo_4.jpg',
+    'assets/images/demo/photo_5.jpg',
+  ];
+
   static const List<double> _sampleWaveform = [
     0.20,
     0.35,

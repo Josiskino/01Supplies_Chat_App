@@ -66,6 +66,7 @@ class ChatMessageData {
     this.reaction,
     this.replyTo,
     this.voice,
+    this.attachments = const [],
     this.status = MessageStatus.read,
     this.isTyping = false,
   });
@@ -108,7 +109,15 @@ class ChatMessageData {
   /// Contenu audio, si le message est une note vocale.
   final VoiceNoteData? voice;
 
+  /// Images joints au message — URL distantes ou chemins locaux.
+  ///
+  /// La liste porte **toutes** les images, même quand l'aperçu n'en montre que
+  /// deux : c'est elle qui alimente la visionneuse plein écran, et le compteur
+  /// affiché doit refléter ce qui sera réellement feuilletable.
+  final List<String> attachments;
+
   bool get isVoice => voice != null;
+  bool get hasAttachments => attachments.isNotEmpty;
 }
 
 /// Étapes d'acheminement d'un message émis.

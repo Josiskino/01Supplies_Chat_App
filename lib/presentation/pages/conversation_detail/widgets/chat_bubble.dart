@@ -5,6 +5,7 @@ import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../desktop/widgets/presence_avatar.dart';
 import '../../../shared/models/conversation_view_data.dart';
+import 'photo_stack.dart';
 import 'voice_note_bubble.dart';
 
 /// Bulle de message, présentation mobile.
@@ -26,6 +27,7 @@ class ChatBubble extends StatelessWidget {
     required this.isLastOfGroup,
     this.showStatus = false,
     this.onTapQuote,
+    this.onOpenGallery,
     this.contactName = '',
   });
 
@@ -46,6 +48,9 @@ class ChatBubble extends StatelessWidget {
   /// Appelé au tap sur la citation, avec l'identifiant du message d'origine.
   final ValueChanged<String>? onTapQuote;
 
+  /// Appelé au tap sur un lot de photos, avec toutes les images du message.
+  final ValueChanged<List<String>>? onOpenGallery;
+
   final String contactName;
 
   /// Débordement de la pastille de réaction sous la bulle.
@@ -59,6 +64,15 @@ class ChatBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isMine = message.isMine;
+
+    // Un message qui n'est **que** des photos n'a pas de bulle : le fond coloré
+    // s'y réduirait à un liseré autour de l'aperçu.
+    final hasBubble =
+        !message.hasAttachments ||
+        message.text.isNotEmpty ||
+        message.isVoice ||
+        message.isTyping ||
+        message.replyTo != null;
 
     final background = isMine
         ? theme.colorScheme.primary
@@ -136,67 +150,99 @@ class ChatBubble extends StatelessWidget {
                             : null,
                       ),
                     Flexible(
-                      child: Container(
+                      child: ConstrainedBox(
                         constraints: BoxConstraints(
                           // Une bulle qui traverse tout l'écran empêche de distinguer
                           // l'émetteur d'un coup d'œil.
                           maxWidth: MediaQuery.sizeOf(context).width * 0.72,
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: DesignTokens.spaceM + 2,
-                          vertical: DesignTokens.spaceS + 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: background,
-                          borderRadius: radius,
-                        ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: isMine
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (message.replyTo != null)
+                            // Les photos sont posées **hors** de la bulle, comme
+                            // dans Messages : un lot d'images enfermé dans un
+                            // fond coloré paraîtrait encadré, et le fond
+                            // n'apporte rien à un contenu qui porte déjà le sien.
+                            if (message.hasAttachments)
                               Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: DesignTokens.spaceS,
+                                padding: EdgeInsets.only(
+                                  bottom: hasBubble ? DesignTokens.spaceS : 0,
                                 ),
-                                child: _QuotedMessage(
-                                  reply: message.replyTo!,
-                                  foreground: foreground,
-                                  isMine: isMine,
-                                  onTap: onTapQuote,
+                                child: _AttachmentPreview(
+                                  images: message.attachments,
+                                  // Sans bulle, l'heure n'a aucune ligne où se
+                                  // glisser : elle se pose alors sur la photo.
+                                  timeLabel: hasBubble
+                                      ? null
+                                      : message.timeLabel,
+                                  onTap: () =>
+                                      onOpenGallery?.call(message.attachments),
                                 ),
                               ),
-                            if (message.isTyping)
-                              const TypingDots()
-                            else if (message.isVoice)
-                              VoiceNoteBubble(
-                                voice: message.voice!,
-                                foreground: foreground,
-                                // Sur une bulle émise, l'accent de marque se
-                                // confondrait avec son fond : la partie lue est donc
-                                // peinte dans la couleur du texte.
-                                accent: isMine
-                                    ? foreground
-                                    : theme.colorScheme.primary,
-                              )
-                            else
-                              _TextWithTime(
-                                text: message.text,
-                                timeLabel: message.timeLabel,
-                                foreground: foreground,
-                              ),
-                            // Les bulles sans texte portent leur heure en
-                            // dessous : il n'y a pas de ligne dans laquelle la
-                            // glisser.
-                            if (message.isVoice && message.timeLabel.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: _BubbleTime(
-                                    label: message.timeLabel,
-                                    foreground: foreground,
-                                  ),
+                            if (hasBubble)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: DesignTokens.spaceM + 2,
+                                  vertical: DesignTokens.spaceS + 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: background,
+                                  borderRadius: radius,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (message.replyTo != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: DesignTokens.spaceS,
+                                        ),
+                                        child: _QuotedMessage(
+                                          reply: message.replyTo!,
+                                          foreground: foreground,
+                                          isMine: isMine,
+                                          onTap: onTapQuote,
+                                        ),
+                                      ),
+                                    if (message.isTyping)
+                                      const TypingDots()
+                                    else if (message.isVoice)
+                                      VoiceNoteBubble(
+                                        voice: message.voice!,
+                                        foreground: foreground,
+                                        // Sur une bulle émise, l'accent de marque se
+                                        // confondrait avec son fond : la partie lue est donc
+                                        // peinte dans la couleur du texte.
+                                        accent: isMine
+                                            ? foreground
+                                            : theme.colorScheme.primary,
+                                      )
+                                    else
+                                      _TextWithTime(
+                                        text: message.text,
+                                        timeLabel: message.timeLabel,
+                                        foreground: foreground,
+                                      ),
+                                    // Les bulles sans texte portent leur heure en
+                                    // dessous : il n'y a pas de ligne dans laquelle la
+                                    // glisser.
+                                    if (message.isVoice &&
+                                        message.timeLabel.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: _BubbleTime(
+                                            label: message.timeLabel,
+                                            foreground: foreground,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                           ],
@@ -235,6 +281,57 @@ class ChatBubble extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Aperçu d'un lot de photos, avec son heure quand aucune bulle ne l'accueille.
+class _AttachmentPreview extends StatelessWidget {
+  const _AttachmentPreview({
+    required this.images,
+    required this.onTap,
+    this.timeLabel,
+  });
+
+  final List<String> images;
+  final VoidCallback onTap;
+
+  /// Nul dès qu'une bulle accompagne les photos : l'heure y est déjà, et la
+  /// répéter sur l'image ferait deux horodatages pour un seul message.
+  final String? timeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = timeLabel;
+
+    return Stack(
+      children: [
+        PhotoStack(images: images, onTap: onTap),
+        if (time != null && time.isNotEmpty)
+          Positioned(
+            // Décalée de la marge d'inclinaison en plus de sa propre gouttière :
+            // posée à ras du cadre, la pastille chevauchait le bord de la carte
+            // de queue, qui est penchée.
+            right: DesignTokens.spaceM + 2,
+            bottom: DesignTokens.spaceM + 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                // Le voile sombre est indispensable : une heure blanche posée
+                // sur un ciel clair disparaît, et sur un bâtiment sombre une
+                // heure grise en fait autant.
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                time,
+                style: Theme.of(context).textTheme.labelSmall
+                    ?.merge(AppleType.caption2)
+                    .copyWith(color: Colors.white),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

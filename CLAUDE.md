@@ -317,6 +317,16 @@ Chaque proportion répond à une contrainte de plateforme différente : c'est
 pourquoi un fichier unique ne convient pas. Après toute modification, relancer
 `flutter_launcher_icons` **et** `flutter_native_splash:create`.
 
+`assets/images/demo/` contient cinq photographies servant de pièces jointes à la
+maquette du fil. Des assets et non des URL : le rendu doit tenir hors ligne, et
+une galerie qui affiche cinq icônes d'erreur ne démontre rien de sa mise en page.
+Elles partiront avec les fixtures, quand la couche `data` fournira de vraies
+pièces jointes.
+
+⚠️ **`assets/images/` n'est pas récursif** dans `pubspec.yaml` : tout
+sous-dossier doit être déclaré à part, faute de quoi les images manquent à
+l'exécution sans qu'aucun avertissement de build ne le signale.
+
 ---
 
 ## À trancher avant la feature messagerie

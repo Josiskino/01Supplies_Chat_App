@@ -116,6 +116,7 @@ class _ConversationDetailScreenState
       reaction: reaction == _unset ? m.reaction : reaction as String?,
       replyTo: m.replyTo,
       voice: m.voice,
+      attachments: m.attachments,
       status: status ?? m.status,
       isTyping: m.isTyping,
     );
@@ -419,6 +420,7 @@ class _ConversationDetailScreenState
       isLastOfGroup: position.isLast,
       showStatus: index == _lastSentIndex,
       onTapQuote: _scrollToMessage,
+      onOpenGallery: _openGallery,
     );
 
     final keyed = KeyedSubtree(
@@ -448,6 +450,18 @@ class _ConversationDetailScreenState
         ),
         child: keyed,
       ),
+    );
+  }
+
+  /// Ouvre le lot de photos en plein écran, sur la première image.
+  ///
+  /// Passe par la route déclarée plutôt que par un `Navigator.push` : la
+  /// visionneuse est un overlay non opaque, et c'est `CustomTransitionPage` qui
+  /// laisse voir le fil pendant le fondu.
+  void _openGallery(List<String> images) {
+    context.push(
+      AppUiRoute.imageViewer,
+      extra: {'images': images, 'initialIndex': 0},
     );
   }
 

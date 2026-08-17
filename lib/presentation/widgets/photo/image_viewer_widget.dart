@@ -1,9 +1,10 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import 'package:iconsax/iconsax.dart';
+
+import 'image_source.dart';
 
 /// Fullscreen image viewer with zoom/pan and navigation between images.
 ///
@@ -12,11 +13,11 @@ import 'package:iconsax/iconsax.dart';
 /// - InteractiveViewer for zoom (1x-4x) and pan
 /// - Double-tap to toggle zoom (1x ↔ 2x)
 /// - AppBar with counter (X/Y) and transparent background
-/// - Support for both network and local images
+/// - Support for network URLs, bundled assets and device files
 /// - Loading and error states
 class ImageViewerWidget extends StatefulWidget {
   final List<String>
-  imagePaths; // List of image paths (local File paths or HTTP URLs)
+  imagePaths; // URL distante, asset du bundle, ou chemin de fichier
   final int initialIndex; // Index of the image to display first
 
   const ImageViewerWidget({
@@ -160,10 +161,14 @@ class _ImageViewerWidgetState extends State<ImageViewerWidget> {
     );
   }
 
-  /// Build local file image with error handling
+  /// Build local image — asset du bundle ou fichier de l'appareil.
+  ///
+  /// Passe par [imageProviderFor] et non par `Image.file` : un asset donné à
+  /// `File` désigne un chemin relatif qui n'existe pas au moment de l'exécution,
+  /// et la visionneuse n'affichait alors que son écran d'erreur.
   Widget _buildLocalImage(String path) {
-    return Image.file(
-      File(path),
+    return Image(
+      image: imageProviderFor(path),
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
         return _buildErrorWidget();
