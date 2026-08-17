@@ -311,7 +311,8 @@ class _ConversationDetailScreenState
   Widget build(BuildContext context) {
     final platformUi = ref.watch(platformUiProvider);
     final isApple = platformUi.platform.isApple;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final conversation = _conversation;
 
     // En-tête construit dans le corps, sans barre de navigation.
@@ -325,38 +326,43 @@ class _ConversationDetailScreenState
     // Le geste de retour par balayage reste assuré par la route, pas par la
     // barre : il n'est pas perdu.
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Column(
         children: [
-          // Motif de fond, comme dans WhatsApp. Répété plutôt qu'étiré : une
-          // image unique déformée sur un iPad n'aurait plus rien du dessin
-          // d'origine.
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Opacity(
-                // Discret : le motif doit se deviner derrière les bulles, pas
-                // concurrencer le texte qu'elles portent.
-                opacity: isDark ? 0.5 : 0.7,
-                child: Image.asset(
-                  isDark
-                      ? AppImages.chatPatternDark
-                      : AppImages.chatPatternLight,
-                  repeat: ImageRepeat.repeat,
-                  alignment: Alignment.topLeft,
-                ),
-              ),
-            ),
+          _ConversationHeader(
+            conversation: conversation,
+            onBack: () => context.pop(),
+            onMore: () => _openCallOptions(context, conversation.name),
+            isApple: isApple,
           ),
-          Column(
-            children: [
-              _ConversationHeader(
-                conversation: conversation,
-                onBack: () => context.pop(),
-                onMore: () => _openCallOptions(context, conversation.name),
-                isApple: isApple,
-              ),
-              Expanded(
-                child: StickyDateList(
+          // Le motif ne couvre que la zone des messages.
+          //
+          // Posé sur tout l'écran, il traversait le composer et le bandeau de
+          // réponse : en thème clair, les traits du dessin passaient à travers
+          // le champ de saisie, qui devenait à peine lisible. Le thème sombre le
+          // masquait, ce qui rendait le défaut invisible d'un côté seulement.
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      // Discret : le motif doit se deviner derrière les bulles,
+                      // pas concurrencer le texte qu'elles portent.
+                      opacity: isDark ? 0.5 : 0.55,
+                      child: Image.asset(
+                        isDark
+                            ? AppImages.chatPatternDark
+                            : AppImages.chatPatternLight,
+                        // Répété plutôt qu'étiré : une image unique déformée sur
+                        // un iPad n'aurait plus rien du dessin d'origine.
+                        repeat: ImageRepeat.repeat,
+                        alignment: Alignment.topLeft,
+                      ),
+                    ),
+                  ),
+                ),
+                StickyDateList(
                   now: DateTime.now(),
                   padding: const EdgeInsets.symmetric(
                     vertical: DesignTokens.spaceM,
@@ -369,22 +375,22 @@ class _ConversationDetailScreenState
                       ),
                   ],
                 ),
-              ),
-              if (_recording)
-                VoiceRecorderBar(
-                  onSend: _sendVoice,
-                  onCancel: () => setState(() => _recording = false),
-                )
-              else
-                MessageComposer(
-                  onSend: _send,
-                  placeholder: 'Écrire un message…',
-                  replyTo: _replyTo,
-                  onCancelReply: () => setState(() => _replyTo = null),
-                  onRecordVoice: () => setState(() => _recording = true),
-                ),
-            ],
+              ],
+            ),
           ),
+          if (_recording)
+            VoiceRecorderBar(
+              onSend: _sendVoice,
+              onCancel: () => setState(() => _recording = false),
+            )
+          else
+            MessageComposer(
+              onSend: _send,
+              placeholder: 'Écrire un message…',
+              replyTo: _replyTo,
+              onCancelReply: () => setState(() => _replyTo = null),
+              onRecordVoice: () => setState(() => _recording = true),
+            ),
         ],
       ),
     );

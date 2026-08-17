@@ -113,134 +113,141 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     final isDark = theme.brightness == Brightness.dark;
     final isApple = ref.watch(platformUiProvider).platform.isApple;
 
-    return SafeArea(
-      top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.replyTo != null)
-            _ReplyBanner(
-              reply: widget.replyTo!,
-              onCancel: widget.onCancelReply,
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              DesignTokens.spaceS,
-              DesignTokens.spaceS,
-              DesignTokens.spaceS,
-              DesignTokens.spaceS,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _RoundButton(
-                  icon: isApple ? CupertinoIcons.plus : Iconsax.add,
-                  onTap: () => _openAttachments(context),
-                  tooltip: 'Ajouter une pièce jointe',
-                ),
-                const SizedBox(width: DesignTokens.spaceS),
-                Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(
-                      minHeight: _controlHeight,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: DesignTokens.borderRadiusPill,
-                      border: Border.all(
-                        color: DesignTokens.getBorderColor(
-                          isDark,
-                          opacity: 0.20,
-                        ),
+    // Aplat opaque, et non un fond transparent : le fil défile juste au-dessus,
+    // et un composer translucide laissait le motif de fond traverser le champ.
+    // Le thème sombre le masquait presque, le clair le rendait illisible.
+    return ColoredBox(
+      color: theme.scaffoldBackgroundColor,
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.replyTo != null)
+              _ReplyBanner(
+                reply: widget.replyTo!,
+                onCancel: widget.onCancelReply,
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                DesignTokens.spaceS,
+                DesignTokens.spaceS,
+                DesignTokens.spaceS,
+                DesignTokens.spaceS,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _RoundButton(
+                    icon: isApple ? CupertinoIcons.plus : Iconsax.add,
+                    onTap: () => _openAttachments(context),
+                    tooltip: 'Ajouter une pièce jointe',
+                  ),
+                  const SizedBox(width: DesignTokens.spaceS),
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minHeight: _controlHeight,
                       ),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: DesignTokens.spaceM,
-                      vertical: 2,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            focusNode: _focusNode,
-                            minLines: 1,
-                            // Le champ grandit avec le texte, jusqu'à cinq lignes.
-                            maxLines: 5,
-                            textCapitalization: TextCapitalization.sentences,
-                            style: theme.textTheme.bodyMedium?.merge(
-                              AppleType.body,
-                            ),
-                            decoration: InputDecoration(
-                              isDense: true,
-                              hintText: widget.placeholder ?? 'Message',
-                              hintStyle: theme.textTheme.bodyMedium
-                                  ?.merge(AppleType.body)
-                                  .copyWith(
-                                    color: DesignTokens.getTextColorWithOpacity(
-                                      context,
-                                      0.4,
-                                    ),
-                                  ),
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 10,
-                              ),
-                            ),
+                      decoration: BoxDecoration(
+                        borderRadius: DesignTokens.borderRadiusPill,
+                        border: Border.all(
+                          color: DesignTokens.getBorderColor(
+                            isDark,
+                            opacity: 0.20,
                           ),
                         ),
-                        if (!_hasText)
-                          GestureDetector(
-                            onTap: widget.onRecordVoice,
-                            behavior: HitTestBehavior.opaque,
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: 8,
-                                left: 4,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DesignTokens.spaceM,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _controller,
+                              focusNode: _focusNode,
+                              minLines: 1,
+                              // Le champ grandit avec le texte, jusqu'à cinq lignes.
+                              maxLines: 5,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: theme.textTheme.bodyMedium?.merge(
+                                AppleType.body,
                               ),
-                              child: Icon(
-                                isApple
-                                    ? CupertinoIcons.mic
-                                    : Iconsax.microphone_2,
-                                size: DesignTokens.iconS,
-                                color: DesignTokens.getTextColorWithOpacity(
-                                  context,
-                                  0.45,
+                              decoration: InputDecoration(
+                                isDense: true,
+                                hintText: widget.placeholder ?? 'Message',
+                                hintStyle: theme.textTheme.bodyMedium
+                                    ?.merge(AppleType.body)
+                                    .copyWith(
+                                      color:
+                                          DesignTokens.getTextColorWithOpacity(
+                                            context,
+                                            0.4,
+                                          ),
+                                    ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
                                 ),
                               ),
                             ),
                           ),
-                      ],
+                          if (!_hasText)
+                            GestureDetector(
+                              onTap: widget.onRecordVoice,
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: 8,
+                                  left: 4,
+                                ),
+                                child: Icon(
+                                  isApple
+                                      ? CupertinoIcons.mic
+                                      : Iconsax.microphone_2,
+                                  size: DesignTokens.iconS,
+                                  color: DesignTokens.getTextColorWithOpacity(
+                                    context,
+                                    0.45,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                // Le bouton d'envoi n'apparaît qu'avec du texte : c'est ce qui évite
-                // une action grisée en permanence dans le champ de vision.
-                AnimatedSize(
-                  duration: DesignTokens.durationFast,
-                  curve: DesignTokens.curveDecelerate,
-                  child: _hasText
-                      ? Padding(
-                          padding: const EdgeInsets.only(
-                            left: DesignTokens.spaceS,
-                          ),
-                          child: _RoundButton(
-                            icon: isApple
-                                ? CupertinoIcons.arrow_up
-                                : Iconsax.send_1,
-                            onTap: _send,
-                            tooltip: 'Envoyer',
-                            isPrimary: true,
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
+                  // Le bouton d'envoi n'apparaît qu'avec du texte : c'est ce qui évite
+                  // une action grisée en permanence dans le champ de vision.
+                  AnimatedSize(
+                    duration: DesignTokens.durationFast,
+                    curve: DesignTokens.curveDecelerate,
+                    child: _hasText
+                        ? Padding(
+                            padding: const EdgeInsets.only(
+                              left: DesignTokens.spaceS,
+                            ),
+                            child: _RoundButton(
+                              icon: isApple
+                                  ? CupertinoIcons.arrow_up
+                                  : Iconsax.send_1,
+                              onTap: _send,
+                              tooltip: 'Envoyer',
+                              isPrimary: true,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -312,7 +319,10 @@ class _ReplyBanner extends StatelessWidget {
     // repère de citation se lit mieux comme un trait franc.
     return Container(
       width: double.infinity,
-      color: DesignTokens.getSubtleBackground(context, opacity: 0.06),
+      // Le voile se détache du composer, pas du motif : celui-ci ne passe plus
+      // derrière. Un cran plus marqué qu'à l'origine, où 6 % disparaissaient sur
+      // un fond clair.
+      color: DesignTokens.getSubtleBackground(context, opacity: 0.09),
       child: Row(
         children: [
           // Filet posé comme un élément de la rangée, et non comme une bordure :
