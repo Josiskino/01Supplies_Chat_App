@@ -74,10 +74,18 @@ class PhotoStack extends StatelessWidget {
 
   /// Part occupée par chacun des deux tirages de front, en paquet.
   ///
-  /// Plus large que dans l'escalier : à deux cartes seulement, il faut couvrir
-  /// la largeur tout en laissant un franc recouvrement au centre, sous lequel les
-  /// bords entrevus prennent place.
-  static const double _bundleCardWidthRatio = 0.62;
+  /// Juste au-delà de la moitié : les deux tirages se **juxtaposent**, en se
+  /// recouvrant d'un doigt au centre. Plus large, celui de gauche mange l'autre
+  /// et le paquet redevient une photo unique flanquée d'un bord — c'est ce qui
+  /// distinguait le rendu de la référence.
+  static const double _bundleCardWidthRatio = 0.52;
+
+  /// Inclinaison d'un tirage de front, en radians (~4,9°).
+  ///
+  /// Plus franche que dans l'escalier : deux cartes qui se touchent sans se
+  /// couvrir n'ont que leur angle pour dire qu'elles sont posées l'une sur
+  /// l'autre, là où l'escalier le dit déjà par son décalage.
+  static const double _bundleTilt = 0.085;
 
   /// Inclinaison maximale d'une carte, en radians (~3,2°).
   ///
@@ -99,9 +107,16 @@ class PhotoStack extends StatelessWidget {
 
   /// Décalage vertical d'un bord entrevu.
   ///
-  /// En dessous de ~8 le liseré se confond avec l'ombre du tirage de front, et le
-  /// paquet redevient une simple paire de photos.
-  static const double _peekStep = 11;
+  /// Volontairement court : ce qui affleure doit se **deviner** sous la jointure,
+  /// pas s'afficher. Un décalage franc donnait un bandeau bien lisible en bas du
+  /// paquet, que l'œil lit comme une troisième photo mal placée.
+  static const double _peekStep = 6;
+
+  /// Part de la largeur d'un tirage occupée par un bord entrevu.
+  ///
+  /// Étroit et centré sur la jointure des deux tirages : c'est là que le regard
+  /// cherche le fond du paquet.
+  static const double _peekWidthRatio = 0.62;
 
   /// Marge réservée au débordement de l'inclinaison.
   ///
@@ -109,7 +124,8 @@ class PhotoStack extends StatelessWidget {
   /// de la boîte qu'elle occupait d'aplomb. Sans cette réserve, la carte de
   /// queue mordait le bord de l'écran et son ombre s'y trouvait coupée — un
   /// défaut invisible sur la pile de gauche, systématique sur celle de droite.
-  static double _tiltMarginFor(double height) => height * math.sin(_maxTilt);
+  double _tiltMarginFor(double height) =>
+      height * math.sin(_isBundle ? _bundleTilt : _maxTilt);
 
   bool get _isBundle => images.length > _bundleThreshold;
 
@@ -224,7 +240,7 @@ class PhotoStack extends StatelessWidget {
     // boîte annoncée.
     final cardHeight = height - 2 * margin - _peekCards * _peekStep;
     final cardWidth = usableWidth * _bundleCardWidthRatio;
-    final peekWidth = cardWidth * 0.86;
+    final peekWidth = cardWidth * _peekWidthRatio;
     final peekLeft = margin + (usableWidth - peekWidth) / 2;
 
     return [
@@ -248,7 +264,7 @@ class PhotoStack extends StatelessWidget {
         top: margin,
         width: cardWidth,
         height: cardHeight,
-        angle: _maxTilt,
+        angle: _bundleTilt,
         imageIndex: 1,
       ),
       _CardPlacement(
@@ -256,7 +272,7 @@ class PhotoStack extends StatelessWidget {
         top: margin,
         width: cardWidth,
         height: cardHeight,
-        angle: -_maxTilt,
+        angle: -_bundleTilt,
         imageIndex: 0,
       ),
     ];
@@ -301,7 +317,9 @@ class _PhotoCard extends StatelessWidget {
   final double width;
   final double height;
 
-  static const double _border = 4;
+  /// Le liseré reste fin : sur un tirage de la taille d'une vignette, un bord
+  /// épais tient plus de place que ce qu'il encadre.
+  static const double _border = 3;
 
   /// Coins d'un tirage photo — plus francs que le rayon des cartes de
   /// l'interface, dont la valeur (8) donnerait des angles presque droits à cette
@@ -318,9 +336,9 @@ class _PhotoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(_radius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),

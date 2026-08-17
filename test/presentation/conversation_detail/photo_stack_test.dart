@@ -122,6 +122,27 @@ void main() {
       expect(_tiltOf(tester, 1), 0);
     });
 
+    testWidgets('les tirages sont en portrait et se juxtaposent', (
+      tester,
+    ) async {
+      await pump(tester, images);
+
+      // La taille locale, non affectée par la rotation.
+      final card = tester.getSize(find.byType(Image).at(2));
+      // Des tirages en paysage donnaient un bandeau large et bas, très loin de la
+      // paire de portraits posés l'un contre l'autre.
+      expect(card.width, lessThan(card.height));
+
+      // Les centres sont invariants sous rotation, contrairement aux coins.
+      final left = tester.getCenter(find.byType(Image).at(3));
+      final right = tester.getCenter(find.byType(Image).at(2));
+      final overlap = card.width - (right.dx - left.dx);
+      // Un franc recouvrement fait manger le tirage de droite par celui de
+      // gauche : le paquet se lit alors comme une photo unique bordée d'un liseré.
+      expect(overlap, greaterThan(0));
+      expect(overlap, lessThan(card.width * 0.25));
+    });
+
     testWidgets('aucune carte ne sort de la boîte allouée', (tester) async {
       await pump(tester, images);
 
