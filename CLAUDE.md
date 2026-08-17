@@ -297,6 +297,48 @@ Chacun a déjà coûté un bug dans cette famille de projets.
     `assets/branding/adaptive_foreground.png`, dont le contenu occupe 46 % du
     canevas — vérifiable, contrairement à l'option.
 
+11. **`get-task-allow` injecté en release (macOS)** — `flutter build macos` lance
+    un build ordinaire, pas une archive : Xcode y ajoute
+    `com.apple.security.get-task-allow` pour permettre le débogage. L'App Store
+    **rejette** cet entitlement, et ni le build ni la signature ne le signalent —
+    seule la validation du paquet échoue. D'où
+    `CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO` sur les configurations `Release-*`.
+    Vérifier avec `codesign -d --entitlements - --xml <app>`.
+
+12. **`LSApplicationCategoryType` absent (macOS)** — le template
+    `flutter create` ne le fournit pas, et sans lui la validation du paquet
+    échoue en 409 alors que tout le reste réussit. Déclaré à
+    `public.app-category.business` dans `macos/Runner/Info.plist`.
+
+---
+
+## Distribution macOS (TestFlight)
+
+Trois différences avec iOS, toutes bloquantes si on les découvre tard :
+
+1. **Deux certificats, pas un.** L'app est signée avec *Apple Distribution*
+   (le même que l'IPA), mais le paquet exige un certificat distinct,
+   **Mac Installer Distribution**, sans lequel `productbuild` ne peut rien signer.
+2. **Un `.pkg`, pas un `.app`.** TestFlight refuse le bundle nu :
+   `productbuild --component <app> /Applications --sign "3rd Party Mac Developer
+   Installer: …" out.pkg`.
+3. **La plateforme macOS doit exister sur la fiche.** Une fiche iOS seule fait
+   échouer l'envoi sur « Cannot determine the Apple ID from Bundle ID … and
+   platform MAC_OS ». Les deux plateformes cohabitent sur une même fiche à
+   condition de partager le bundle ID ; il suffit alors de déclarer une
+   `appStoreVersion` de plateforme `MAC_OS`.
+
+```bash
+fvm flutter build macos --release --flavor development -t lib/main_development.dart
+productbuild --component "build/macos/Build/Products/Release-development/01 Chat Dev.app" \
+  /Applications --sign "3rd Party Mac Developer Installer: … (787AZUSBKX)" out.pkg
+xcrun altool --validate-app -f out.pkg -t macos --apiKey … --apiIssuer …
+xcrun altool --upload-app  -f out.pkg -t macos --apiKey … --apiIssuer …
+```
+
+Toujours passer par `--validate-app` avant l'envoi : les deux pièges ci-dessus
+(11 et 12) ne se manifestent qu'à cette étape.
+
 ---
 
 ## Identité visuelle
