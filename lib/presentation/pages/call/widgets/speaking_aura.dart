@@ -120,6 +120,32 @@ class _AuraPainter extends CustomPainter {
   /// Décalage de phase, pour que les lobes ne respirent pas ensemble.
   static const List<double> _offsets = [0, 2.1, 4.3];
 
+  /// Décalage de teinte de chaque lobe, en degrés.
+  ///
+  /// C'est ce qui fait le **dégradé**. Les trois lobes portaient auparavant la
+  /// même teinte et ne différaient que par leur opacité : le halo restait un
+  /// aplat, jamais un dégradé. Décaler la teinte de part et d'autre de celle de
+  /// l'avatar donne une nuance vivante tout en restant reconnaissable comme sa
+  /// couleur.
+  ///
+  /// L'écart reste modéré (±26°) : au-delà, la teinte glisse vers une couleur
+  /// voisine et le halo cesse d'appartenir à l'avatar.
+  static const List<double> _hueShifts = [0, 26, -22];
+
+  /// Teintes dérivées de la couleur de l'avatar.
+  ///
+  /// La saturation et la clarté sont relevées : le fond du cercle est peint à
+  /// 28 % d'opacité, donc très sourd, et une teinte reprise telle quelle
+  /// disparaîtrait sur le fond noir de l'appel.
+  Color _lobeColor(int index) {
+    final base = HSLColor.fromColor(color);
+    return base
+        .withHue((base.hue + _hueShifts[index]) % 360)
+        .withSaturation((base.saturation * 1.15).clamp(0.0, 1.0))
+        .withLightness((base.lightness * 1.1).clamp(0.0, 0.72))
+        .toColor();
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
@@ -134,7 +160,7 @@ class _AuraPainter extends CustomPainter {
       canvas.drawPath(
         _lobePath(center, radius, localPhase, i),
         Paint()
-          ..color = color.withValues(alpha: 0.22 - i * 0.05)
+          ..color = _lobeColor(i).withValues(alpha: 0.26 - i * 0.05)
           ..style = PaintingStyle.fill
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
