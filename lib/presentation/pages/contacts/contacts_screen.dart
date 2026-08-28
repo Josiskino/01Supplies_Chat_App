@@ -240,8 +240,14 @@ class _EmployeeRow extends StatelessWidget {
               ),
               const SizedBox(width: DesignTokens.spaceM),
               Expanded(
+                // Chaque ligne d'information n'occupe de la place que si elle
+                // a quelque chose à dire. L'ancienne disposition réservait une
+                // ligne au rôle et une aux coordonnées quoi qu'il arrive : un
+                // contact sans téléphone laissait deux vides entre son nom et
+                // le bas de la rangée.
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       employee.name,
@@ -251,32 +257,42 @@ class _EmployeeRow extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      employee.role,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: mutedColor,
+                    if (employee.role.isNotEmpty ||
+                        employee.phone != null ||
+                        employee.location != null)
+                      const SizedBox(height: 3),
+                    // Rôle et coordonnées sur une même ligne : dans un
+                    // répertoire de clients, « Client » ne mérite pas sa propre
+                    // ligne, mais reste utile pour distinguer un partenaire.
+                    if (employee.role.isNotEmpty ||
+                        employee.phone != null ||
+                        employee.location != null)
+                      Wrap(
+                        spacing: DesignTokens.spaceM,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (employee.role.isNotEmpty)
+                            Text(
+                              employee.role,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: mutedColor,
+                              ),
+                            ),
+                          if (employee.phone != null)
+                            _EmployeeMeta(
+                              icon: Iconsax.call,
+                              label: employee.phone!,
+                            ),
+                          if (employee.location != null)
+                            _EmployeeMeta(
+                              icon: Iconsax.location,
+                              label: employee.location!,
+                            ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: DesignTokens.spaceXs),
-                    Wrap(
-                      spacing: DesignTokens.spaceM,
-                      runSpacing: 2,
-                      children: [
-                        if (employee.phone != null)
-                          _EmployeeMeta(
-                            icon: Iconsax.call,
-                            label: employee.phone!,
-                          ),
-                        if (employee.location != null)
-                          _EmployeeMeta(
-                            icon: Iconsax.location,
-                            label: employee.location!,
-                          ),
-                      ],
-                    ),
                   ],
                 ),
               ),
