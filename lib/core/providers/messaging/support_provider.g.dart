@@ -313,7 +313,7 @@ final supportQueueProvider = SupportQueueProvider._();
 /// `/messaging/support` et non de `/support/me`, qui ne rendrait que les
 /// dossiers déjà pris — donc rien, au premier lancement.
 final class SupportQueueProvider
-    extends $AsyncNotifierProvider<SupportQueue, List<SupportTicketEntity>> {
+    extends $AsyncNotifierProvider<SupportQueue, List<ConversationListEntry>> {
   /// La file d'attente commune, telle que l'onglet Conversations l'affiche.
   ///
   /// Tous les admins voient la même liste : un client écrit, son ticket y paraît,
@@ -339,7 +339,7 @@ final class SupportQueueProvider
   SupportQueue create() => SupportQueue();
 }
 
-String _$supportQueueHash() => r'e2a1f94bafd78f138d5bdf943c2b33340847a876';
+String _$supportQueueHash() => r'accb1a4d283a0f4a036598fa862bbb1bbf29de71';
 
 /// La file d'attente commune, telle que l'onglet Conversations l'affiche.
 ///
@@ -349,25 +349,25 @@ String _$supportQueueHash() => r'e2a1f94bafd78f138d5bdf943c2b33340847a876';
 /// dossiers déjà pris — donc rien, au premier lancement.
 
 abstract class _$SupportQueue
-    extends $AsyncNotifier<List<SupportTicketEntity>> {
-  FutureOr<List<SupportTicketEntity>> build();
+    extends $AsyncNotifier<List<ConversationListEntry>> {
+  FutureOr<List<ConversationListEntry>> build();
   @$mustCallSuper
   @override
   void runBuild() {
     final ref =
         this.ref
             as $Ref<
-              AsyncValue<List<SupportTicketEntity>>,
-              List<SupportTicketEntity>
+              AsyncValue<List<ConversationListEntry>>,
+              List<ConversationListEntry>
             >;
     final element =
         ref.element
             as $ClassProviderElement<
               AnyNotifier<
-                AsyncValue<List<SupportTicketEntity>>,
-                List<SupportTicketEntity>
+                AsyncValue<List<ConversationListEntry>>,
+                List<ConversationListEntry>
               >,
-              AsyncValue<List<SupportTicketEntity>>,
+              AsyncValue<List<ConversationListEntry>>,
               Object?,
               Object?
             >;

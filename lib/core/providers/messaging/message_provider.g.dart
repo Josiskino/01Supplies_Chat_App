@@ -303,7 +303,7 @@ final class ThreadProvider extends $AsyncNotifierProvider<Thread, ThreadState> {
   }
 }
 
-String _$threadHash() => r'972caaad021e16f35c289b1518670a2322a2091b';
+String _$threadHash() => r'25bfcf036f813968d988021663638fafc232f86d';
 
 /// Le fil d'une conversation.
 ///

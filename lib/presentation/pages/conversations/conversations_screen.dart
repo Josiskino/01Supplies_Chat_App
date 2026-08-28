@@ -87,12 +87,12 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     final pinnedIds = ref.watch(pinnedConversationsProvider);
 
     final conversations = [
-      for (final ticket in async.value ?? const [])
-        ConversationListItemData.fromTicket(
-          ticket,
+      for (final entry in async.value ?? const [])
+        ConversationListItemData.fromEntry(
+          entry,
           // La date du dernier message, non celle du ticket : ce dernier ne
           // bouge pas au fil des échanges et figeait l'heure affichée.
-          timeLabel: ChatDateFormatter.listLabel(ticket.displayDate),
+          timeLabel: ChatDateFormatter.listLabel(entry.date),
         ),
     ];
 

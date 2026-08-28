@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../domain/entity/auth/user_entity.dart';
 import '../../../core/utils/chat_date_formatter.dart';
 import '../../../domain/entity/messaging/message_entity.dart';
-import '../../../domain/entity/messaging/support_ticket_entity.dart';
+import '../../../domain/entity/messaging/conversation_list_entry.dart';
 
 /// Modèles de **présentation** de l'espace de travail desktop.
 ///
@@ -57,29 +57,25 @@ class ConversationListItemData {
   /// Un appel manqué s'affiche avec une icône dédiée à la place de l'aperçu.
   final bool isMissedCall;
 
-  /// Projette un ticket de la file dans une ligne de conversation.
-  ///
-  /// L'aperçu vient du **dernier message** dès que la conversation est
-  /// accessible ; il retombe sur la description de la demande pour les dossiers
-  /// qu'on n'a pas rejoints, dont l'API ne livre pas le fil.
-  factory ConversationListItemData.fromTicket(
-    SupportTicketEntity ticket, {
+  /// Projette une entrée de la liste — demande de support ou conversation
+  /// directe — dans une ligne affichable.
+  factory ConversationListItemData.fromEntry(
+    ConversationListEntry entry, {
     required String timeLabel,
   }) {
     return ConversationListItemData(
       // L'identifiant de **conversation**, pas celui du ticket : c'est lui qui
       // ouvre le fil et sert de canal temps réel.
-      id: ticket.conversationId,
-      name: ticket.authorName,
-      // Le dernier échange quand on y a accès, la demande d'origine sinon.
-      preview: ticket.preview,
+      id: entry.conversationId,
+      name: entry.title,
+      preview: entry.preview,
       timeLabel: timeLabel,
-      avatarUrl: ticket.author?.avatarUrl,
-      unreadCount: ticket.displayUnreadCount,
-      hasUnread: ticket.displayUnreadCount > 0,
-      // L'étoile marque les dossiers que personne n'a encore pris : c'est
+      avatarUrl: entry.avatarUrl,
+      unreadCount: entry.unreadCount,
+      hasUnread: entry.unreadCount > 0,
+      // L'étoile marque les demandes que personne n'a encore prises : c'est
       // l'information qui décide de l'action dans une file partagée.
-      isStarred: ticket.isUnclaimed && ticket.status.isActive,
+      isStarred: entry.isUnclaimed,
     );
   }
 }

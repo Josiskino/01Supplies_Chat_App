@@ -7,7 +7,7 @@ import '../constants/api_constant.dart';
 import '../utils/api_types.dart';
 import '../providers/request/api_provider.dart';
 import '../providers/auth/auth_provider.dart';
-import '../../domain/entity/messaging/support_ticket_entity.dart';
+import '../../domain/entity/messaging/conversation_list_entry.dart';
 import '../providers/messaging/support_provider.dart';
 import '../providers/realtime/realtime_provider.dart';
 import '../providers/auth/auth_status_provider.dart';
@@ -43,12 +43,12 @@ class MessageEventsService {
     // La file dit de quelles conversations on est participant : à chaque
     // rechargement, on aligne les abonnements dessus. C'est ce qui fait vivre
     // les compteurs pendant qu'on regarde la liste.
-    _ref.listen<AsyncValue<List<SupportTicketEntity>>>(supportQueueProvider, (
+    _ref.listen<AsyncValue<List<ConversationListEntry>>>(supportQueueProvider, (
       _,
       next,
     ) {
-      final tickets = next.value;
-      if (tickets != null) unawaited(_syncConversationSubscriptions(tickets));
+      final entries = next.value;
+      if (entries != null) unawaited(_syncConversationSubscriptions(entries));
     }, fireImmediately: true);
   }
 
@@ -85,15 +85,19 @@ class MessageEventsService {
   Stream<IncomingMessage> get incomingMessages => _incoming.stream;
 
   /// Aligne les abonnements sur les conversations dont on est participant.
+  ///
+  /// Une demande que personne n'a prise est exclue : le canal privé refuse de
+  /// signer pour qui n'y participe pas, et chaque tentative repartirait en
+  /// boucle de réessais.
   Future<void> _syncConversationSubscriptions(
-    List<SupportTicketEntity> tickets,
+    List<ConversationListEntry> entries,
   ) async {
     final me = _ref.read(currentUserProvider)?.id;
     if (me == null) return;
 
-    final wanted = tickets
-        .where((t) => t.includes(me))
-        .map((t) => t.conversationId)
+    final wanted = entries
+        .where((e) => !e.isUnclaimed)
+        .map((e) => e.conversationId)
         .where((id) => id.isNotEmpty)
         .toSet();
 

@@ -3,7 +3,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../data/datasources/abstract/messaging/support_datasource_contract.dart';
 import '../../../data/datasources/remote/support_remote_datasource.dart';
 import '../../../data/repository/support_repository_impl.dart';
+import '../../../domain/entity/messaging/conversation_list_entry.dart';
 import '../../../domain/entity/messaging/support_ticket_entity.dart';
+import '../auth/auth_provider.dart';
 import '../../../domain/repository/messaging/support_repository.dart';
 import '../../../domain/usecases/messaging/support_usecases.dart';
 import '../request/api_provider.dart';
@@ -49,7 +51,7 @@ JoinTicketUseCase joinTicketUseCase(Ref ref) =>
 @riverpod
 class SupportQueue extends _$SupportQueue {
   @override
-  Future<List<SupportTicketEntity>> build() async {
+  Future<List<ConversationListEntry>> build() async {
     final queue = await ref
         .read(fetchQueueUseCaseProvider)
         .call(const FetchQueueParams());
@@ -71,22 +73,37 @@ class SupportQueue extends _$SupportQueue {
       for (final c in conversations.getOrElse((_) => const [])) c.id: c,
     };
 
-    final merged = [
-      for (final t in tickets)
-        if (byId[t.conversationId] case final c?)
-          t.withConversation(
-            lastMessage: c.lastMessage,
-            lastMessageType: c.lastMessageType,
-            lastMessageAt: c.lastMessageAt,
-            unreadCount: c.unreadCount,
-          )
-        else
-          t,
+    final me = ref.read(currentUserProvider)?.id;
+
+    /// Complète un dossier avec ce que sa conversation sait de plus récent.
+    SupportTicketEntity enrich(SupportTicketEntity ticket) {
+      final c = byId[ticket.conversationId];
+      if (c == null) return ticket;
+      return ticket.withConversation(
+        lastMessage: c.lastMessage,
+        lastMessageType: c.lastMessageType,
+        lastMessageAt: c.lastMessageAt,
+        unreadCount: c.unreadCount,
+      );
+    }
+
+    final entries = <ConversationListEntry>[
+      for (final t in tickets) ConversationListEntry.fromTicket(enrich(t)),
     ];
 
+    // Les conversations **sans dossier** — celles ouvertes depuis le
+    // répertoire. Partir des seuls tickets les laissait invisibles, alors même
+    // qu'on venait de les créer.
+    final withTicket = {for (final t in tickets) t.conversationId};
+    entries.addAll([
+      for (final c in byId.values)
+        if (!withTicket.contains(c.id))
+          ConversationListEntry.fromConversation(c, me: me),
+    ]);
+
     // Le plus récemment actif en tête, sur la date réelle du dernier échange.
-    merged.sort((a, b) => b.displayDate.compareTo(a.displayDate));
-    return merged;
+    entries.sort((a, b) => b.date.compareTo(a.date));
+    return entries;
   }
 
   Future<void> refresh() async {

@@ -257,12 +257,12 @@ class _ConversationDetailScreenState
   /// Sert à informer, non à interdire : rejoindre reste possible à plusieurs.
   String? get _assigneeName {
     final queue = ref.read(supportQueueProvider).value ?? const [];
-    final ticket = queue
-        .where((t) => t.conversationId == widget.conversationId)
+    final entry = queue
+        .where((e) => e.conversationId == widget.conversationId)
         .firstOrNull;
-    if (ticket == null || ticket.isUnclaimed) return null;
-    if (ticket.assigneeId == ref.read(currentUserIdProvider)) return null;
-    return ticket.assigneeName ?? 'un membre de l’équipe';
+    if (entry == null || entry.assigneeId == null) return null;
+    if (entry.assigneeId == ref.read(currentUserIdProvider)) return null;
+    return entry.assigneeName ?? 'un membre de l’équipe';
   }
 
   /// Rejoint le dossier, puis ouvre le fil.
@@ -272,11 +272,12 @@ class _ConversationDetailScreenState
   /// deux identifiants.
   Future<void> _claim() async {
     final queue = ref.read(supportQueueProvider).value ?? const [];
-    final ticket = queue
-        .where((t) => t.conversationId == widget.conversationId)
+    final entry = queue
+        .where((e) => e.conversationId == widget.conversationId)
         .firstOrNull;
+    final ticketId = entry?.ticketId;
 
-    if (ticket == null) {
+    if (ticketId == null) {
       if (!mounted) return;
       ref
           .read(platformUiProvider)
@@ -294,7 +295,7 @@ class _ConversationDetailScreenState
 
     final ok = await ref
         .read(supportQueueProvider.notifier)
-        .join(ticketId: ticket.id, agentId: me);
+        .join(ticketId: ticketId, agentId: me);
     if (!mounted) return;
 
     if (ok) {
