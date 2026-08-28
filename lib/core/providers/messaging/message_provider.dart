@@ -11,6 +11,7 @@ import '../../../domain/usecases/messaging/message_usecases.dart';
 import '../../abstract/failure.dart';
 import '../auth/auth_provider.dart';
 import '../realtime/realtime_provider.dart';
+import 'support_provider.dart';
 import '../request/api_provider.dart';
 
 part 'message_provider.g.dart';
@@ -139,9 +140,13 @@ class Thread extends _$Thread {
   }
 
   Future<void> markRead() async {
-    await ref
+    final result = await ref
         .read(markReadUseCaseProvider)
         .call(MarkReadParams(conversationId));
+
+    // La file porte les compteurs : sans ce rechargement, la pastille de
+    // non-lus reste affichée alors que le fil vient d'être lu.
+    if (result.isRight()) ref.invalidate(supportQueueProvider);
   }
 
   Future<void> refresh() async {

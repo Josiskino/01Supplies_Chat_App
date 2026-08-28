@@ -7,7 +7,9 @@ import '../constants/api_constant.dart';
 import '../utils/api_types.dart';
 import '../providers/request/api_provider.dart';
 import '../providers/auth/auth_provider.dart';
+import '../../domain/entity/messaging/support_ticket_entity.dart';
 import '../providers/messaging/support_provider.dart';
+import '../providers/realtime/realtime_provider.dart';
 import '../providers/auth/auth_status_provider.dart';
 import '../auth/auth_gate.dart';
 import '../utils/app_logger.dart';
@@ -20,10 +22,11 @@ import 'pusher_service.dart';
 /// - `private-user-{id}` : ce qui **apparaît** — une conversation créée, un
 ///   ticket mis à jour. Écouté en permanence, c'est lui qui fait entrer une
 ///   nouvelle demande dans la file sans rechargement.
-/// - `private-conversation-{id}` : ce qui se dit **dans** un fil. Souscrit à
-///   l'ouverture d'une conversation, relâché à sa fermeture — s'abonner aux
-///   quarante-cinq fils ouverts ferait payer à l'appareil un trafic qu'aucun
-///   écran n'affiche.
+/// - `private-conversation-{id}` : ce qui se dit **dans** un fil. Souscrit pour
+///   **toutes les conversations dont on est participant**, pas seulement celle
+///   affichée : sans cela, un message arrivé pendant qu'on regarde la liste ne
+///   produit ni compteur ni notification, et le canal privé n'accepte de toute
+///   façon que les conversations qu'on a rejointes.
 ///
 /// Les noms d'événements sont ceux que l'app cliente écoute déjà : les changer
 /// ici couperait l'un des deux bouts de la conversation.
@@ -35,6 +38,17 @@ class MessageEventsService {
       } else if (next == AuthGateStatus.unauthenticated) {
         unawaited(_disconnect());
       }
+    }, fireImmediately: true);
+
+    // La file dit de quelles conversations on est participant : à chaque
+    // rechargement, on aligne les abonnements dessus. C'est ce qui fait vivre
+    // les compteurs pendant qu'on regarde la liste.
+    _ref.listen<AsyncValue<List<SupportTicketEntity>>>(supportQueueProvider, (
+      _,
+      next,
+    ) {
+      final tickets = next.value;
+      if (tickets != null) unawaited(_syncConversationSubscriptions(tickets));
     }, fireImmediately: true);
   }
 
@@ -63,6 +77,30 @@ class MessageEventsService {
 
   /// Identifiants de conversation dont le fil vient de changer.
   Stream<String> get threadChanges => _threadEvents.stream;
+
+  /// Messages reçus alors que leur conversation n'était pas à l'écran.
+  final _incoming = StreamController<IncomingMessage>.broadcast();
+
+  /// À signaler à l'utilisateur : il ne regardait pas ce fil.
+  Stream<IncomingMessage> get incomingMessages => _incoming.stream;
+
+  /// Aligne les abonnements sur les conversations dont on est participant.
+  Future<void> _syncConversationSubscriptions(
+    List<SupportTicketEntity> tickets,
+  ) async {
+    final me = _ref.read(currentUserProvider)?.id;
+    if (me == null) return;
+
+    final wanted = tickets
+        .where((t) => t.includes(me))
+        .map((t) => t.conversationId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    for (final id in wanted) {
+      await watchConversation(id);
+    }
+  }
 
   Future<void> _ensureConnected() async {
     if (_pusher.isConnected) return;
@@ -169,6 +207,48 @@ class MessageEventsService {
   ) {
     _logger.debug('Événement $event sur $conversationId', feature: 'Realtime');
     _threadEvents.add(conversationId);
+
+    // La file porte les compteurs de non-lus : elle doit être relue, sinon la
+    // pastille reste sur sa valeur du dernier chargement.
+    _ref.invalidate(supportQueueProvider);
+
+    if (event != 'message.new') return;
+    // Un message arrivé sous les yeux de l'utilisateur ne se notifie pas.
+    if (conversationId == _ref.read(visibleConversationProvider)) return;
+
+    final me = _ref.read(currentUserProvider)?.id;
+    final sender = _senderIdOf(data);
+    // Ses propres messages ne se notifient pas — ils reviennent par le canal
+    // comme tous les autres.
+    if (sender != null && sender == me) return;
+
+    _incoming.add(
+      IncomingMessage(
+        conversationId: conversationId,
+        author: _senderNameOf(data),
+        preview: (data['content'] ?? '').toString(),
+      ),
+    );
+  }
+
+  static String? _senderIdOf(Map<String, dynamic> data) {
+    final direct = data['senderId'];
+    if (direct is String && direct.isNotEmpty) return direct;
+    final sender = data['sender'];
+    if (sender is Map) return sender['id']?.toString();
+    return null;
+  }
+
+  static String _senderNameOf(Map<String, dynamic> data) {
+    final sender = data['sender'];
+    if (sender is Map) {
+      final name = [
+        sender['firstName'],
+        sender['lastName'],
+      ].whereType<String>().join(' ').trim();
+      if (name.isNotEmpty) return name;
+    }
+    return 'Nouveau message';
   }
 
   Future<void> _disconnect() async {
@@ -189,7 +269,21 @@ class MessageEventsService {
   }
 
   void dispose() {
+    unawaited(_incoming.close());
     unawaited(_threadEvents.close());
     unawaited(_disconnect());
   }
+}
+
+/// Un message arrivé hors du fil affiché.
+class IncomingMessage {
+  const IncomingMessage({
+    required this.conversationId,
+    required this.author,
+    required this.preview,
+  });
+
+  final String conversationId;
+  final String author;
+  final String preview;
 }

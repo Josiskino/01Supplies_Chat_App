@@ -16,6 +16,7 @@ class SupportTicketModel {
     this.unreadCount = 0,
     this.assignedTo,
     this.assigneeName,
+    this.participantIds = const [],
   });
 
   final String id;
@@ -30,6 +31,7 @@ class SupportTicketModel {
   final int unreadCount;
   final String? assignedTo;
   final String? assigneeName;
+  final List<String> participantIds;
 
   factory SupportTicketModel.fromJson(Map<String, dynamic> json) {
     final conv = (json['conversation'] as Map?)?.cast<String, dynamic>();
@@ -54,7 +56,21 @@ class SupportTicketModel {
       // dossier maintenant.
       assignedTo: json['assignedTo']?.toString(),
       assigneeName: _parseAssigneeName(conv),
+      participantIds: _parseParticipantIds(conv),
     );
+  }
+
+  static List<String> _parseParticipantIds(Map<String, dynamic>? conversation) {
+    final parts = conversation?['participants'];
+    if (parts is! List) return const [];
+    return parts
+        .whereType<Map>()
+        .map((p) {
+          final u = p['user'];
+          return (p['userId'] ?? (u is Map ? u['id'] : null) ?? '').toString();
+        })
+        .where((id) => id.isNotEmpty)
+        .toList();
   }
 
   /// Nom de l'agent en charge, lu sur les participants de la conversation.
@@ -88,5 +104,6 @@ class SupportTicketModel {
     unreadCount: unreadCount,
     assigneeId: assignedTo,
     assigneeName: assigneeName,
+    participantIds: participantIds,
   );
 }

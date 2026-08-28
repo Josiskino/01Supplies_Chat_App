@@ -16,3 +16,24 @@ MessageEventsService messageEvents(Ref ref) {
   ref.onDispose(service.dispose);
   return service;
 }
+
+/// Conversation actuellement à l'écran, s'il y en a une.
+///
+/// Provider distinct du service temps réel : l'écran de fil n'a qu'à déclarer
+/// ce qu'il affiche, sans instancier la mécanique Pusher — ce qui la ferait
+/// démarrer jusque dans les tests d'interface.
+@Riverpod(keepAlive: true)
+class VisibleConversation extends _$VisibleConversation {
+  @override
+  String? build() => null;
+
+  void set(String? conversationId) => state = conversationId;
+}
+
+/// Flux des messages reçus hors du fil affiché.
+///
+/// Exposé en provider pour que l'écouteur d'interface s'y abonne sans connaître
+/// le service, et que le lien se défasse avec l'arbre de widgets.
+@riverpod
+Stream<IncomingMessage> incomingMessage(Ref ref) =>
+    ref.watch(messageEventsProvider).incomingMessages;

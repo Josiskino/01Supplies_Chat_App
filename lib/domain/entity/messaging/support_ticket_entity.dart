@@ -72,6 +72,7 @@ class SupportTicketEntity {
     this.unreadCount = 0,
     this.assigneeId,
     this.assigneeName,
+    this.participantIds = const [],
   });
 
   final String id;
@@ -100,6 +101,17 @@ class SupportTicketEntity {
   /// contient que les clients et partenaires : le nom d'un collègue ne s'y
   /// trouve pas. Il est donc lu sur la conversation, seul endroit qui le porte.
   final String? assigneeName;
+
+  /// Tous les comptes présents dans la conversation, agents compris.
+  ///
+  /// Sert à savoir quels fils écouter en temps réel : on ne reçoit d'événements
+  /// que sur les conversations dont on est participant, et c'est aussi la seule
+  /// façon de faire vivre les compteurs de non-lus sans ouvrir chaque fil.
+  final List<String> participantIds;
+
+  /// Suis-je dans cette conversation ?
+  bool includes(String? userId) =>
+      userId != null && participantIds.contains(userId);
 
   /// Personne ne s'en occupe encore : le ticket attend dans la file commune.
   bool get isUnclaimed => assigneeId == null || assigneeId!.isEmpty;

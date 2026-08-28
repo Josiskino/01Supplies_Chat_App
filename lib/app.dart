@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/locale/locale_provider.dart';
 import 'config/router/app_router.dart';
 import 'core/providers/realtime/realtime_provider.dart';
+import 'presentation/widgets/common/incoming_message_listener.dart';
 import 'config/theme/cupertino_theme.dart';
 import 'config/theme/theme.dart';
 import 'core/utils/localization_helper.dart';
@@ -30,12 +31,6 @@ class MyApp extends ConsumerWidget {
     final themeMode = ref.watch(themeProvider);
     final locale = ref.watch(localeProvider);
 
-    // C'est ici que viendront s'ancrer les services à durée de vie applicative
-    // de la messagerie (canal temps réel, notifications). Ils doivent être
-    // observés à la racine, toujours montée : les rattacher à un écran les
-    // rendrait dépendants de son affichage — l'app cliente a déjà payé ce bug
-    // avec une connexion temps réel qui ne s'ouvrait qu'une fois l'accueil visité.
-
     return AdaptiveApp.router(
       title: FlavorConfig.appName,
       routerConfig: router,
@@ -49,6 +44,11 @@ class MyApp extends ConsumerWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       // `AdaptiveApp` n'expose pas `debugShowCheckedModeBanner` : on le retire
       // via la configuration Material sous-jacente.
+      // L'écouteur enveloppe **toutes** les pages : un message peut arriver
+      // pendant qu'on consulte les réglages, et c'est là qu'il faut le
+      // signaler. Rattaché à un écran, il ne verrait rien le reste du temps.
+      builder: (context, child) =>
+          IncomingMessageListener(child: child ?? const SizedBox.shrink()),
       material: (context, platform) =>
           const MaterialAppData(debugShowCheckedModeBanner: false),
       cupertino: (context, platform) =>

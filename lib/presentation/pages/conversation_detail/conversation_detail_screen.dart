@@ -10,6 +10,7 @@ import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_images.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/providers/messaging/message_provider.dart';
+import '../../../core/providers/realtime/realtime_provider.dart';
 import '../../../core/providers/messaging/support_provider.dart';
 import '../../../domain/entity/messaging/message_entity.dart';
 import '../../../core/platform/platform_ui.dart';
@@ -57,6 +58,27 @@ const Object _unset = Object();
 
 class _ConversationDetailScreenState
     extends ConsumerState<ConversationDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Déclare le fil affiché : un message arrivé sous les yeux de
+    // l'utilisateur ne doit pas déclencher de notification.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(visibleConversationProvider.notifier).set(widget.conversationId);
+    });
+  }
+
+  @override
+  void dispose() {
+    // `ref` reste lisible pendant `dispose` pour un ConsumerState, mais le
+    // provider peut déjà être détruit à la fermeture de l'application.
+    try {
+      ref.read(visibleConversationProvider.notifier).set(null);
+    } catch (_) {}
+    super.dispose();
+  }
+
   /// L'accusé de lecture n'est envoyé qu'une fois, après le premier chargement.
   ///
   /// Le déclencher à l'ouverture le lançait **avant** que le fil ne soit
@@ -87,11 +109,6 @@ class _ConversationDetailScreenState
 
   /// Message mis en évidence après un retour depuis une citation.
   String? _highlighted;
-
-  @override
-  void initState() {
-    super.initState();
-  }
 
   /// En-tête du fil.
   ///
