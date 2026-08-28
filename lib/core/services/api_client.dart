@@ -465,6 +465,23 @@ class _AuthInterceptor extends QueuedInterceptor {
     handler.next(err);
   }
 
+  /// Rôle du compte connecté, tel que la connexion l'a enregistré.
+  ///
+  /// Repli sur `admin` : cette application n'est ouverte qu'aux équipes, et un
+  /// profil illisible ne doit pas empêcher la session de se renouveler.
+  Future<String> _storedRole() async {
+    try {
+      final raw = await SharedPreferencesHelper.getValue(
+        StorageKeys.userProfile,
+      );
+      if (raw.isEmpty) return 'admin';
+      final role = (jsonDecode(raw) as Map)['role'];
+      return role is String && role.isNotEmpty ? role : 'admin';
+    } catch (_) {
+      return 'admin';
+    }
+  }
+
   Future<bool> _refreshToken() async {
     // Un refresh est déjà en vol : on s'y raccroche pour que toutes les requêtes
     // en attente se débloquent ensemble.
@@ -492,9 +509,17 @@ class _AuthInterceptor extends QueuedInterceptor {
           receiveTimeout: const Duration(seconds: 10),
         ),
       );
+      // ⚠️ `role` est **obligatoire** : sans lui l'API répond 400
+      // « Request body is required » sur le champ `role`, le renouvellement
+      // échoue, et comme l'intercepteur est un `QueuedInterceptor`, toutes les
+      // requêtes suivantes restent en file. L'application se fige alors sur un
+      // écran de chargement sans qu'aucune erreur ne remonte.
+      //
+      // Le rôle est relu du profil stocké : c'est celui que le serveur a
+      // lui-même attribué à la connexion.
       final response = await dio.post(
         'auth/refresh-tokens',
-        data: {'refreshToken': refreshToken},
+        data: {'refreshToken': refreshToken, 'role': await _storedRole()},
       );
 
       if (response.statusCode == 200) {

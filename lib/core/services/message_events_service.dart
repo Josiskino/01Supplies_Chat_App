@@ -1,16 +1,16 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../abstract/api_client_interface.dart';
 import '../constants/api_constant.dart';
+import '../utils/api_types.dart';
+import '../providers/request/api_provider.dart';
 import '../providers/auth/auth_provider.dart';
 import '../providers/messaging/support_provider.dart';
 import '../providers/auth/auth_status_provider.dart';
 import '../auth/auth_gate.dart';
 import '../utils/app_logger.dart';
-import '../utils/preferences.dart';
 import 'pusher_service.dart';
 
 /// Relie les événements Pusher aux providers de la messagerie.
@@ -75,34 +75,34 @@ class MessageEventsService {
 
   /// Signe l'abonnement à un canal privé.
   ///
-  /// Le backend exige le jeton porteur : sans lui il refuse la signature, et
-  /// l'abonnement échoue silencieusement — le fil paraît simplement figé.
+  /// Passe par le client de l'application et **non** par un Dio neuf : c'est
+  /// l'intercepteur qui porte le jeton et le renouvelle. Avec un client brut,
+  /// une signature demandée après expiration échouait sans rien retenter, et
+  /// l'abonnement était perdu jusqu'au redémarrage — le fil paraissait
+  /// simplement figé.
   Future<Map<String, dynamic>?> _authorize(
     String channelName,
     String socketId,
   ) async {
-    final token = await SharedPreferencesHelper.getValue(StorageKeys.token);
-    if (token.isEmpty) return null;
-
     try {
-      final dio = Dio(
-        BaseOptions(
-          baseUrl: ApiConstant.baseUrlWithPrefix,
-          connectTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 15),
-        ),
-      );
-      final response = await dio.post(
-        ApiConstant.pusherAuthPath.replaceFirst(RegExp(r'^/'), ''),
-        data: {'socket_id': socketId, 'channel_name': channelName},
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-      final data = response.data;
-      if (data is Map) return data.cast<String, dynamic>();
-      if (data is String) {
-        return (jsonDecode(data) as Map).cast<String, dynamic>();
-      }
-      return null;
+      final result = await _ref
+          .read(apiClientProvider)
+          .request<Map<String, dynamic>>(
+            path: ApiConstant.pusherAuthPath.replaceFirst(RegExp(r'^/'), ''),
+            method: HttpMethod.post,
+            data: {'socket_id': socketId, 'channel_name': channelName},
+            // La signature arrive parfois à la racine, parfois sous `data`.
+            fromJson: (json) {
+              if (json.containsKey('auth')) return json;
+              final inner = json['data'];
+              if (inner is Map<String, dynamic>) return inner;
+              return json;
+            },
+          );
+      return switch (result) {
+        ApiSuccess(data: final d) => d,
+        _ => null,
+      };
     } catch (e) {
       _logger.error('Pusher auth failed', feature: 'Realtime', error: e);
       return null;
