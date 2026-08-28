@@ -27,8 +27,11 @@ class FetchContactsParams {
     this.roles = defaultRoles,
     this.query,
     this.page = 1,
-    this.limit = 200,
+    this.limit = maxPageSize,
   });
+
+  /// Plafond imposé par l'API : au-delà, elle répond 400.
+  static const int maxPageSize = 100;
 
   /// Les interlocuteurs de la logistique : clients et partenaires.
   ///

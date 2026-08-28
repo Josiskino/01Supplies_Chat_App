@@ -22,7 +22,10 @@ class SupportRemoteDataSource implements SupportDataSourceContract {
       method: HttpMethod.get,
       queryParameters: {'status': ?status, 'page': page, 'limit': limit},
       dataKey: 'data',
-      fromJson: (json) => (json as List)
+      // `ApiResponseHandler` réenveloppe toute liste dans `{data: …}` avant
+      // d'appeler ce parseur, dont le contrat est de recevoir une Map. La
+      // liste se relit donc sous cette clé, et non à la racine.
+      fromJson: (json) => (json['data'] as List? ?? const [])
           .whereType<Map>()
           .map((e) => SupportTicketModel.fromJson(e.cast<String, dynamic>()))
           .toList(),

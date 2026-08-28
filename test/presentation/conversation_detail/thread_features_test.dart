@@ -16,7 +16,51 @@ import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets
 import 'package:supplies_chat_app/presentation/shared/fixtures/conversation_fixtures.dart';
 import 'package:supplies_chat_app/presentation/shared/models/conversation_view_data.dart';
 
+import 'package:supplies_chat_app/core/providers/messaging/message_provider.dart';
+import 'package:supplies_chat_app/domain/entity/messaging/message_entity.dart';
+
 import '../../helpers/test_environment.dart';
+
+/// Identifiant du compte connecté dans les tests, pour distinguer ses bulles.
+const _meId = 'me';
+
+/// Rejoue les fixtures sous forme de messages d'API.
+///
+/// Les scénarios portés depuis l'app cliente — séparateurs de jour, glissement,
+/// réactions, note vocale — se vérifient sur la **présentation**, qui ne doit
+/// pas dépendre d'un serveur joignable.
+class _StubThread extends Thread {
+  @override
+  Future<List<MessageEntity>> build(String conversationId) async {
+    return [
+      for (final m in ConversationFixtures.datedThread)
+        MessageEntity(
+          id: m.id,
+          conversationId: conversationId,
+          senderId: m.isMine ? _meId : 'client',
+          content: m.text,
+          // Les fixtures portent des notes vocales : les convertir en texte
+          // ferait disparaître la bulle audio que ce fichier teste.
+          type: m.isVoice ? MessageType.audio : MessageType.text,
+          delivery: MessageDelivery.read,
+          sentAt: m.sentAt ?? DateTime.now(),
+          replyToId: m.replyTo?.messageId,
+          replyToContent: m.replyTo?.text,
+          replyToAuthor: m.replyTo?.author,
+          reaction: m.reaction,
+        ),
+    ];
+  }
+
+  /// L'écran marque le fil comme lu à l'ouverture. Laissé au vrai provider, cet
+  /// appel partirait vers le réseau et laisserait un timer en suspens, ce que le
+  /// framework de test signale comme une fuite.
+  @override
+  Future<void> markRead() async {}
+
+  @override
+  Future<bool> send(String content, {String? replyTo}) async => true;
+}
 
 /// Couvre les quatre comportements portés depuis l'app cliente : séparateurs de
 /// jour, réponse par glissement, réactions à l'appui long, note vocale.
@@ -32,7 +76,13 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [appPlatformProvider.overrideWithValue(AppPlatform.ios)],
+        overrides: [
+          appPlatformProvider.overrideWithValue(AppPlatform.ios),
+          // Le fil vient désormais de l'API : sans injection, l'écran n'a rien
+          // à rendre et tous les gestes testés ici deviennent introuvables.
+          threadProvider('c1').overrideWith(() => _StubThread()),
+          currentUserIdProvider.overrideWithValue(_meId),
+        ],
         child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,

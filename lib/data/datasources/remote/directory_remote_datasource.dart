@@ -16,7 +16,7 @@ class DirectoryRemoteDataSource implements DirectoryDataSourceContract {
     required List<UserRole> roles,
     String? query,
     int page = 1,
-    int limit = 200,
+    int limit = 100,
   }) {
     return _client.request<UserPageModel>(
       path: ApiEndpoints.users,

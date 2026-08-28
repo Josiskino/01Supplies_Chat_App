@@ -9,6 +9,9 @@ import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_images.dart';
 import '../../../core/constants/app_ui_route.dart';
+import '../../../core/providers/messaging/message_provider.dart';
+import '../../../core/providers/messaging/support_provider.dart';
+import '../../../domain/entity/messaging/message_entity.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/utils/chat_date_formatter.dart';
@@ -54,7 +57,12 @@ const Object _unset = Object();
 
 class _ConversationDetailScreenState
     extends ConsumerState<ConversationDetailScreen> {
-  late List<ChatMessageData> _messages;
+  /// Réactions posées depuis cet appareil.
+  ///
+  /// Conservées à part tant que `POST /messages/{id}/reactions` n'est pas
+  /// branché : elles se superposent aux messages du serveur, et disparaîtront
+  /// au rechargement — ce qui vaut mieux qu'un emoji qui ne part jamais.
+  final Map<String, String?> _localReactions = {};
 
   /// Message auquel la saisie en cours répond, le cas échéant.
   ChatReplyPreview? _replyTo;
@@ -75,15 +83,25 @@ class _ConversationDetailScreenState
   @override
   void initState() {
     super.initState();
-    _messages = List.of(ConversationFixtures.datedThread);
+    // Le fil marque la conversation comme lue dès son ouverture : c'est le
+    // geste que l'utilisateur vient de faire, inutile de le lui demander.
+    Future.microtask(() {
+      if (!mounted) return;
+      ref.read(threadProvider(widget.conversationId).notifier).markRead();
+    });
   }
 
-  ConversationListItemData get _conversation {
-    return ConversationFixtures.conversations.firstWhere(
-      (c) => c.id == widget.conversationId,
-      orElse: () => ConversationFixtures.conversations.first,
-    );
-  }
+  /// En-tête du fil.
+  ///
+  /// Le nom vient de la liste qui a poussé cet écran : le fil lui-même ne
+  /// transporte pas l'identité de l'interlocuteur, et la retrouver demanderait
+  /// un appel de plus pour une information déjà connue.
+  ConversationListItemData get _conversation => ConversationListItemData(
+    id: widget.conversationId,
+    name: widget.contactName ?? 'Conversation',
+    preview: '',
+    timeLabel: '',
+  );
 
   /// Les messages reçus portent le nom de l'interlocuteur.
   ///
@@ -122,36 +140,13 @@ class _ConversationDetailScreenState
     );
   }
 
-  /// Fait progresser l'état d'un message fraîchement émis.
-  ///
-  /// Le socle n'a pas de transport : cette progression est **simulée**, pour que
-  /// l'état affiché sous la dernière bulle soit autre chose qu'une constante. Le
-  /// jour où le socket arrive, ce sont ses accusés qui appelleront `_setStatus`.
-  Future<void> _simulateDelivery(String id) async {
-    for (final step in const [
-      (Duration(milliseconds: 700), MessageStatus.sent),
-      (Duration(milliseconds: 900), MessageStatus.delivered),
-      (Duration(seconds: 3), MessageStatus.read),
-    ]) {
-      await Future<void>.delayed(step.$1);
-      if (!mounted) return;
-      setState(() {
-        _messages = [
-          for (final m in _messages)
-            if (m.id == id) _copy(m, status: step.$2) else m,
-        ];
-      });
-    }
-  }
-
   /// Repose la réaction d'un message, ou la retire quand [emoji] est nul.
+  ///
+  /// Purement locale pour l'instant : `POST /messages/{id}/reactions` existe
+  /// mais n'est pas branché, et une réaction qui ne part pas doit au moins ne
+  /// pas survivre au rechargement.
   void _react(ChatMessageData message, String? emoji) {
-    setState(() {
-      _messages = [
-        for (final m in _messages)
-          if (m.id == message.id) _copy(m, reaction: emoji) else m,
-      ];
-    });
+    setState(() => _localReactions[message.id] = emoji);
   }
 
   /// Prépare une réponse au message glissé.
@@ -196,50 +191,64 @@ class _ConversationDetailScreenState
     setState(() => _highlighted = null);
   }
 
+  /// Envoi d'une note vocale — **pas encore branché**.
+  ///
+  /// `POST /messages` accepte `type: audio` avec un média, mais l'envoi de
+  /// fichier passe par `media/upload` et n'est pas fait. Prévenir vaut mieux
+  /// qu'afficher une bulle qui ne partira jamais.
   void _sendVoice(VoiceNoteData voice) {
-    final now = DateTime.now();
-    final id = _messages.length;
-    setState(() {
-      _recording = false;
-      _messages = [
-        ..._messages,
-        ChatMessageData(
-          id: 'local-$id',
-          text: 'Note vocale',
-          timeLabel: ChatDateFormatter.timeLabel(now),
-          isMine: true,
-          sentAt: now,
-          voice: voice,
-          replyTo: _replyTo,
-          status: MessageStatus.sending,
-        ),
-      ];
-      _replyTo = null;
-    });
-    _simulateDelivery('local-$id');
+    setState(() => _recording = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Les notes vocales arrivent bientôt.')),
+    );
   }
 
-  void _send(String text) {
-    final now = DateTime.now();
-    // Les fixtures n'ont pas de séquence : l'identifiant dérive de la longueur
-    // de la liste, suffisant pour une maquette.
-    final id = _messages.length;
-    setState(() {
-      _messages = [
-        ..._messages,
-        ChatMessageData(
-          id: 'local-$id',
-          text: text,
-          timeLabel: ChatDateFormatter.timeLabel(now),
-          isMine: true,
-          sentAt: now,
-          replyTo: _replyTo,
-          status: MessageStatus.sending,
-        ),
-      ];
-      _replyTo = null;
-    });
-    _simulateDelivery('local-$id');
+  /// Prend le dossier en charge, puis ouvre le fil.
+  ///
+  /// Le `claim` porte sur le **ticket**, alors que l'écran ne connaît que la
+  /// conversation : le rapprochement se fait par la file, seule à porter les
+  /// deux identifiants.
+  Future<void> _claim() async {
+    final queue = ref.read(supportQueueProvider).value ?? const [];
+    final ticket = queue
+        .where((t) => t.conversationId == widget.conversationId)
+        .firstOrNull;
+
+    if (ticket == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dossier introuvable dans la file.')),
+      );
+      return;
+    }
+
+    final ok = await ref.read(supportQueueProvider.notifier).claim(ticket.id);
+    if (!mounted) return;
+
+    if (ok) {
+      await ref.read(threadProvider(widget.conversationId).notifier).refresh();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Prise en charge impossible.')),
+      );
+    }
+  }
+
+  Future<void> _send(String text) async {
+    final reply = _replyTo;
+    setState(() => _replyTo = null);
+
+    final sent = await ref
+        .read(threadProvider(widget.conversationId).notifier)
+        .send(text, replyTo: reply?.messageId);
+
+    if (!mounted || sent) return;
+    // L'envoi a échoué : la citation est rendue à l'utilisateur plutôt que
+    // perdue, et le message reste dans le champ de saisie.
+    setState(() => _replyTo = reply);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Message non envoyé. Réessayez.')),
+    );
   }
 
   /// Choix du type d'appel.
@@ -308,6 +317,21 @@ class _ConversationDetailScreenState
     ];
   }
 
+  /// Le fil projeté pour l'affichage, réactions locales appliquées.
+  List<ChatMessageData> _visibleMessages(List<MessageEntity> source) {
+    final me = ref.read(currentUserIdProvider);
+    return [
+      for (final m in source)
+        () {
+          final data = ChatMessageData.fromMessage(m, currentUserId: me);
+          final local = _localReactions[m.id];
+          return _localReactions.containsKey(m.id)
+              ? _copy(data, reaction: local)
+              : data;
+        }(),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final platformUi = ref.watch(platformUiProvider);
@@ -315,6 +339,8 @@ class _ConversationDetailScreenState
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final conversation = _conversation;
+    final async = ref.watch(threadProvider(widget.conversationId));
+    final messages = _visibleMessages(async.value ?? const []);
 
     // En-tête construit dans le corps, sans barre de navigation.
     //
@@ -363,19 +389,30 @@ class _ConversationDetailScreenState
                     ),
                   ),
                 ),
-                StickyDateList(
-                  now: DateTime.now(),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: DesignTokens.spaceM,
+                if (async.isLoading && !async.hasValue)
+                  const Center(child: CircularProgressIndicator())
+                else if (async.hasError && !async.hasValue)
+                  _ThreadError(
+                    error: async.error!,
+                    onRetry: () => ref
+                        .read(threadProvider(widget.conversationId).notifier)
+                        .refresh(),
+                    onClaim: _claim,
+                  )
+                else
+                  StickyDateList(
+                    now: DateTime.now(),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: DesignTokens.spaceM,
+                    ),
+                    messages: [
+                      for (var i = 0; i < messages.length; i++)
+                        DatedMessage(
+                          sentAt: messages[i].sentAt ?? DateTime.now(),
+                          child: _buildBubble(context, platformUi, messages, i),
+                        ),
+                    ],
                   ),
-                  messages: [
-                    for (var i = 0; i < _messages.length; i++)
-                      DatedMessage(
-                        sentAt: _messages[i].sentAt ?? DateTime.now(),
-                        child: _buildBubble(context, platformUi, i),
-                      ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -403,10 +440,15 @@ class _ConversationDetailScreenState
   /// glissement. L'inverse ferait porter le drag horizontal par le widget que
   /// `CupertinoContextMenu` extrait de l'arbre à l'ouverture, et le geste se
   /// retrouverait orphelin.
-  Widget _buildBubble(BuildContext context, PlatformUi platformUi, int index) {
-    final message = _withSender(_messages[index]);
+  Widget _buildBubble(
+    BuildContext context,
+    PlatformUi platformUi,
+    List<ChatMessageData> messages,
+    int index,
+  ) {
+    final message = _withSender(messages[index]);
 
-    final position = _groupPosition(index);
+    final position = _groupPosition(messages, index);
     final key = _messageKeys.putIfAbsent(message.id, GlobalKey.new);
 
     // Deux exemplaires distincts, et c'est nécessaire : celui de la liste porte
@@ -418,7 +460,7 @@ class _ConversationDetailScreenState
       message: message,
       isFirstOfGroup: position.isFirst,
       isLastOfGroup: position.isLast,
-      showStatus: index == _lastSentIndex,
+      showStatus: index == _lastSentOf(messages),
       onTapQuote: _scrollToMessage,
       onOpenGallery: _openGallery,
     );
@@ -470,20 +512,23 @@ class _ConversationDetailScreenState
   /// Recalculé à chaque construction plutôt que mémorisé : l'envoi d'un message
   /// le déplace, et un index gardé en champ finirait par désigner une bulle
   /// reçue.
-  int get _lastSentIndex =>
-      _messages.lastIndexWhere((m) => m.isMine && !m.isTyping);
+  int _lastSentOf(List<ChatMessageData> messages) =>
+      messages.lastIndexWhere((m) => m.isMine && !m.isTyping);
 
   /// Détermine si l'entrée [index] ouvre ou ferme une série du même auteur.
   ///
   /// Une série est rompue par un changement d'auteur **ou** par un changement de
   /// jour : deux messages du même auteur séparés par une nuit ne forment pas un
   /// bloc.
-  ({bool isFirst, bool isLast}) _groupPosition(int index) {
-    final current = _messages[index];
+  ({bool isFirst, bool isLast}) _groupPosition(
+    List<ChatMessageData> messages,
+    int index,
+  ) {
+    final current = messages[index];
 
     bool sameGroup(int other) {
-      if (other < 0 || other >= _messages.length) return false;
-      final m = _messages[other];
+      if (other < 0 || other >= messages.length) return false;
+      final m = messages[other];
       if (m.isMine != current.isMine) return false;
       if (m.sentAt == null || current.sentAt == null) return true;
       return ChatDateFormatter.dayKey(m.sentAt!) ==
@@ -618,6 +663,74 @@ class _Highlightable extends StatelessWidget {
         borderRadius: DesignTokens.borderRadiusM,
       ),
       child: child,
+    );
+  }
+}
+
+/// Ce que le fil affiche quand il ne peut pas se charger.
+///
+/// Le cas courant n'est pas une panne : un admin qui n'a pas encore pris le
+/// dossier n'est pas participant de la conversation, et l'API le lui refuse.
+/// Lui montrer « erreur réseau » l'enverrait chercher un problème inexistant.
+class _ThreadError extends StatelessWidget {
+  const _ThreadError({
+    required this.error,
+    required this.onRetry,
+    required this.onClaim,
+  });
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  /// Se saisir du dossier — la seule action qui débloque un fil inaccessible.
+  final VoidCallback onClaim;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isNotParticipant = error is NotAParticipant;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(DesignTokens.spaceXl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isNotParticipant ? Iconsax.lock_1 : Iconsax.cloud_cross,
+              size: 44,
+              color: DesignTokens.getTextColorWithOpacity(context, 0.3),
+            ),
+            const SizedBox(height: DesignTokens.spaceM),
+            Text(
+              isNotParticipant
+                  ? 'Dossier non pris en charge'
+                  : 'Conversation indisponible',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.merge(AppleType.headline),
+            ),
+            const SizedBox(height: DesignTokens.spaceS),
+            Text(
+              isNotParticipant
+                  ? 'Personne de l’équipe ne s’est encore saisi de cette '
+                        'demande. Prenez-la en charge pour lire les messages et '
+                        'répondre au client.'
+                  : error.toString().replaceFirst('Exception: ', ''),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium
+                  ?.merge(AppleType.subheadline)
+                  .copyWith(
+                    color: DesignTokens.getTextColorWithOpacity(context, 0.55),
+                  ),
+            ),
+            const SizedBox(height: DesignTokens.spaceL),
+            FilledButton(
+              onPressed: isNotParticipant ? onClaim : onRetry,
+              child: Text(isNotParticipant ? 'Prendre en charge' : 'Réessayer'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

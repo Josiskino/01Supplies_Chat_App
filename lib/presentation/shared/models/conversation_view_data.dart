@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../domain/entity/auth/user_entity.dart';
+import '../../../core/utils/chat_date_formatter.dart';
+import '../../../domain/entity/messaging/message_entity.dart';
 import '../../../domain/entity/messaging/support_ticket_entity.dart';
 
 /// Modèles de **présentation** de l'espace de travail desktop.
@@ -84,6 +86,30 @@ class ConversationListItemData {
   }
 }
 
+/// Tracé neutre d'une note vocale dont l'API ne donne pas la forme d'onde.
+const List<double> _flatWave = [
+  0.35,
+  0.5,
+  0.65,
+  0.45,
+  0.7,
+  0.55,
+  0.4,
+  0.6,
+  0.75,
+  0.5,
+  0.45,
+  0.65,
+  0.55,
+  0.7,
+  0.4,
+  0.6,
+  0.5,
+  0.35,
+  0.55,
+  0.45,
+];
+
 /// Un message du fil de discussion (colonne 4).
 class ChatMessageData {
   const ChatMessageData({
@@ -149,6 +175,51 @@ class ChatMessageData {
 
   bool get isVoice => voice != null;
   bool get hasAttachments => attachments.isNotEmpty;
+
+  /// Projette un message de l'API dans le modèle de vue du fil.
+  ///
+  /// [currentUserId] décide du côté de la bulle. Comparé à l'identifiant et non
+  /// au nom : plusieurs admins répondent dans le même fil, et deux homonymes
+  /// enverraient leurs messages du mauvais côté.
+  factory ChatMessageData.fromMessage(
+    MessageEntity message, {
+    required String? currentUserId,
+  }) {
+    return ChatMessageData(
+      id: message.id,
+      text: message.content,
+      timeLabel: ChatDateFormatter.timeLabel(message.sentAt),
+      isMine: message.isMine(currentUserId),
+      sentAt: message.sentAt,
+      senderName: message.authorName.isEmpty ? null : message.authorName,
+      avatarUrl: message.sender?.avatarUrl,
+      reaction: message.reaction,
+      replyTo: message.replyToId == null
+          ? null
+          : ChatReplyPreview(
+              messageId: message.replyToId!,
+              author: message.replyToAuthor ?? '',
+              text: message.replyToContent ?? '',
+            ),
+      attachments: message.type == MessageType.audio
+          ? const []
+          : message.attachments,
+      // Une note vocale se reconnaît à son type, pas à sa pièce jointe : un
+      // message audio rendu comme du texte n'afficherait qu'une bulle vide.
+      //
+      // ⚠️ Durée et forme d'onde ne sont pas transmises par l'API : la bulle
+      // s'affiche avec un tracé neutre, et la durée réelle apparaîtra à la
+      // lecture. Mieux vaut cela qu'un message invisible.
+      voice: message.type == MessageType.audio
+          ? const VoiceNoteData(duration: Duration.zero, waveform: _flatWave)
+          : null,
+      status: switch (message.delivery) {
+        MessageDelivery.sent => MessageStatus.sent,
+        MessageDelivery.delivered => MessageStatus.delivered,
+        MessageDelivery.read => MessageStatus.read,
+      },
+    );
+  }
 }
 
 /// Étapes d'acheminement d'un message émis.
