@@ -150,53 +150,52 @@ final class FetchQueueUseCaseProvider
 
 String _$fetchQueueUseCaseHash() => r'f6561fd81f105520ce31c283135dacc18d9eafda';
 
-@ProviderFor(claimTicketUseCase)
-final claimTicketUseCaseProvider = ClaimTicketUseCaseProvider._();
+@ProviderFor(joinTicketUseCase)
+final joinTicketUseCaseProvider = JoinTicketUseCaseProvider._();
 
-final class ClaimTicketUseCaseProvider
+final class JoinTicketUseCaseProvider
     extends
         $FunctionalProvider<
-          ClaimTicketUseCase,
-          ClaimTicketUseCase,
-          ClaimTicketUseCase
+          JoinTicketUseCase,
+          JoinTicketUseCase,
+          JoinTicketUseCase
         >
-    with $Provider<ClaimTicketUseCase> {
-  ClaimTicketUseCaseProvider._()
+    with $Provider<JoinTicketUseCase> {
+  JoinTicketUseCaseProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'claimTicketUseCaseProvider',
+        name: r'joinTicketUseCaseProvider',
         isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$claimTicketUseCaseHash();
+  String debugGetCreateSourceHash() => _$joinTicketUseCaseHash();
 
   @$internal
   @override
-  $ProviderElement<ClaimTicketUseCase> $createElement(
+  $ProviderElement<JoinTicketUseCase> $createElement(
     $ProviderPointer pointer,
   ) => $ProviderElement(pointer);
 
   @override
-  ClaimTicketUseCase create(Ref ref) {
-    return claimTicketUseCase(ref);
+  JoinTicketUseCase create(Ref ref) {
+    return joinTicketUseCase(ref);
   }
 
   /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(ClaimTicketUseCase value) {
+  Override overrideWithValue(JoinTicketUseCase value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride: $SyncValueProvider<ClaimTicketUseCase>(value),
+      providerOverride: $SyncValueProvider<JoinTicketUseCase>(value),
     );
   }
 }
 
-String _$claimTicketUseCaseHash() =>
-    r'efc3ece134c0e781d95f1b3e5f8e5c0159633514';
+String _$joinTicketUseCaseHash() => r'57ecd83f79c198e26cc06c497a379a877666880c';
 
 /// La file d'attente commune, telle que l'onglet Conversations l'affiche.
 ///
@@ -241,7 +240,7 @@ final class SupportQueueProvider
   SupportQueue create() => SupportQueue();
 }
 
-String _$supportQueueHash() => r'126cfa15fe19f382386bf58cd9bcceffdda54ebc';
+String _$supportQueueHash() => r'2199148adf33df4184eaad389cc230d97894e0e7';
 
 /// La file d'attente commune, telle que l'onglet Conversations l'affiche.
 ///

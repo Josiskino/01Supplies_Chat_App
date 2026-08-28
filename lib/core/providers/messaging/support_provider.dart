@@ -27,8 +27,8 @@ FetchQueueUseCase fetchQueueUseCase(Ref ref) =>
     FetchQueueUseCase(ref.watch(supportRepositoryProvider));
 
 @riverpod
-ClaimTicketUseCase claimTicketUseCase(Ref ref) =>
-    ClaimTicketUseCase(ref.watch(supportRepositoryProvider));
+JoinTicketUseCase joinTicketUseCase(Ref ref) =>
+    JoinTicketUseCase(ref.watch(supportRepositoryProvider));
 
 // ── Notifier ────────────────────────────────────────────────────────────────
 
@@ -57,11 +57,14 @@ class SupportQueue extends _$SupportQueue {
     await future;
   }
 
-  /// Prend un ticket en charge, puis recharge la file pour refléter la reprise.
-  Future<bool> claim(String ticketId) async {
+  /// Rejoint un ticket, puis recharge la file pour refléter la participation.
+  ///
+  /// Plusieurs agents peuvent suivre la même demande : rejoindre n'évince
+  /// personne, contrairement à ce que « prendre en charge » laissait croire.
+  Future<bool> join({required String ticketId, required String agentId}) async {
     final result = await ref
-        .read(claimTicketUseCaseProvider)
-        .call(ClaimTicketParams(ticketId));
+        .read(joinTicketUseCaseProvider)
+        .call(JoinTicketParams(ticketId: ticketId, agentId: agentId));
     if (result.isRight()) await refresh();
     return result.isRight();
   }

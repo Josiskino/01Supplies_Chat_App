@@ -35,8 +35,13 @@ class SupportRepositoryImpl extends BaseRepository
   }
 
   @override
-  Future<Either<Failure, Unit>> claim(ClaimTicketParams params) async {
-    final result = await execute<bool>(() => _remote.claim(params.ticketId));
+  Future<Either<Failure, Unit>> join(JoinTicketParams params) async {
+    final result = await execute<bool>(
+      () => _remote.joinTicket(
+        ticketId: params.ticketId,
+        agentId: params.agentId,
+      ),
+    );
     return result.map((_) => unit);
   }
 }

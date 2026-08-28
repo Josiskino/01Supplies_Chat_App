@@ -18,13 +18,13 @@ class FetchQueueUseCase
   ) => _repository.fetchQueue(params);
 }
 
-/// Se saisit d'un ticket de la file.
-class ClaimTicketUseCase implements UseCase<Unit, ClaimTicketParams> {
-  const ClaimTicketUseCase(this._repository);
+/// Rejoint un ticket de la file, seul ou aux côtés d'autres agents.
+class JoinTicketUseCase implements UseCase<Unit, JoinTicketParams> {
+  const JoinTicketUseCase(this._repository);
 
   final SupportRepository _repository;
 
   @override
-  Future<Either<Failure, Unit>> call(ClaimTicketParams params) =>
-      _repository.claim(params);
+  Future<Either<Failure, Unit>> call(JoinTicketParams params) =>
+      _repository.join(params);
 }

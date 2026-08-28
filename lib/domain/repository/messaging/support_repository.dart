@@ -9,7 +9,7 @@ abstract interface class SupportRepository {
     FetchQueueParams params,
   );
 
-  Future<Either<Failure, Unit>> claim(ClaimTicketParams params);
+  Future<Either<Failure, Unit>> join(JoinTicketParams params);
 }
 
 class FetchQueueParams {
@@ -21,7 +21,11 @@ class FetchQueueParams {
   final int limit;
 }
 
-class ClaimTicketParams {
-  const ClaimTicketParams(this.ticketId);
+class JoinTicketParams {
+  const JoinTicketParams({required this.ticketId, required this.agentId});
+
   final String ticketId;
+
+  /// L'agent qui rejoint — soi-même dans tous les cas d'usage actuels.
+  final String agentId;
 }

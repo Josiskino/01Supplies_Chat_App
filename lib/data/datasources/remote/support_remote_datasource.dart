@@ -33,10 +33,14 @@ class SupportRemoteDataSource implements SupportDataSourceContract {
   }
 
   @override
-  Future<ApiResult<bool>> claim(String ticketId) {
+  Future<ApiResult<bool>> joinTicket({
+    required String ticketId,
+    required String agentId,
+  }) {
     return _client.request<bool>(
-      path: ApiEndpoints.claimTicket(ticketId),
+      path: ApiEndpoints.assignTicket(ticketId),
       method: HttpMethod.post,
+      data: {'agentId': agentId},
       fromJson: (_) => true,
     );
   }

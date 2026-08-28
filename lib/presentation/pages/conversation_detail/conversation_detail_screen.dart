@@ -205,7 +205,9 @@ class _ConversationDetailScreenState
     );
   }
 
-  /// Nom de l'agent qui détient déjà ce dossier, ou `null` s'il est libre.
+  /// Nom de l'agent déjà sur le dossier, ou `null` si personne.
+  ///
+  /// Sert à informer, non à interdire : rejoindre reste possible à plusieurs.
   String? get _assigneeName {
     final queue = ref.read(supportQueueProvider).value ?? const [];
     final ticket = queue
@@ -216,9 +218,9 @@ class _ConversationDetailScreenState
     return ticket.assigneeName ?? 'un membre de l’équipe';
   }
 
-  /// Prend le dossier en charge, puis ouvre le fil.
+  /// Rejoint le dossier, puis ouvre le fil.
   ///
-  /// Le `claim` porte sur le **ticket**, alors que l'écran ne connaît que la
+  /// L'assignation porte sur le **ticket**, alors que l'écran ne connaît que la
   /// conversation : le rapprochement se fait par la file, seule à porter les
   /// deux identifiants.
   Future<void> _claim() async {
@@ -229,22 +231,42 @@ class _ConversationDetailScreenState
 
     if (ticket == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dossier introuvable dans la file.')),
-      );
+      ref
+          .read(platformUiProvider)
+          .overlays
+          .notify(
+            context: context,
+            message: 'Dossier introuvable dans la file. Rechargez la liste.',
+            isError: true,
+          );
       return;
     }
 
-    final ok = await ref.read(supportQueueProvider.notifier).claim(ticket.id);
+    final me = ref.read(currentUserIdProvider);
+    if (me == null) return;
+
+    final ok = await ref
+        .read(supportQueueProvider.notifier)
+        .join(ticketId: ticket.id, agentId: me);
     if (!mounted) return;
 
     if (ok) {
       await ref.read(threadProvider(widget.conversationId).notifier).refresh();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prise en charge impossible.')),
-      );
+      return;
     }
+
+    // Notification de la plateforme plutôt qu'un bandeau maison : posé
+    // au-dessus du composer, celui-ci passait derrière lui et l'échec semblait
+    // n'avoir aucun effet.
+    if (!mounted) return;
+    ref
+        .read(platformUiProvider)
+        .overlays
+        .notify(
+          context: context,
+          message: 'Impossible de rejoindre la discussion. Réessayez.',
+          isError: true,
+        );
   }
 
   Future<void> _send(String text) async {
@@ -743,7 +765,7 @@ class _ThreadError extends StatelessWidget {
               !isNotParticipant
                   ? 'Conversation indisponible'
                   : heldBy != null
-                  ? 'Dossier déjà attribué'
+                  ? 'Dossier suivi par $heldBy'
                   : 'Dossier non pris en charge',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.merge(AppleType.headline),
@@ -753,10 +775,10 @@ class _ThreadError extends StatelessWidget {
               !isNotParticipant
                   ? error.toString().replaceFirst('Exception: ', '')
                   : heldBy != null
-                  ? '$heldBy suit cette demande. Seuls ses participants '
-                        'peuvent en lire les messages.'
+                  ? 'Rejoignez la discussion pour en lire les messages et '
+                        'répondre au client. Vous y travaillerez à plusieurs.'
                   : 'Personne de l’équipe ne s’est encore saisi de cette '
-                        'demande. Prenez-la en charge pour lire les messages et '
+                        'demande. Rejoignez-la pour lire les messages et '
                         'répondre au client.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium

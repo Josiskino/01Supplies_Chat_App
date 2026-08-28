@@ -10,6 +10,13 @@ abstract interface class SupportDataSourceContract {
     int limit,
   });
 
-  /// Se saisit d'un ticket, qui rejoint alors ses conversations.
-  Future<ApiResult<bool>> claim(String ticketId);
+  /// Rejoint un ticket en s'y déclarant agent.
+  ///
+  /// Passe par `assign` et non `claim` : `claim` répond 409 sur un dossier déjà
+  /// pris, alors que l'équipe travaille à plusieurs sur une même demande —
+  /// `assign` ajoute l'agent aux participants sans évincer les précédents.
+  Future<ApiResult<bool>> joinTicket({
+    required String ticketId,
+    required String agentId,
+  });
 }
