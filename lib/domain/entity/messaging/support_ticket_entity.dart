@@ -70,7 +70,8 @@ class SupportTicketEntity {
     required this.updatedAt,
     this.author,
     this.unreadCount = 0,
-    this.assigneeIds = const [],
+    this.assigneeId,
+    this.assigneeName,
   });
 
   final String id;
@@ -90,11 +91,22 @@ class SupportTicketEntity {
 
   final int unreadCount;
 
-  /// Admins déjà sur le dossier. Vide tant que personne ne s'en est saisi.
-  final List<String> assigneeIds;
+  /// Membre de l'équipe qui s'est saisi du dossier. Nul s'il attend encore.
+  final String? assigneeId;
+
+  /// Son nom, tiré des participants de la conversation.
+  ///
+  /// L'API ne renvoie que l'identifiant de l'assigné, et le répertoire ne
+  /// contient que les clients et partenaires : le nom d'un collègue ne s'y
+  /// trouve pas. Il est donc lu sur la conversation, seul endroit qui le porte.
+  final String? assigneeName;
 
   /// Personne ne s'en occupe encore : le ticket attend dans la file commune.
-  bool get isUnclaimed => assigneeIds.isEmpty;
+  bool get isUnclaimed => assigneeId == null || assigneeId!.isEmpty;
+
+  /// Ce dossier appartient déjà à quelqu'un d'autre.
+  bool isTakenBySomeoneElse(String? currentUserId) =>
+      !isUnclaimed && assigneeId != currentUserId;
 
   String get authorName => author?.displayName ?? 'Client';
 }

@@ -205,6 +205,17 @@ class _ConversationDetailScreenState
     );
   }
 
+  /// Nom de l'agent qui détient déjà ce dossier, ou `null` s'il est libre.
+  String? get _assigneeName {
+    final queue = ref.read(supportQueueProvider).value ?? const [];
+    final ticket = queue
+        .where((t) => t.conversationId == widget.conversationId)
+        .firstOrNull;
+    if (ticket == null || ticket.isUnclaimed) return null;
+    if (ticket.assigneeId == ref.read(currentUserIdProvider)) return null;
+    return ticket.assigneeName ?? 'un membre de l’équipe';
+  }
+
   /// Prend le dossier en charge, puis ouvre le fil.
   ///
   /// Le `claim` porte sur le **ticket**, alors que l'écran ne connaît que la
@@ -412,6 +423,9 @@ class _ConversationDetailScreenState
                     // Nul quand l'accès est simplement à prendre : ce n'est pas
                     // une erreur, et le widget doit le dire autrement.
                     error: locked ? null : async.error,
+                    // Qui détient le dossier, s'il est déjà pris. C'est la
+                    // différence entre « à prendre » et « pas pour vous ».
+                    heldBy: locked ? _assigneeName : null,
                     onRetry: () => ref
                         .read(threadProvider(widget.conversationId).notifier)
                         .refresh(),
@@ -695,7 +709,11 @@ class _ThreadError extends StatelessWidget {
     required this.error,
     required this.onRetry,
     required this.onClaim,
+    this.heldBy,
   });
+
+  /// Agent qui détient déjà le dossier. Nul s'il est libre.
+  final String? heldBy;
 
   /// Nul lorsque le fil est seulement verrouillé, faute de prise en charge.
   final Object? error;
@@ -722,19 +740,24 @@ class _ThreadError extends StatelessWidget {
             ),
             const SizedBox(height: DesignTokens.spaceM),
             Text(
-              isNotParticipant
-                  ? 'Dossier non pris en charge'
-                  : 'Conversation indisponible',
+              !isNotParticipant
+                  ? 'Conversation indisponible'
+                  : heldBy != null
+                  ? 'Dossier déjà attribué'
+                  : 'Dossier non pris en charge',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.merge(AppleType.headline),
             ),
             const SizedBox(height: DesignTokens.spaceS),
             Text(
-              isNotParticipant
-                  ? 'Personne de l’équipe ne s’est encore saisi de cette '
+              !isNotParticipant
+                  ? error.toString().replaceFirst('Exception: ', '')
+                  : heldBy != null
+                  ? '$heldBy suit cette demande. Seuls ses participants '
+                        'peuvent en lire les messages.'
+                  : 'Personne de l’équipe ne s’est encore saisi de cette '
                         'demande. Prenez-la en charge pour lire les messages et '
-                        'répondre au client.'
-                  : error.toString().replaceFirst('Exception: ', ''),
+                        'répondre au client.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium
                   ?.merge(AppleType.subheadline)

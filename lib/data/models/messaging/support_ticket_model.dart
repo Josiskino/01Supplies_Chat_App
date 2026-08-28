@@ -14,7 +14,8 @@ class SupportTicketModel {
     required this.updatedAt,
     this.user,
     this.unreadCount = 0,
-    this.assigneeIds = const [],
+    this.assignedTo,
+    this.assigneeName,
   });
 
   final String id;
@@ -27,7 +28,8 @@ class SupportTicketModel {
   final String updatedAt;
   final UserModel? user;
   final int unreadCount;
-  final List<String> assigneeIds;
+  final String? assignedTo;
+  final String? assigneeName;
 
   factory SupportTicketModel.fromJson(Map<String, dynamic> json) {
     final conv = (json['conversation'] as Map?)?.cast<String, dynamic>();
@@ -47,24 +49,30 @@ class SupportTicketModel {
       updatedAt: (json['updatedAt'] ?? json['createdAt'] ?? '').toString(),
       user: rawUser == null ? null : UserModel.fromJson(rawUser),
       unreadCount: (conv?['unreadCount'] as num?)?.toInt() ?? 0,
-      assigneeIds: _parseAssignees(json),
+      // Le champ direct plutôt que l'historique : `assignmentHistory` retrace
+      // les prises successives, mais c'est `assignedTo` qui dit qui détient le
+      // dossier maintenant.
+      assignedTo: json['assignedTo']?.toString(),
+      assigneeName: _parseAssigneeName(conv),
     );
   }
 
-  /// Les prises en charge vivent dans `metadata.assignmentHistory`, dont seule
-  /// la dernière entrée compte.
-  static List<String> _parseAssignees(Map<String, dynamic> json) {
-    final meta = (json['metadata'] as Map?)?.cast<String, dynamic>();
-    final history = meta?['assignmentHistory'];
-    if (history is! List || history.isEmpty) return const [];
-    final ids = <String>[];
-    for (final e in history) {
-      if (e is Map) {
-        final id = e['assignedTo'] ?? e['userId'] ?? e['adminId'];
-        if (id != null && id.toString().isNotEmpty) ids.add(id.toString());
+  /// Nom de l'agent en charge, lu sur les participants de la conversation.
+  static String? _parseAssigneeName(Map<String, dynamic>? conversation) {
+    final parts = conversation?['participants'];
+    if (parts is! List) return null;
+    for (final p in parts) {
+      if (p is! Map) continue;
+      if (p['role'] != 'support_agent') continue;
+      final u = p['user'];
+      if (u is Map) {
+        final name = UserModel.fromJson(
+          u.cast<String, dynamic>(),
+        ).toEntity().displayName;
+        if (name.isNotEmpty) return name;
       }
     }
-    return ids;
+    return null;
   }
 
   SupportTicketEntity toEntity() => SupportTicketEntity(
@@ -78,6 +86,7 @@ class SupportTicketModel {
     updatedAt: DateTime.tryParse(updatedAt) ?? DateTime.now(),
     author: user?.toEntity(),
     unreadCount: unreadCount,
-    assigneeIds: assigneeIds,
+    assigneeId: assignedTo,
+    assigneeName: assigneeName,
   );
 }
