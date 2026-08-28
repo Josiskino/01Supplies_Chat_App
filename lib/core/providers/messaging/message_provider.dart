@@ -53,8 +53,23 @@ MarkReadUseCase markReadUseCase(Ref ref) =>
 class Thread extends _$Thread {
   @override
   Future<List<MessageEntity>> build(String conversationId) async {
-    // Abonnement au canal du fil, relâché avec le provider. Sans cela, il
-    // faudrait quitter et rouvrir la conversation pour voir une réponse.
+    final result = await ref
+        .read(fetchMessagesUseCaseProvider)
+        .call(FetchMessagesParams(conversationId: conversationId));
+
+    final messages = result.match((failure) {
+      // Distingué des autres échecs pour que l'écran sache quoi proposer.
+      if (failure is ForbiddenFailure) throw const NotAParticipant();
+      throw Exception(failure.message);
+    }, (value) => value);
+
+    // L'abonnement vient **après** le chargement, et seulement s'il a réussi.
+    //
+    // Souscrire d'abord faisait boucler l'écran sur un dossier non pris en
+    // charge : le canal privé refuse la signature à qui n'est pas participant,
+    // le plugin retente, et chaque tentative relançait la construction du
+    // provider — le fil restait en chargement pour toujours, sans jamais
+    // afficher le motif du refus.
     final events = ref.read(messageEventsProvider);
     unawaited(events.watchConversation(conversationId));
     ref.onDispose(() => unawaited(events.unwatchConversation(conversationId)));
@@ -66,15 +81,7 @@ class Thread extends _$Thread {
     });
     ref.onDispose(sub.cancel);
 
-    final result = await ref
-        .read(fetchMessagesUseCaseProvider)
-        .call(FetchMessagesParams(conversationId: conversationId));
-
-    return result.match((failure) {
-      // Distingué des autres échecs pour que l'écran sache quoi proposer.
-      if (failure is ForbiddenFailure) throw const NotAParticipant();
-      throw Exception(failure.message);
-    }, (messages) => messages);
+    return messages;
   }
 
   /// Envoie un message et l'ajoute au fil sans attendre un rechargement.
