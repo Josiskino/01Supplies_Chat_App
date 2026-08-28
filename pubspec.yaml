@@ -2,7 +2,7 @@ name: supplies_chat_app
 description: "01Supplies Internal Chat — messagerie interne logistique (Android, iOS, Windows, macOS)"
 publish_to: "none"
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.10.3
