@@ -165,6 +165,11 @@ class Thread extends _$Thread {
   /// L'envoi n'a lieu qu'une fois **tous** les dépôts réussis : un message
   /// partiel afficherait deux photos sur trois sans que rien ne signale la
   /// troisième.
+  ///
+  /// Une bulle provisoire paraît immédiatement, avec les fichiers **locaux** :
+  /// le téléversement peut durer, et sans elle l'utilisateur ne voit rien
+  /// partir. Elle est remplacée par le message du serveur, ou retirée si
+  /// l'envoi échoue.
   Future<bool> sendAttachments({
     required List<String> filePaths,
     required MessageType type,
@@ -173,21 +178,71 @@ class Thread extends _$Thread {
   }) async {
     if (filePaths.isEmpty) return false;
 
+    final pendingId = 'pending-${DateTime.now().microsecondsSinceEpoch}';
+    _appendPending(pendingId, filePaths, type, content);
+
     final ids = <String>[];
     for (final path in filePaths) {
       final upload = await ref
           .read(uploadMediaUseCaseProvider)
           .call(UploadMediaParams(path));
       final media = upload.getRight().toNullable();
-      if (media == null) return false;
+      // Un identifiant vide signalerait un dépôt mal lu : l'envoyer ferait
+      // refuser le message par le serveur, avec une erreur qui ne dirait rien
+      // du vrai problème.
+      if (media == null || media.id.isEmpty) {
+        _removePending(pendingId);
+        return false;
+      }
       ids.add(media.id);
     }
 
-    return send(
+    final sent = await send(
       content,
       replyTo: replyTo,
       type: type,
       attachmentMediaIds: ids,
+    );
+    _removePending(pendingId);
+    return sent;
+  }
+
+  /// Insère la bulle provisoire, avec les chemins locaux comme pièces jointes.
+  void _appendPending(
+    String id,
+    List<String> filePaths,
+    MessageType type,
+    String content,
+  ) {
+    final current = switch (state.value) {
+      ThreadMessages(:final messages) => messages,
+      _ => const <MessageEntity>[],
+    };
+    state = AsyncValue.data(
+      ThreadMessages([
+        ...current,
+        MessageEntity(
+          id: id,
+          conversationId: conversationId,
+          senderId: ref.read(currentUserProvider)?.id ?? '',
+          content: content,
+          type: type,
+          // « En cours d'envoi » : le message n'a pas encore d'accusé.
+          delivery: MessageDelivery.sent,
+          sentAt: DateTime.now(),
+          attachments: filePaths,
+        ),
+      ]),
+    );
+  }
+
+  void _removePending(String id) {
+    final current = switch (state.value) {
+      ThreadMessages(:final messages) => messages,
+      _ => const <MessageEntity>[],
+    };
+    state = AsyncValue.data(
+      ThreadMessages([...current.where((m) => m.id != id)]),
     );
   }
 

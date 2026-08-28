@@ -183,9 +183,19 @@ class ChatMessageData {
     MessageEntity message, {
     required String? currentUserId,
   }) {
+    // Les clients envoient leurs images avec le nom du fichier pour contenu :
+    // l'afficher en légende donne « scaled_1002322126.jpg » sous la photo, ce
+    // qui n'apprend rien et ressemble à un défaut.
+    final looksLikeFileName =
+        message.type != MessageType.text &&
+        RegExp(
+          r'\.(jpe?g|png|gif|webp|heic|mp4|mov|m4a|aac|wav|pdf)$',
+          caseSensitive: false,
+        ).hasMatch(message.content.trim());
+
     return ChatMessageData(
       id: message.id,
-      text: message.content,
+      text: looksLikeFileName ? '' : message.content,
       timeLabel: ChatDateFormatter.timeLabel(message.sentAt),
       isMine: message.isMine(currentUserId),
       sentAt: message.sentAt,
