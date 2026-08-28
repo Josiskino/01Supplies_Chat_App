@@ -31,8 +31,8 @@ const _meId = 'me';
 /// pas dépendre d'un serveur joignable.
 class _StubThread extends Thread {
   @override
-  Future<List<MessageEntity>> build(String conversationId) async {
-    return [
+  Future<ThreadState> build(String conversationId) async {
+    return ThreadMessages([
       for (final m in ConversationFixtures.datedThread)
         MessageEntity(
           id: m.id,
@@ -49,7 +49,7 @@ class _StubThread extends Thread {
           replyToAuthor: m.replyTo?.author,
           reaction: m.reaction,
         ),
-    ];
+    ]);
   }
 
   /// L'écran marque le fil comme lu à l'ouverture. Laissé au vrai provider, cet

@@ -41,27 +41,52 @@ MarkReadUseCase markReadUseCase(Ref ref) =>
 
 // ── Notifier ────────────────────────────────────────────────────────────────
 
+/// Ce qu'un fil peut être.
+///
+/// « Non participant » est un **état**, pas un échec. Le représenter par une
+/// exception le faisait retenter indéfiniment par Riverpod, avec son backoff
+/// exponentiel : le fil repassait en chargement toutes les quelques secondes et
+/// l'écran restait bloqué sur son indicateur, sans jamais afficher le motif.
+sealed class ThreadState {
+  const ThreadState();
+}
+
+/// Le fil est accessible.
+class ThreadMessages extends ThreadState {
+  const ThreadMessages(this.messages);
+  final List<MessageEntity> messages;
+}
+
+/// Le dossier n'a pas été pris en charge : l'API refuse la lecture.
+class ThreadLocked extends ThreadState {
+  const ThreadLocked();
+}
+
 /// Le fil d'une conversation.
 ///
 /// ## L'accès n'est pas acquis
 ///
 /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond alors « Not a participant in this conversation ». Ce n'est pas une
-/// panne mais l'état normal d'un ticket qui attend dans la file, et l'écran doit
-/// proposer de s'en saisir plutôt que d'afficher une erreur.
+/// répond « Not a participant in this conversation ». C'est l'état normal d'un
+/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
 @riverpod
 class Thread extends _$Thread {
   @override
-  Future<List<MessageEntity>> build(String conversationId) async {
+  Future<ThreadState> build(String conversationId) async {
     final result = await ref
         .read(fetchMessagesUseCaseProvider)
         .call(FetchMessagesParams(conversationId: conversationId));
 
-    final messages = result.match((failure) {
-      // Distingué des autres échecs pour que l'écran sache quoi proposer.
-      if (failure is ForbiddenFailure) throw const NotAParticipant();
+    // Le refus d'accès sort par la porte des valeurs, pas par celle des
+    // exceptions : c'est une réponse du serveur, pas une panne. Les autres
+    // échecs restent des exceptions, et le réessai de Riverpod y est utile —
+    // une coupure réseau finit par se rétablir, un droit manquant non.
+    if (result.isLeft()) {
+      final failure = result.getLeft().toNullable()!;
+      if (failure is ForbiddenFailure) return const ThreadLocked();
       throw Exception(failure.message);
-    }, (value) => value);
+    }
+    final messages = result.getRight().toNullable()!;
 
     // L'abonnement vient **après** le chargement, et seulement s'il a réussi.
     //
@@ -81,7 +106,7 @@ class Thread extends _$Thread {
     });
     ref.onDispose(sub.cancel);
 
-    return messages;
+    return ThreadMessages(messages);
   }
 
   /// Envoie un message et l'ajoute au fil sans attendre un rechargement.
@@ -104,8 +129,11 @@ class Thread extends _$Thread {
         );
 
     return result.match((_) => false, (message) {
-      final current = state.value ?? const <MessageEntity>[];
-      state = AsyncValue.data([...current, message]);
+      final current = switch (state.value) {
+        ThreadMessages(:final messages) => messages,
+        _ => const <MessageEntity>[],
+      };
+      state = AsyncValue.data(ThreadMessages([...current, message]));
       return true;
     });
   }
@@ -120,17 +148,6 @@ class Thread extends _$Thread {
     ref.invalidateSelf();
     await future;
   }
-}
-
-/// L'utilisateur n'est pas encore participant de cette conversation.
-///
-/// Type dédié plutôt qu'un message d'erreur : l'écran doit pouvoir proposer la
-/// prise en charge, ce qu'une chaîne de caractères ne permet pas de décider.
-class NotAParticipant implements Exception {
-  const NotAParticipant();
-
-  @override
-  String toString() => 'NotAParticipant';
 }
 
 /// Identifiant du compte connecté, pour distinguer ses propres bulles.

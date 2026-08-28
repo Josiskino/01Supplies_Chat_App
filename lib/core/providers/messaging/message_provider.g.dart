@@ -246,9 +246,8 @@ String _$markReadUseCaseHash() => r'a8fcf7320583b062a9f3e534392564e29d9495a5';
 /// ## L'accès n'est pas acquis
 ///
 /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond alors « Not a participant in this conversation ». Ce n'est pas une
-/// panne mais l'état normal d'un ticket qui attend dans la file, et l'écran doit
-/// proposer de s'en saisir plutôt que d'afficher une erreur.
+/// répond « Not a participant in this conversation ». C'est l'état normal d'un
+/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
 
 @ProviderFor(Thread)
 final threadProvider = ThreadFamily._();
@@ -258,19 +257,16 @@ final threadProvider = ThreadFamily._();
 /// ## L'accès n'est pas acquis
 ///
 /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond alors « Not a participant in this conversation ». Ce n'est pas une
-/// panne mais l'état normal d'un ticket qui attend dans la file, et l'écran doit
-/// proposer de s'en saisir plutôt que d'afficher une erreur.
-final class ThreadProvider
-    extends $AsyncNotifierProvider<Thread, List<MessageEntity>> {
+/// répond « Not a participant in this conversation ». C'est l'état normal d'un
+/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
+final class ThreadProvider extends $AsyncNotifierProvider<Thread, ThreadState> {
   /// Le fil d'une conversation.
   ///
   /// ## L'accès n'est pas acquis
   ///
   /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-  /// répond alors « Not a participant in this conversation ». Ce n'est pas une
-  /// panne mais l'état normal d'un ticket qui attend dans la file, et l'écran doit
-  /// proposer de s'en saisir plutôt que d'afficher une erreur.
+  /// répond « Not a participant in this conversation ». C'est l'état normal d'un
+  /// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
   ThreadProvider._({
     required ThreadFamily super.from,
     required String super.argument,
@@ -307,24 +303,23 @@ final class ThreadProvider
   }
 }
 
-String _$threadHash() => r'8436e57b60f0aec49ffe5e21661ad7c077707b53';
+String _$threadHash() => r'e594f76703a078cce994c28bb1e3074244b64a55';
 
 /// Le fil d'une conversation.
 ///
 /// ## L'accès n'est pas acquis
 ///
 /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond alors « Not a participant in this conversation ». Ce n'est pas une
-/// panne mais l'état normal d'un ticket qui attend dans la file, et l'écran doit
-/// proposer de s'en saisir plutôt que d'afficher une erreur.
+/// répond « Not a participant in this conversation ». C'est l'état normal d'un
+/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
 
 final class ThreadFamily extends $Family
     with
         $ClassFamilyOverride<
           Thread,
-          AsyncValue<List<MessageEntity>>,
-          List<MessageEntity>,
-          FutureOr<List<MessageEntity>>,
+          AsyncValue<ThreadState>,
+          ThreadState,
+          FutureOr<ThreadState>,
           String
         > {
   ThreadFamily._()
@@ -341,9 +336,8 @@ final class ThreadFamily extends $Family
   /// ## L'accès n'est pas acquis
   ///
   /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-  /// répond alors « Not a participant in this conversation ». Ce n'est pas une
-  /// panne mais l'état normal d'un ticket qui attend dans la file, et l'écran doit
-  /// proposer de s'en saisir plutôt que d'afficher une erreur.
+  /// répond « Not a participant in this conversation ». C'est l'état normal d'un
+  /// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
 
   ThreadProvider call(String conversationId) =>
       ThreadProvider._(argument: conversationId, from: this);
@@ -357,25 +351,23 @@ final class ThreadFamily extends $Family
 /// ## L'accès n'est pas acquis
 ///
 /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond alors « Not a participant in this conversation ». Ce n'est pas une
-/// panne mais l'état normal d'un ticket qui attend dans la file, et l'écran doit
-/// proposer de s'en saisir plutôt que d'afficher une erreur.
+/// répond « Not a participant in this conversation ». C'est l'état normal d'un
+/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
 
-abstract class _$Thread extends $AsyncNotifier<List<MessageEntity>> {
+abstract class _$Thread extends $AsyncNotifier<ThreadState> {
   late final _$args = ref.$arg as String;
   String get conversationId => _$args;
 
-  FutureOr<List<MessageEntity>> build(String conversationId);
+  FutureOr<ThreadState> build(String conversationId);
   @$mustCallSuper
   @override
   void runBuild() {
-    final ref =
-        this.ref as $Ref<AsyncValue<List<MessageEntity>>, List<MessageEntity>>;
+    final ref = this.ref as $Ref<AsyncValue<ThreadState>, ThreadState>;
     final element =
         ref.element
             as $ClassProviderElement<
-              AnyNotifier<AsyncValue<List<MessageEntity>>, List<MessageEntity>>,
-              AsyncValue<List<MessageEntity>>,
+              AnyNotifier<AsyncValue<ThreadState>, ThreadState>,
+              AsyncValue<ThreadState>,
               Object?,
               Object?
             >;

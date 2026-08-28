@@ -342,9 +342,13 @@ class _ConversationDetailScreenState
     final isDark = theme.brightness == Brightness.dark;
     final conversation = _conversation;
     final async = ref.watch(threadProvider(widget.conversationId));
-    final messages = _visibleMessages(async.value ?? const []);
+    final thread = async.value;
+    final locked = thread is ThreadLocked;
+    final messages = _visibleMessages(
+      thread is ThreadMessages ? thread.messages : const [],
+    );
 
-    if (async.hasValue && !_readAcknowledged) {
+    if (thread is ThreadMessages && !_readAcknowledged) {
       _readAcknowledged = true;
       // Après la frame : `markRead` modifie l'état d'un provider, ce qu'on ne
       // fait pas pendant la construction d'un widget.
@@ -403,9 +407,11 @@ class _ConversationDetailScreenState
                 ),
                 if (async.isLoading && !async.hasValue)
                   const Center(child: CircularProgressIndicator())
-                else if (async.hasError && !async.hasValue)
+                else if (locked || (async.hasError && !async.hasValue))
                   _ThreadError(
-                    error: async.error!,
+                    // Nul quand l'accès est simplement à prendre : ce n'est pas
+                    // une erreur, et le widget doit le dire autrement.
+                    error: locked ? null : async.error,
                     onRetry: () => ref
                         .read(threadProvider(widget.conversationId).notifier)
                         .refresh(),
@@ -691,7 +697,8 @@ class _ThreadError extends StatelessWidget {
     required this.onClaim,
   });
 
-  final Object error;
+  /// Nul lorsque le fil est seulement verrouillé, faute de prise en charge.
+  final Object? error;
   final VoidCallback onRetry;
 
   /// Se saisir du dossier — la seule action qui débloque un fil inaccessible.
@@ -700,7 +707,7 @@ class _ThreadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isNotParticipant = error is NotAParticipant;
+    final isNotParticipant = error == null;
 
     return Center(
       child: Padding(
