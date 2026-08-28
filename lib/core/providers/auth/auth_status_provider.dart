@@ -1,23 +1,22 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../domain/repository/auth/auth_repository.dart';
+import '../../../domain/usecases/auth/auth_usecases.dart';
 import '../../auth/auth_gate.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_logger.dart';
-import '../../utils/preferences.dart';
+import 'auth_provider.dart';
 
 part 'auth_status_provider.g.dart';
 
 /// État d'authentification consommé par le routeur.
 ///
-/// **Portée volontairement réduite** : ce provider ne fait aucun appel réseau. Il
-/// se contente de constater la présence d'un jeton en stockage local et de
-/// réagir à l'échec de renouvellement signalé par l'interceptor.
+/// Il porte le **statut** seul — authentifié ou non — et laisse [AuthGate] seul
+/// décideur des redirections. L'identité du connecté vit dans
+/// `currentUserProvider` : le routeur n'en a pas besoin, les écrans si.
 ///
-/// La feature d'authentification complète (écran de connexion branché sur l'API,
-/// profil utilisateur, rôles agent/admin) le remplacera par un vrai ViewModel
-/// avec un état scellé. La forme de l'état exposé au routeur, en revanche, ne
-/// changera pas : c'est [AuthGateStatus], et [AuthGate] reste l'unique décideur
-/// des redirections.
+/// Le refus d'un compte non autorisé (client, vendeur) n'est pas traité ici mais
+/// dans le repository, qui seul connaît le rôle renvoyé par le serveur.
 ///
 /// `keepAlive` est indispensable : l'état de session est global. En auto-dispose,
 /// il serait détruit dès que plus personne ne l'écoute, puis relu au prochain
@@ -42,42 +41,77 @@ class AuthStatusNotifier extends _$AuthStatusNotifier {
     return AuthGateStatus.initial;
   }
 
+  /// Message du dernier échec de connexion, à afficher sous le formulaire.
+  ///
+  /// Porté ici plutôt que renvoyé par [signIn] : l'écran doit pouvoir le
+  /// réafficher après une reconstruction, ce qu'une valeur de retour ne permet
+  /// pas.
+  String? lastError;
+
   Future<void> _restoreSession() async {
-    final token = await SharedPreferencesHelper.getValue(StorageKeys.token);
+    final result = await ref
+        .read(restoreSessionUseCaseProvider)
+        .call(const RestoreSessionParams());
     // Le provider peut avoir été invalidé pendant la lecture du stockage :
     // écrire `state` après coup lèverait une exception non capturée.
     if (!ref.mounted) return;
-    state = token.isEmpty
-        ? AuthGateStatus.unauthenticated
-        : AuthGateStatus.authenticated;
-  }
 
-  /// Ouvre une session locale sans appel réseau.
-  ///
-  /// Sert uniquement à l'écran de connexion factice du socle, pour rendre la
-  /// coquille de navigation atteignable et testable. À supprimer avec l'arrivée
-  /// du vrai `LoginUseCase`.
-  Future<void> signInPlaceholder() async {
-    state = AuthGateStatus.loading;
-    await SharedPreferencesHelper.setValue(
-      StorageKeys.token,
-      'placeholder-token',
-    );
-    // Latence simulée. L'écriture locale est si rapide que l'état `loading` ne
-    // durait qu'une image : l'indicateur du bouton clignotait au lieu de
-    // s'afficher, ce qui se lit comme un défaut et non comme une attente.
-    //
-    // À **supprimer** avec la vraie authentification : l'appel réseau fournira
-    // alors sa propre latence, et celle-ci s'y ajouterait bêtement.
-    await Future<void>.delayed(const Duration(milliseconds: 420));
+    final session = result.getOrElse((_) => null);
+    if (session == null) {
+      state = AuthGateStatus.unauthenticated;
+      return;
+    }
+    ref.read(currentUserProvider.notifier).set(session.user);
     state = AuthGateStatus.authenticated;
   }
 
+  /// Ouvre une session contre l'API.
+  ///
+  /// Renvoie `true` en cas de succès. L'échec laisse le statut à
+  /// `unauthenticated` et renseigne [lastError] — y compris pour un compte
+  /// valide mais non autorisé, cas que le repository distingue par un
+  /// `ForbiddenFailure`.
+  Future<bool> signIn({required String email, required String password}) async {
+    if (state == AuthGateStatus.loading) return false;
+    state = AuthGateStatus.loading;
+    lastError = null;
+
+    final result = await ref
+        .read(signInUseCaseProvider)
+        .call(SignInParams(email: email, password: password));
+
+    if (!ref.mounted) return false;
+
+    // `fold` ne convient pas ici : la branche de succès doit attendre l'écriture
+    // du stockage, et une lambda asynchrone y rendrait un `Future` d'un côté et
+    // un `bool` de l'autre.
+    final failure = result.getLeft().toNullable();
+    if (failure != null) {
+      AppLogger().auth('signIn', 'Échec : ${failure.runtimeType}');
+      lastError = failure.message;
+      state = AuthGateStatus.unauthenticated;
+      return false;
+    }
+
+    final session = result.getRight().toNullable()!;
+    // La session n'est écrite qu'une fois le rôle validé : le repository a
+    // refusé les comptes non autorisés avant d'arriver ici.
+    await ref.read(authRepositoryProvider).persist(session);
+    if (!ref.mounted) return false;
+
+    ref.read(currentUserProvider.notifier).set(session.user);
+    AppLogger().auth(
+      'signIn',
+      'Session ouverte (${session.user.role?.wireName})',
+    );
+    state = AuthGateStatus.authenticated;
+    return true;
+  }
+
   Future<void> signOut() async {
-    await SharedPreferencesHelper.deleteValue(StorageKeys.token);
-    await SharedPreferencesHelper.deleteValue(StorageKeys.tokenExpires);
-    await SharedPreferencesHelper.deleteValue(StorageKeys.refreshToken);
-    await SharedPreferencesHelper.deleteValue(StorageKeys.userProfile);
+    await ref.read(signOutUseCaseProvider).call(const SignOutParams());
+    if (!ref.mounted) return;
+    ref.read(currentUserProvider.notifier).set(null);
     state = AuthGateStatus.unauthenticated;
   }
 }

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations.dart';
-import 'package:supplies_chat_app/flavors.dart';
 import 'package:supplies_chat_app/presentation/pages/auth/login_screen.dart';
 import 'package:supplies_chat_app/presentation/pages/auth/widgets/auth_glass_card.dart';
+import 'package:supplies_chat_app/flavors.dart';
+
+import '../../helpers/test_environment.dart';
 
 /// Vérifie que l'écran de connexion bascule sur la **largeur disponible**, et
 /// non sur la plateforme.
@@ -15,9 +16,7 @@ import 'package:supplies_chat_app/presentation/pages/auth/widgets/auth_glass_car
 /// pourtant les deux dispositions.
 void main() {
   setUpAll(() {
-    // `late final` : une seule affectation pour toute la suite.
-    FlavorConfig.flavor = Flavor.development;
-    SharedPreferences.setMockInitialValues({});
+    setUpTestEnvironment();
   });
 
   Future<void> pumpAt(WidgetTester tester, Size size) async {

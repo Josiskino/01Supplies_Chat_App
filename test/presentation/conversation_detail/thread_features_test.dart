@@ -2,12 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations.dart';
 import 'package:supplies_chat_app/core/platform/app_platform.dart';
 import 'package:supplies_chat_app/core/platform/platform_ui_provider.dart';
 import 'package:supplies_chat_app/core/utils/chat_date_formatter.dart';
-import 'package:supplies_chat_app/flavors.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/conversation_detail_screen.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets/chat_bubble.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets/reaction_bar.dart';
@@ -18,12 +16,13 @@ import 'package:supplies_chat_app/presentation/pages/conversation_detail/widgets
 import 'package:supplies_chat_app/presentation/shared/fixtures/conversation_fixtures.dart';
 import 'package:supplies_chat_app/presentation/shared/models/conversation_view_data.dart';
 
+import '../../helpers/test_environment.dart';
+
 /// Couvre les quatre comportements portés depuis l'app cliente : séparateurs de
 /// jour, réponse par glissement, réactions à l'appui long, note vocale.
 void main() {
   setUpAll(() {
-    FlavorConfig.flavor = Flavor.development;
-    SharedPreferences.setMockInitialValues({});
+    setUpTestEnvironment();
   });
 
   Future<void> pump(WidgetTester tester) async {

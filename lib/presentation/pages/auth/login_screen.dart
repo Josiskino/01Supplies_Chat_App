@@ -15,16 +15,12 @@ import '../../../flavors.dart';
 import 'widgets/auth_glass_card.dart';
 import 'widgets/glass_text_field.dart';
 
-/// Écran de connexion — **factice**.
+/// Écran de connexion.
 ///
-/// Le formulaire est complet et le bouton ouvre bien une session, mais rien n'est
-/// envoyé au serveur : `signInPlaceholder()` pose un jeton local. Périmètre
-/// assumé du socle, pour que la coquille de navigation soit atteignable et
-/// testable.
-///
-/// À l'arrivée de la vraie feature auth : remplacer l'appel par un
-/// `LoginUseCase`, valider les champs, et afficher l'échec via `AuthGateStatus`.
-/// La structure de l'écran, elle, n'a pas à changer.
+/// Branché sur `POST /auth/login`. L'accès est réservé aux équipes logistique :
+/// un compte client ou vendeur s'authentifie correctement mais se voit refuser
+/// l'entrée, et le message d'erreur doit alors le dire — sans quoi l'utilisateur
+/// croit à un mot de passe erroné et le ressaisit indéfiniment.
 ///
 /// C'est le seul écran de l'app qui **ignore le thème** : il est sombre en clair
 /// comme en sombre. La photographie de fond ne peut pas s'éclaircir, et un texte
@@ -43,6 +39,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = true;
 
+  /// Dernier échec, affiché sous le formulaire.
+  String? _error;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -50,9 +49,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (ref.read(authStatusProvider) == AuthGateStatus.loading) return;
-    ref.read(authStatusProvider.notifier).signInPlaceholder();
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _error = 'Renseignez votre e-mail et votre mot de passe.');
+      return;
+    }
+
+    setState(() => _error = null);
+    final ok = await ref
+        .read(authStatusProvider.notifier)
+        .signIn(email: email, password: password);
+    if (!mounted || ok) return;
+
+    // Le routeur ne redirige pas : l'échec doit se lire sur place.
+    setState(() => _error = ref.read(authStatusProvider.notifier).lastError);
   }
 
   @override
@@ -93,6 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   setState(() => _rememberMe = !_rememberMe),
               isLoading: isLoading,
               onSubmit: _submit,
+              error: _error,
               // Le panneau de marque porte déjà le nom de l'app en grand : le
               // répéter en pied de formulaire ferait doublon.
               showFlavor: !isWide,
@@ -235,6 +250,7 @@ class _LoginForm extends StatelessWidget {
     required this.onToggleRemember,
     required this.isLoading,
     required this.onSubmit,
+    this.error,
     this.showFlavor = true,
   });
 
@@ -247,6 +263,9 @@ class _LoginForm extends StatelessWidget {
   final VoidCallback onToggleRemember;
   final bool isLoading;
   final VoidCallback onSubmit;
+
+  /// Message d'échec, affiché entre le formulaire et le bouton.
+  final String? error;
 
   /// Masqué en disposition large, où le panneau de marque affiche déjà le nom
   /// de l'app et donc l'environnement.
@@ -305,7 +324,12 @@ class _LoginForm extends StatelessWidget {
           value: rememberMe,
           onTap: onToggleRemember,
         ),
-        const SizedBox(height: DesignTokens.spaceL),
+        // Placé au-dessus du bouton et non sous lui : après un échec, le regard
+        // revient au bouton pour réessayer et sauterait un message posé plus bas.
+        if (error != null) ...[
+          _ErrorBanner(message: error!),
+          const SizedBox(height: DesignTokens.spaceM),
+        ],
 
         _SubmitButton(
           label: l10n.signIn.toUpperCase(),
@@ -470,6 +494,56 @@ class _SubmitButton extends StatelessWidget {
                   ),
                 ),
         ),
+      ),
+    );
+  }
+}
+
+/// Bandeau d'échec de connexion.
+///
+/// Couleurs littérales, comme le reste de cet écran : le rouge du `ColorScheme`
+/// est calibré pour un fond de thème, et disparaîtrait sur la photographie
+/// sombre du fond. Cf. l'exception `pages/auth/` documentée dans le CLAUDE.md.
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.spaceM,
+        vertical: DesignTokens.spaceS + 2,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE5484D).withValues(alpha: 0.16),
+        borderRadius: DesignTokens.borderRadiusS,
+        border: Border.all(
+          color: const Color(0xFFE5484D).withValues(alpha: 0.45),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Iconsax.info_circle,
+            size: DesignTokens.iconS,
+            color: Color(0xFFFF9AA0),
+          ),
+          const SizedBox(width: DesignTokens.spaceS),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFFFFD9DB),
+                fontSize: 13,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

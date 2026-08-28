@@ -26,8 +26,7 @@ void main() {
 
     test('401 → AuthFailure', () async {
       final result = await repository.execute<String>(
-        () async =>
-            const ApiError(message: 'Session expirée', statusCode: 401),
+        () async => const ApiError(message: 'Session expirée', statusCode: 401),
       );
 
       final failure = result.getLeft().toNullable();
@@ -113,21 +112,21 @@ void main() {
 
     test('convertModelsToEntities ignore les models invalides', () {
       // Un enregistrement corrompu ne doit pas vider la liste entière côté UI.
-      final result = repository.convertModelsToEntities<int, String>(
-        [1, 2, 3],
-        (m) => m == 2 ? throw const FormatException('ko') : 'v$m',
-      );
+      final result = repository.convertModelsToEntities<int, String>([
+        1,
+        2,
+        3,
+      ], (m) => m == 2 ? throw const FormatException('ko') : 'v$m');
 
       expect(result.getRight().toNullable(), ['v1', 'v3']);
     });
 
     test('convertModelsToEntitiesStrict échoue au premier model invalide', () {
-      final result = repository.convertModelsToEntitiesStrict<int, String>(
-        [1, 2, 3],
-        (m) => m == 2
-            ? Left(BusinessFailure('ko'))
-            : Right('v$m'),
-      );
+      final result = repository.convertModelsToEntitiesStrict<int, String>([
+        1,
+        2,
+        3,
+      ], (m) => m == 2 ? Left(BusinessFailure('ko')) : Right('v$m'));
 
       expect(result.isLeft(), isTrue);
     });

@@ -9,7 +9,6 @@ import 'package:supplies_chat_app/core/platform/impl/desktop_platform_ui.dart';
 import 'package:supplies_chat_app/core/platform/impl/material_platform_ui.dart';
 import 'package:supplies_chat_app/core/platform/platform_ui.dart';
 import 'package:supplies_chat_app/core/responsive/breakpoints.dart';
-import 'package:supplies_chat_app/flavors.dart';
 import 'package:supplies_chat_app/presentation/desktop/desktop_workspace_shell.dart';
 import 'package:supplies_chat_app/presentation/desktop/widgets/chat_thread_panel.dart';
 import 'package:supplies_chat_app/presentation/desktop/widgets/contact_profile_panel.dart';
@@ -18,6 +17,8 @@ import 'package:supplies_chat_app/presentation/desktop/widgets/workspace_icon_ra
 import 'package:supplies_chat_app/presentation/desktop/widgets/workspace_sidebar.dart';
 import 'package:supplies_chat_app/presentation/main/widgets/custom_bottom_nav_bar.dart';
 import 'package:supplies_chat_app/presentation/main/widgets/custom_nav_rail.dart';
+
+import '../../helpers/test_environment.dart';
 
 /// Vérifie que chaque plateforme rend bien *sa* navigation, et que les deux axes
 /// (plateforme et largeur) sont respectés simultanément.
@@ -29,7 +30,7 @@ void main() {
   // La barre latérale affiche le nom de l'app, tiré du flavor. Sans cette
   // initialisation, `FlavorConfig.flavor` étant `late final`, le rendu échoue —
   // c'est `bootstrap()` qui s'en charge dans l'app.
-  setUpAll(() => FlavorConfig.flavor = Flavor.development);
+  setUpAll(setUpTestEnvironment);
 
   const destinations = [
     PlatformDestination(

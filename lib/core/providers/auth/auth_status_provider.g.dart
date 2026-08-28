@@ -10,15 +10,12 @@ part of 'auth_status_provider.dart';
 // ignore_for_file: type=lint, type=warning
 /// État d'authentification consommé par le routeur.
 ///
-/// **Portée volontairement réduite** : ce provider ne fait aucun appel réseau. Il
-/// se contente de constater la présence d'un jeton en stockage local et de
-/// réagir à l'échec de renouvellement signalé par l'interceptor.
+/// Il porte le **statut** seul — authentifié ou non — et laisse [AuthGate] seul
+/// décideur des redirections. L'identité du connecté vit dans
+/// `currentUserProvider` : le routeur n'en a pas besoin, les écrans si.
 ///
-/// La feature d'authentification complète (écran de connexion branché sur l'API,
-/// profil utilisateur, rôles agent/admin) le remplacera par un vrai ViewModel
-/// avec un état scellé. La forme de l'état exposé au routeur, en revanche, ne
-/// changera pas : c'est [AuthGateStatus], et [AuthGate] reste l'unique décideur
-/// des redirections.
+/// Le refus d'un compte non autorisé (client, vendeur) n'est pas traité ici mais
+/// dans le repository, qui seul connaît le rôle renvoyé par le serveur.
 ///
 /// `keepAlive` est indispensable : l'état de session est global. En auto-dispose,
 /// il serait détruit dès que plus personne ne l'écoute, puis relu au prochain
@@ -30,15 +27,12 @@ final authStatusProvider = AuthStatusNotifierProvider._();
 
 /// État d'authentification consommé par le routeur.
 ///
-/// **Portée volontairement réduite** : ce provider ne fait aucun appel réseau. Il
-/// se contente de constater la présence d'un jeton en stockage local et de
-/// réagir à l'échec de renouvellement signalé par l'interceptor.
+/// Il porte le **statut** seul — authentifié ou non — et laisse [AuthGate] seul
+/// décideur des redirections. L'identité du connecté vit dans
+/// `currentUserProvider` : le routeur n'en a pas besoin, les écrans si.
 ///
-/// La feature d'authentification complète (écran de connexion branché sur l'API,
-/// profil utilisateur, rôles agent/admin) le remplacera par un vrai ViewModel
-/// avec un état scellé. La forme de l'état exposé au routeur, en revanche, ne
-/// changera pas : c'est [AuthGateStatus], et [AuthGate] reste l'unique décideur
-/// des redirections.
+/// Le refus d'un compte non autorisé (client, vendeur) n'est pas traité ici mais
+/// dans le repository, qui seul connaît le rôle renvoyé par le serveur.
 ///
 /// `keepAlive` est indispensable : l'état de session est global. En auto-dispose,
 /// il serait détruit dès que plus personne ne l'écoute, puis relu au prochain
@@ -48,15 +42,12 @@ final class AuthStatusNotifierProvider
     extends $NotifierProvider<AuthStatusNotifier, AuthGateStatus> {
   /// État d'authentification consommé par le routeur.
   ///
-  /// **Portée volontairement réduite** : ce provider ne fait aucun appel réseau. Il
-  /// se contente de constater la présence d'un jeton en stockage local et de
-  /// réagir à l'échec de renouvellement signalé par l'interceptor.
+  /// Il porte le **statut** seul — authentifié ou non — et laisse [AuthGate] seul
+  /// décideur des redirections. L'identité du connecté vit dans
+  /// `currentUserProvider` : le routeur n'en a pas besoin, les écrans si.
   ///
-  /// La feature d'authentification complète (écran de connexion branché sur l'API,
-  /// profil utilisateur, rôles agent/admin) le remplacera par un vrai ViewModel
-  /// avec un état scellé. La forme de l'état exposé au routeur, en revanche, ne
-  /// changera pas : c'est [AuthGateStatus], et [AuthGate] reste l'unique décideur
-  /// des redirections.
+  /// Le refus d'un compte non autorisé (client, vendeur) n'est pas traité ici mais
+  /// dans le repository, qui seul connaît le rôle renvoyé par le serveur.
   ///
   /// `keepAlive` est indispensable : l'état de session est global. En auto-dispose,
   /// il serait détruit dès que plus personne ne l'écoute, puis relu au prochain
@@ -90,19 +81,16 @@ final class AuthStatusNotifierProvider
 }
 
 String _$authStatusNotifierHash() =>
-    r'b25c3868ab70540b95704967a98e10e24e2b59f6';
+    r'3c356eb6ae155fc64e6180aec51c8b353b1f594b';
 
 /// État d'authentification consommé par le routeur.
 ///
-/// **Portée volontairement réduite** : ce provider ne fait aucun appel réseau. Il
-/// se contente de constater la présence d'un jeton en stockage local et de
-/// réagir à l'échec de renouvellement signalé par l'interceptor.
+/// Il porte le **statut** seul — authentifié ou non — et laisse [AuthGate] seul
+/// décideur des redirections. L'identité du connecté vit dans
+/// `currentUserProvider` : le routeur n'en a pas besoin, les écrans si.
 ///
-/// La feature d'authentification complète (écran de connexion branché sur l'API,
-/// profil utilisateur, rôles agent/admin) le remplacera par un vrai ViewModel
-/// avec un état scellé. La forme de l'état exposé au routeur, en revanche, ne
-/// changera pas : c'est [AuthGateStatus], et [AuthGate] reste l'unique décideur
-/// des redirections.
+/// Le refus d'un compte non autorisé (client, vendeur) n'est pas traité ici mais
+/// dans le repository, qui seul connaît le rôle renvoyé par le serveur.
 ///
 /// `keepAlive` est indispensable : l'état de session est global. En auto-dispose,
 /// il serait détruit dès que plus personne ne l'écoute, puis relu au prochain

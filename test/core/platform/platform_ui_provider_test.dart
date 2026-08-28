@@ -10,21 +10,33 @@ import 'package:supplies_chat_app/core/platform/platform_ui_provider.dart';
 void main() {
   group('AppPlatform.fromTarget', () {
     test('traduit les quatre cibles supportées', () {
-      expect(AppPlatform.fromTarget(TargetPlatform.android), AppPlatform.android);
-      expect(AppPlatform.fromTarget(TargetPlatform.iOS), AppPlatform.ios);
-      expect(AppPlatform.fromTarget(TargetPlatform.macOS), AppPlatform.macos);
-      expect(AppPlatform.fromTarget(TargetPlatform.windows), AppPlatform.windows);
-    });
-
-    test('replie les cibles non supportées sur Material plutôt que de lever', () {
-      // Un `throw` planterait un développeur qui lance simplement un test sous
-      // Linux, sans rien apporter.
-      expect(AppPlatform.fromTarget(TargetPlatform.linux), AppPlatform.android);
       expect(
-        AppPlatform.fromTarget(TargetPlatform.fuchsia),
+        AppPlatform.fromTarget(TargetPlatform.android),
         AppPlatform.android,
       );
+      expect(AppPlatform.fromTarget(TargetPlatform.iOS), AppPlatform.ios);
+      expect(AppPlatform.fromTarget(TargetPlatform.macOS), AppPlatform.macos);
+      expect(
+        AppPlatform.fromTarget(TargetPlatform.windows),
+        AppPlatform.windows,
+      );
     });
+
+    test(
+      'replie les cibles non supportées sur Material plutôt que de lever',
+      () {
+        // Un `throw` planterait un développeur qui lance simplement un test sous
+        // Linux, sans rien apporter.
+        expect(
+          AppPlatform.fromTarget(TargetPlatform.linux),
+          AppPlatform.android,
+        );
+        expect(
+          AppPlatform.fromTarget(TargetPlatform.fuchsia),
+          AppPlatform.android,
+        );
+      },
+    );
   });
 
   group('catégories', () {
@@ -91,10 +103,7 @@ void main() {
         desktop.pageTransitionDuration.inMilliseconds,
         lessThan(android.pageTransitionDuration.inMilliseconds),
       );
-      expect(
-        ios.pageTransitionDuration,
-        isNot(android.pageTransitionDuration),
-      );
+      expect(ios.pageTransitionDuration, isNot(android.pageTransitionDuration));
     });
   });
 }

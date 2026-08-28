@@ -55,7 +55,8 @@ void main() {
         expect(
           style!.color,
           isNotNull,
-          reason: '$name n\'a pas de couleur (isDark=$isDark) — il sera peint '
+          reason:
+              '$name n\'a pas de couleur (isDark=$isDark) — il sera peint '
               'en blanc et deviendra invisible en thème clair',
         );
       });
@@ -81,7 +82,10 @@ void main() {
     );
 
     // Un corps de texte clair sur fond clair est le symptôme exact du bug.
-    expect(light.textTheme.bodyMedium!.color!.computeLuminance(), lessThan(0.5));
+    expect(
+      light.textTheme.bodyMedium!.color!.computeLuminance(),
+      lessThan(0.5),
+    );
     expect(
       dark.textTheme.bodyMedium!.color!.computeLuminance(),
       greaterThan(0.5),

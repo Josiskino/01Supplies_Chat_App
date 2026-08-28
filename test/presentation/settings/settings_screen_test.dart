@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations.dart';
 import 'package:supplies_chat_app/core/platform/app_platform.dart';
 import 'package:supplies_chat_app/core/platform/platform_ui_provider.dart';
-import 'package:supplies_chat_app/flavors.dart';
 import 'package:supplies_chat_app/presentation/pages/settings/settings_screen.dart';
 import 'package:supplies_chat_app/presentation/pages/settings/widgets/settings_group.dart';
+
+import '../../helpers/test_environment.dart';
 
 /// Couvre l'écran de réglages.
 void main() {
   setUpAll(() {
-    FlavorConfig.flavor = Flavor.development;
-    SharedPreferences.setMockInitialValues({});
+    setUpTestEnvironment();
   });
 
   Future<void> pump(WidgetTester tester) async {
