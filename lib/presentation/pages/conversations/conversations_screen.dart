@@ -8,10 +8,10 @@ import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
+import '../../../core/providers/messaging/pinned_provider.dart';
 import '../../../core/providers/messaging/support_provider.dart';
 import '../../../core/utils/chat_date_formatter.dart';
 import '../../../core/utils/localization_helper.dart';
-import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
@@ -23,8 +23,8 @@ import 'widgets/pinned_strip_header.dart';
 /// Affiche la **file d'attente commune** du support : tous les admins voient les
 /// mêmes demandes, et le premier qui répond s'en saisit. Cf. `supportQueue`.
 ///
-/// ⚠️ La bande d'épinglés vient encore de [ConversationFixtures] : la structure est réelle, le
-/// contenu est une maquette. La feature messagerie remplacera la source par un
+/// La bande du haut montre les conversations épinglées — vide tant qu'on n'en a
+/// épinglé aucune. La feature messagerie remplacera la source par un
 /// provider sans toucher à la présentation.
 class ConversationsScreen extends ConsumerStatefulWidget {
   const ConversationsScreen({super.key});
@@ -39,10 +39,24 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 
   /// Conversations mises en avant, présentées en pastilles au-dessus de la liste.
   ///
-  /// Reprend les favoris : sur mobile, atteindre un contact fréquent en un tap
-  /// vaut mieux que de le chercher dans une liste de trente fils.
-  List<WorkspaceFavoriteData> get _pinned =>
-      ConversationFixtures.favorites.take(4).toList();
+  /// Les conversations épinglées, telles que la bande du haut les montre.
+  ///
+  /// Auparavant remplie de contacts fictifs, elle ne portait rien de réel : ce
+  /// sont désormais les fils qu'on a soi-même épinglés, et elle disparaît tant
+  /// qu'il n'y en a aucun.
+  List<WorkspaceFavoriteData> _pinnedStrip(
+    List<ConversationListItemData> conversations,
+    Set<String> pinnedIds,
+  ) => [
+    for (final c in conversations)
+      if (pinnedIds.contains(c.id))
+        WorkspaceFavoriteData(
+          name: c.name,
+          avatarUrl: c.avatarUrl,
+          presence: c.presence,
+          badgeCount: c.unreadCount,
+        ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +84,8 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       );
     }
 
+    final pinnedIds = ref.watch(pinnedConversationsProvider);
+
     final conversations = [
       for (final ticket in async.value ?? const [])
         ConversationListItemData.fromTicket(
@@ -79,6 +95,16 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
           timeLabel: ChatDateFormatter.listLabel(ticket.displayDate),
         ),
     ];
+
+    // Les épinglées coiffent la liste, l'ordre par date restant celui du
+    // serveur à l'intérieur de chaque groupe.
+    conversations.sort((a, b) {
+      final ap = pinnedIds.contains(a.id) ? 0 : 1;
+      final bp = pinnedIds.contains(b.id) ? 0 : 1;
+      return ap.compareTo(bp);
+    });
+
+    final pinned = _pinnedStrip(conversations, pinnedIds);
 
     if (conversations.isEmpty) {
       return PlatformPage(
@@ -106,11 +132,11 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       // de liste ne sait pas faire — il défile et disparaît.
       body: CustomScrollView(
         slivers: [
-          if (_pinned.isNotEmpty)
+          if (pinned.isNotEmpty)
             SliverPersistentHeader(
               pinned: true,
               delegate: PinnedStripHeader(
-                favorites: _pinned,
+                favorites: pinned,
                 background: Theme.of(context).scaffoldBackgroundColor,
               ),
             ),
@@ -144,6 +170,10 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
                 final conversation = conversations[index];
                 return ConversationRow(
                   data: conversation,
+                  isPinned: pinnedIds.contains(conversation.id),
+                  onTogglePin: () => ref
+                      .read(pinnedConversationsProvider.notifier)
+                      .toggle(conversation.id),
                   onTap: () => context.push(
                     AppUiRoute.conversationDetailPath(conversation.id),
                     extra: {'contactName': conversation.name},

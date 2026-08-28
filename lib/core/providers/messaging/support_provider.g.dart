@@ -198,6 +198,57 @@ final class FetchConversationsUseCaseProvider
 String _$fetchConversationsUseCaseHash() =>
     r'43e8798ee02048f126fe7d5017a4d3628cd2db88';
 
+@ProviderFor(openDirectConversationUseCase)
+final openDirectConversationUseCaseProvider =
+    OpenDirectConversationUseCaseProvider._();
+
+final class OpenDirectConversationUseCaseProvider
+    extends
+        $FunctionalProvider<
+          OpenDirectConversationUseCase,
+          OpenDirectConversationUseCase,
+          OpenDirectConversationUseCase
+        >
+    with $Provider<OpenDirectConversationUseCase> {
+  OpenDirectConversationUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'openDirectConversationUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$openDirectConversationUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<OpenDirectConversationUseCase> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  OpenDirectConversationUseCase create(Ref ref) {
+    return openDirectConversationUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(OpenDirectConversationUseCase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<OpenDirectConversationUseCase>(
+        value,
+      ),
+    );
+  }
+}
+
+String _$openDirectConversationUseCaseHash() =>
+    r'ce8567a12802516bad1cf6ea72edd0cbc6aced76';
+
 @ProviderFor(joinTicketUseCase)
 final joinTicketUseCaseProvider = JoinTicketUseCaseProvider._();
 

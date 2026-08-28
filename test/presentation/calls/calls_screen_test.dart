@@ -31,36 +31,39 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('l’historique liste les appels', (tester) async {
+  testWidgets('l’écran annonce que les appels ne sont pas disponibles', (
+    tester,
+  ) async {
     await pump(tester);
-    expect(find.byType(CallLogRow), findsNWidgets(CallFixtures.history.length));
+
+    // Aucune ligne : afficher un faux historique laisserait croire à une
+    // fonctionnalité qui n'existe pas, et ferait chercher pourquoi rappeler
+    // ne marche pas.
+    expect(find.byType(CallLogRow), findsNothing);
+    expect(find.text('Appels indisponibles'), findsOneWidget);
   });
 
-  testWidgets('le filtre ne garde que les manqués', (tester) async {
-    await pump(tester);
+  testWidgets('la ligne d’appel reste rendue correctement', (tester) async {
+    // La présentation est prête et doit le rester : elle servira le jour où
+    // l'appel existera. On la monte donc directement, sans passer par l'écran.
+    final missed = CallFixtures.history.firstWhere((e) => e.isMissed);
 
-    await tester.tap(find.text('Manqués'));
-    await tester.pump();
-
-    final missed = CallFixtures.history.where((e) => e.isMissed).length;
-    expect(find.byType(CallLogRow), findsNWidgets(missed));
-    expect(missed, lessThan(CallFixtures.history.length));
-  });
-
-  testWidgets('un manqué se repère au nom, pas à son icône', (tester) async {
-    await pump(tester);
-
-    final row = tester.widget<CallLogRow>(find.byType(CallLogRow).first);
-    expect(row.entry.isMissed, isTrue);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CallLogRow(
+            entry: missed,
+            isApple: true,
+            onTap: () {},
+            onInfo: () {},
+          ),
+        ),
+      ),
+    );
 
     // Le nom porte la couleur d'erreur : c'est ce qui permet de parcourir la
     // liste du regard sans lire chaque ligne.
-    final name = tester.widget<Text>(
-      find.descendant(
-        of: find.byType(CallLogRow).first,
-        matching: find.text(row.entry.name),
-      ),
-    );
+    final name = tester.widget<Text>(find.text(missed.name));
     expect(name.style?.color, isNotNull);
   });
 

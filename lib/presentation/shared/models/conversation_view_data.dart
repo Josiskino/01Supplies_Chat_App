@@ -317,6 +317,7 @@ class ChatSeparatorEntry extends ChatThreadEntry {
 class ContactProfileData {
   const ContactProfileData({
     required this.name,
+    this.userId,
     required this.role,
     this.avatarUrl,
     this.presence = PresenceStatus.offline,
@@ -328,6 +329,10 @@ class ContactProfileData {
   });
 
   final String name;
+
+  /// Identifiant du compte, nécessaire pour ouvrir une conversation avec lui.
+  final String? userId;
+
   final String role;
   final String? avatarUrl;
   final PresenceStatus presence;
@@ -344,6 +349,7 @@ class ContactProfileData {
   /// donnée vérifiée.
   factory ContactProfileData.fromUser(UserEntity user) => ContactProfileData(
     name: user.displayName,
+    userId: user.id,
     role: user.role?.label ?? '',
     avatarUrl: user.avatarUrl,
     phone: user.phones.isEmpty ? null : user.phones.first,

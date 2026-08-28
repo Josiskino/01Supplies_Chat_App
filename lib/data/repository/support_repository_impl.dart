@@ -45,6 +45,16 @@ class SupportRepositoryImpl extends BaseRepository
   }
 
   @override
+  Future<Either<Failure, ConversationEntity>> openDirectConversation(
+    OpenDirectParams params,
+  ) async {
+    final result = await execute<ConversationModel>(
+      () => _remote.createDirectConversation(params.userId),
+    );
+    return result.map((m) => m.toEntity());
+  }
+
+  @override
   Future<Either<Failure, Unit>> join(JoinTicketParams params) async {
     final result = await execute<bool>(
       () => _remote.joinTicket(

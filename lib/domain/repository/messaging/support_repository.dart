@@ -12,6 +12,10 @@ abstract interface class SupportRepository {
 
   Future<Either<Failure, List<ConversationEntity>>> fetchConversations();
 
+  Future<Either<Failure, ConversationEntity>> openDirectConversation(
+    OpenDirectParams params,
+  );
+
   Future<Either<Failure, Unit>> join(JoinTicketParams params);
 }
 
@@ -22,6 +26,11 @@ class FetchQueueParams {
   final TicketStatus? status;
   final int page;
   final int limit;
+}
+
+class OpenDirectParams {
+  const OpenDirectParams(this.userId);
+  final String userId;
 }
 
 class JoinTicketParams {

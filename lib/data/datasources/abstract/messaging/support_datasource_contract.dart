@@ -21,6 +21,14 @@ abstract interface class SupportDataSourceContract {
     int limit,
   });
 
+  /// Ouvre une conversation directe avec un interlocuteur.
+  ///
+  /// L'API déduplique les conversations `direct` : rappeler cette méthode pour
+  /// le même contact renvoie la conversation existante au lieu d'en créer une
+  /// seconde, ce qui éviterait sinon deux fils parallèles pour une même
+  /// personne.
+  Future<ApiResult<ConversationModel>> createDirectConversation(String userId);
+
   /// Rejoint un ticket en s'y déclarant agent.
   ///
   /// Passe par `assign` et non `claim` : `claim` répond 409 sur un dossier déjà

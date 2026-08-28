@@ -36,6 +36,18 @@ class FetchConversationsParams {
   const FetchConversationsParams();
 }
 
+/// Ouvre — ou retrouve — la conversation directe avec un interlocuteur.
+class OpenDirectConversationUseCase
+    implements UseCase<ConversationEntity, OpenDirectParams> {
+  const OpenDirectConversationUseCase(this._repository);
+
+  final SupportRepository _repository;
+
+  @override
+  Future<Either<Failure, ConversationEntity>> call(OpenDirectParams params) =>
+      _repository.openDirectConversation(params);
+}
+
 /// Rejoint un ticket de la file, seul ou aux côtés d'autres agents.
 class JoinTicketUseCase implements UseCase<Unit, JoinTicketParams> {
   const JoinTicketUseCase(this._repository);

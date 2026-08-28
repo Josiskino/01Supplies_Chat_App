@@ -28,6 +28,8 @@ class ConversationRow extends ConsumerWidget {
     this.onArchive,
     this.onMarkRead,
     this.onDelete,
+    this.onTogglePin,
+    this.isPinned = false,
   });
 
   final ConversationListItemData data;
@@ -35,6 +37,10 @@ class ConversationRow extends ConsumerWidget {
   final VoidCallback? onArchive;
   final VoidCallback? onMarkRead;
   final VoidCallback? onDelete;
+
+  /// Épingle ou détache la conversation : les épinglées coiffent la liste.
+  final VoidCallback? onTogglePin;
+  final bool isPinned;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,10 +59,10 @@ class ConversationRow extends ConsumerWidget {
         onPressed: onMarkRead ?? () {},
       ),
       PlatformMenuAction(
-        label: data.isStarred ? 'Retirer des favoris' : 'Ajouter aux favoris',
-        icon: data.isStarred ? Iconsax.star_slash : Iconsax.star1,
-        sfSymbol: data.isStarred ? 'star.slash' : 'star',
-        onPressed: () {},
+        label: isPinned ? 'Retirer des épinglés' : 'Épingler',
+        icon: isPinned ? Iconsax.arrow_down : Iconsax.arrow_up_2,
+        sfSymbol: isPinned ? 'pin.slash' : 'pin',
+        onPressed: onTogglePin ?? () {},
       ),
       PlatformMenuAction(
         label: 'Archiver',

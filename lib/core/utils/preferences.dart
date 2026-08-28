@@ -47,4 +47,9 @@ abstract final class StorageKeys {
   static const String userProfile = 'user_profile';
   static const String themeMode = 'theme_mode';
   static const String locale = 'locale';
+
+  /// Identifiants des conversations épinglées, séparés par des virgules.
+  ///
+  /// Stockage local faute d'un champ côté API — cf. `pinnedConversations`.
+  static const String pinnedConversations = 'pinned_conversations';
 }

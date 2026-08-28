@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../config/theme/design_tokens.dart';
+import '../../../core/constants/app_ui_route.dart';
+import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/providers/directory/directory_provider.dart';
+import '../../../core/providers/messaging/support_provider.dart';
+import '../../../domain/repository/messaging/support_repository.dart';
 import '../../../core/utils/localization_helper.dart';
 import '../../desktop/widgets/presence_avatar.dart';
 import '../../shared/models/conversation_view_data.dart';
@@ -26,10 +31,44 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
+  /// Contact dont la conversation est en cours d'ouverture.
+  ///
+  /// La création passe par le réseau : sans repère, un appui sur un contact
+  /// reste sans effet visible le temps de l'aller-retour, et l'utilisateur
+  /// appuie une seconde fois.
+  String? _opening;
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Ouvre — ou retrouve — la conversation directe avec ce contact.
+  ///
+  /// L'API déduplique les conversations `direct` : toucher deux fois le même
+  /// contact rouvre le même fil au lieu d'en créer un second.
+  Future<void> _openConversation(ContactProfileData contact) async {
+    final userId = contact.userId;
+    if (userId == null || userId.isEmpty) return;
+
+    setState(() => _opening = userId);
+    final result = await ref
+        .read(openDirectConversationUseCaseProvider)
+        .call(OpenDirectParams(userId));
+    if (!mounted) return;
+    setState(() => _opening = null);
+
+    result.match(
+      (failure) => ref
+          .read(platformUiProvider)
+          .overlays
+          .notify(context: context, message: failure.message, isError: true),
+      (conversation) => context.push(
+        AppUiRoute.conversationDetailPath(conversation.id),
+        extra: {'contactName': contact.name},
+      ),
+    );
   }
 
   List<ContactProfileData> _filter(List<ContactProfileData> source) {
@@ -150,7 +189,12 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             ),
           ),
           itemBuilder: (context, index) {
-            return _EmployeeRow(employee: employees[index]);
+            final employee = employees[index];
+            return _EmployeeRow(
+              employee: employee,
+              isOpening: _opening != null && _opening == employee.userId,
+              onTap: () => _openConversation(employee),
+            );
           },
         ),
       ),
@@ -159,9 +203,18 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
 }
 
 class _EmployeeRow extends StatelessWidget {
-  const _EmployeeRow({required this.employee});
+  const _EmployeeRow({
+    required this.employee,
+    this.onTap,
+    this.isOpening = false,
+  });
 
   final ContactProfileData employee;
+  final VoidCallback? onTap;
+
+  /// La conversation est en cours d'ouverture : la ligne le montre plutôt que
+  /// de rester inerte pendant l'aller-retour réseau.
+  final bool isOpening;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +224,7 @@ class _EmployeeRow extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {},
+        onTap: isOpening ? null : onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: DesignTokens.spaceL,
@@ -228,10 +281,19 @@ class _EmployeeRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: DesignTokens.spaceM),
-              Icon(
-                Iconsax.message,
-                size: DesignTokens.iconM,
-                color: theme.colorScheme.primary,
+              // L'icône devient un indicateur le temps de l'aller-retour :
+              // créer la conversation passe par le réseau, et une ligne inerte
+              // se fait toucher une seconde fois.
+              SizedBox(
+                width: DesignTokens.iconM,
+                height: DesignTokens.iconM,
+                child: isOpening
+                    ? const CircularProgressIndicator(strokeWidth: 2)
+                    : Icon(
+                        Iconsax.message,
+                        size: DesignTokens.iconM,
+                        color: theme.colorScheme.primary,
+                      ),
               ),
             ],
           ),

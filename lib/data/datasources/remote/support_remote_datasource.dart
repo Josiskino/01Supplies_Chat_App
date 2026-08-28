@@ -51,6 +51,22 @@ class SupportRemoteDataSource implements SupportDataSourceContract {
   }
 
   @override
+  Future<ApiResult<ConversationModel>> createDirectConversation(String userId) {
+    return _client.request<ConversationModel>(
+      path: ApiEndpoints.conversations,
+      method: HttpMethod.post,
+      // `name` est interdit sur une conversation directe : l'envoyer produit
+      // un 400.
+      data: {
+        'type': 'direct',
+        'participants': [userId],
+      },
+      dataKey: 'data',
+      fromJson: (json) => ConversationModel.fromJson(json),
+    );
+  }
+
+  @override
   Future<ApiResult<bool>> joinTicket({
     required String ticketId,
     required String agentId,

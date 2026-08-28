@@ -3,14 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 
-import '../../../config/theme/app_icons.dart';
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/utils/localization_helper.dart';
-import '../../shared/fixtures/call_fixtures.dart';
 import '../../shared/models/call_view_data.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
@@ -18,8 +16,15 @@ import 'widgets/call_log_row.dart';
 
 /// Historique des appels.
 ///
-/// ⚠️ Les entrées viennent de [CallFixtures] : la présentation est réelle, le
-/// contenu est une maquette.
+/// ## Écran volontairement vide
+///
+/// L'appel n'est pas implémenté : ni signalisation, ni transport audio, ni
+/// endpoint d'historique côté API. La présentation — lignes, filtre, icônes —
+/// est prête et testée, mais afficher un faux historique laisserait croire à
+/// une fonctionnalité qui n'existe pas, et ferait chercher pourquoi rappeler ne
+/// marche pas.
+///
+/// Les fixtures restent dans `CallFixtures` pour les tests de présentation.
 class CallsScreen extends ConsumerStatefulWidget {
   const CallsScreen({super.key});
 
@@ -31,9 +36,8 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
   /// Filtre « manqués » du sélecteur segmenté.
   bool _missedOnly = false;
 
-  List<CallLogEntry> get _entries => _missedOnly
-      ? CallFixtures.history.where((e) => e.isMissed).toList()
-      : CallFixtures.history;
+  /// Vide tant que la fonctionnalité d'appel n'existe pas.
+  List<CallLogEntry> get _entries => const [];
 
   @override
   Widget build(BuildContext context) {
@@ -42,14 +46,9 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
 
     return PlatformPage(
       title: l10n.callsTitle,
-      actions: [
-        PlatformAction(
-          icon: AppIcons.of(AppIcons.add, isApple: platformUi.platform.isApple),
-          sfSymbol: 'plus',
-          label: 'Nouvel appel',
-          onPressed: () => context.push(AppUiRoute.call),
-        ),
-      ],
+      // Aucun bouton « Nouvel appel » : il ouvrirait un écran d'appel qui ne
+      // compose rien.
+      actions: const [],
       body: Column(
         children: [
           Padding(
@@ -66,10 +65,12 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
           ),
           Expanded(
             child: _entries.isEmpty
-                ? EmptyStateWidget(
+                ? const EmptyStateWidget(
                     icon: Iconsax.call,
-                    title: l10n.callsEmptyTitle,
-                    message: l10n.callsEmptyMessage,
+                    title: 'Appels indisponibles',
+                    message:
+                        'Les appels audio et vidéo ne sont pas encore '
+                        'disponibles dans 01 Chat.',
                   )
                 : ListView.separated(
                     padding: EdgeInsets.only(

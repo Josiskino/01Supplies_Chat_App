@@ -303,11 +303,11 @@ class _ConversationDetailScreenState
     );
   }
 
-  /// Choix du type d'appel.
+  /// Actions du menu d'en-tête.
   ///
-  /// Les deux appels partagent le même écran : c'est la présence de la vidéo qui
-  /// change, pas la conversation. Demander avant d'ouvrir évite d'allumer une
-  /// caméra que personne n'attendait.
+  /// L'appel n'y figure plus : l'écran existe et son design est prêt, mais rien
+  /// ne compose derrière — proposer « Appel vocal » ouvrirait une conversation
+  /// simulée avec des participants inventés. Il reviendra avec le transport.
   Future<void> _openCallOptions(BuildContext context, String name) async {
     final choice = await ref
         .read(platformUiProvider)
@@ -315,10 +315,12 @@ class _ConversationDetailScreenState
         .pickOption(
           context: context,
           title: name,
-          labels: const ['Appel vocal', 'Appel vidéo'],
+          labels: const ['Marquer comme non lu', 'Actualiser la discussion'],
         );
     if (choice == null || !context.mounted) return;
-    context.push(AppUiRoute.call, extra: name);
+    if (choice == 1) {
+      await ref.read(threadProvider(widget.conversationId).notifier).refresh();
+    }
   }
 
   /// Actions proposées à l'appui long sur un message.

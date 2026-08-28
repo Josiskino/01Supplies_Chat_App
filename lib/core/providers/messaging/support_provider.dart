@@ -31,6 +31,10 @@ FetchConversationsUseCase fetchConversationsUseCase(Ref ref) =>
     FetchConversationsUseCase(ref.watch(supportRepositoryProvider));
 
 @riverpod
+OpenDirectConversationUseCase openDirectConversationUseCase(Ref ref) =>
+    OpenDirectConversationUseCase(ref.watch(supportRepositoryProvider));
+
+@riverpod
 JoinTicketUseCase joinTicketUseCase(Ref ref) =>
     JoinTicketUseCase(ref.watch(supportRepositoryProvider));
 
