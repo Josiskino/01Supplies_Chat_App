@@ -43,6 +43,8 @@ class MessageRepositoryImpl extends BaseRepository
         conversationId: params.conversationId,
         content: params.content,
         replyTo: params.replyTo,
+        type: params.type.wireName,
+        attachmentMediaIds: params.attachmentMediaIds,
       ),
     );
     return result.map((m) => m.toEntity());

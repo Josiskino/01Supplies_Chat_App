@@ -49,7 +49,16 @@
 		</dict>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
-		<key>UILaunchStoryboardName</key>
+		<!-- Autorisations exigées par iOS avant d'ouvrir la photothèque, la caméra
+	     ou le micro. Sans ces textes, l'application est **terminée par le
+	     système** au moment de la demande, sans message d'erreur exploitable. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>01 Chat accède à vos photos pour les joindre à vos messages.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>01 Chat utilise l’appareil photo pour envoyer une photo dans la conversation.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>01 Chat utilise le micro pour enregistrer vos notes vocales.</string>
+	<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
 		<key>UIMainStoryboardFile</key>
 		<string>Main</string>

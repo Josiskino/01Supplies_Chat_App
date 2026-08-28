@@ -10,6 +10,8 @@ import '../../../domain/repository/messaging/message_repository.dart';
 import '../../../domain/usecases/messaging/message_usecases.dart';
 import '../../abstract/failure.dart';
 import '../auth/auth_provider.dart';
+import '../../../domain/repository/media/media_repository.dart';
+import '../media/media_provider.dart';
 import '../realtime/realtime_provider.dart';
 import 'support_provider.dart';
 import '../request/api_provider.dart';
@@ -115,9 +117,16 @@ class Thread extends _$Thread {
   /// Le message revient du serveur avec son identifiant définitif : on l'insère
   /// tel quel plutôt que de deviner localement, faute de quoi une réponse citée
   /// pointerait sur un identifiant qui n'existe pas encore.
-  Future<bool> send(String content, {String? replyTo}) async {
+  Future<bool> send(
+    String content, {
+    String? replyTo,
+    MessageType type = MessageType.text,
+    List<String> attachmentMediaIds = const [],
+  }) async {
     final trimmed = content.trim();
-    if (trimmed.isEmpty) return false;
+    // Un texte vide reste refusé, sauf s'il accompagne une pièce jointe : une
+    // photo se passe très bien de légende.
+    if (trimmed.isEmpty && attachmentMediaIds.isEmpty) return false;
 
     final result = await ref
         .read(sendMessageUseCaseProvider)
@@ -126,6 +135,8 @@ class Thread extends _$Thread {
             conversationId: conversationId,
             content: trimmed,
             replyTo: replyTo,
+            type: type,
+            attachmentMediaIds: attachmentMediaIds,
           ),
         );
 
@@ -147,6 +158,37 @@ class Thread extends _$Thread {
     // La file porte les compteurs : sans ce rechargement, la pastille de
     // non-lus reste affichée alors que le fil vient d'être lu.
     if (result.isRight()) ref.invalidate(supportQueueProvider);
+  }
+
+  /// Dépose des fichiers puis les envoie dans un seul message.
+  ///
+  /// L'envoi n'a lieu qu'une fois **tous** les dépôts réussis : un message
+  /// partiel afficherait deux photos sur trois sans que rien ne signale la
+  /// troisième.
+  Future<bool> sendAttachments({
+    required List<String> filePaths,
+    required MessageType type,
+    String content = '',
+    String? replyTo,
+  }) async {
+    if (filePaths.isEmpty) return false;
+
+    final ids = <String>[];
+    for (final path in filePaths) {
+      final upload = await ref
+          .read(uploadMediaUseCaseProvider)
+          .call(UploadMediaParams(path));
+      final media = upload.getRight().toNullable();
+      if (media == null) return false;
+      ids.add(media.id);
+    }
+
+    return send(
+      content,
+      replyTo: replyTo,
+      type: type,
+      attachmentMediaIds: ids,
+    );
   }
 
   Future<void> refresh() async {

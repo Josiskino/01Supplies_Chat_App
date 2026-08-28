@@ -31,13 +31,22 @@ class SendMessageParams {
     required this.conversationId,
     required this.content,
     this.replyTo,
+    this.type = MessageType.text,
+    this.attachmentMediaIds = const [],
   });
 
   final String conversationId;
+
+  /// Texte du message. Vide pour un envoi de pièce jointe sans légende.
   final String content;
 
   /// Identifiant du message cité, le cas échéant.
   final String? replyTo;
+
+  final MessageType type;
+
+  /// Médias déjà déposés, à rattacher à ce message.
+  final List<String> attachmentMediaIds;
 }
 
 class MarkReadParams {

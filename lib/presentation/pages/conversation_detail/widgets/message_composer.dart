@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 
@@ -21,6 +22,8 @@ class MessageComposer extends ConsumerStatefulWidget {
     this.replyTo,
     this.onCancelReply,
     this.onRecordVoice,
+    this.onPickImages,
+    this.isSending = false,
   });
 
   final ValueChanged<String>? onSend;
@@ -33,6 +36,13 @@ class MessageComposer extends ConsumerStatefulWidget {
   /// Bascule vers la barre d'enregistrement. Sans callback, le micro reste un
   /// repère inerte.
   final VoidCallback? onRecordVoice;
+
+  /// Envoie des images choisies dans la photothèque ou prises à l'instant.
+  final ValueChanged<List<String>>? onPickImages;
+
+  /// Un téléversement est en cours : le bouton d'ajout se met en attente plutôt
+  /// que d'accepter une seconde sélection par-dessus la première.
+  final bool isSending;
 
   @override
   ConsumerState<MessageComposer> createState() => _MessageComposerState();
@@ -80,21 +90,39 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   /// contrat de décider de la présentation.
   Future<void> _openAttachments(BuildContext context) async {
     final overlays = ref.read(platformUiProvider).overlays;
+    // Seules les deux premières entrées sont branchées : proposer « Document »
+    // ou « Position » sans les servir ferait chercher une panne là où il n'y a
+    // qu'une fonctionnalité absente.
     final choice = await overlays.pickOption(
       context: context,
       title: 'Joindre',
-      labels: const [
-        'Photothèque',
-        'Prendre une photo',
-        'Document',
-        'Position',
-        'Contact',
-      ],
+      labels: const ['Photothèque', 'Prendre une photo'],
     );
     if (choice == null || !context.mounted) return;
-    // Les actions elles-mêmes relèvent de la feature messagerie : ici, seul le
-    // point d'entrée est posé.
-    overlays.notify(context: context, message: 'Pièce jointe à venir');
+
+    final picker = ImagePicker();
+    try {
+      final files = choice == 0
+          // Plusieurs photos en une fois : la galerie de la bulle est faite
+          // pour les lots, et forcer un envoi par image la rendrait inutile.
+          ? await picker.pickMultiImage(imageQuality: 85)
+          : <XFile>[
+              ?await picker.pickImage(
+                source: ImageSource.camera,
+                imageQuality: 85,
+              ),
+            ];
+
+      if (files.isEmpty) return;
+      widget.onPickImages?.call(files.map((f) => f.path).toList());
+    } catch (e) {
+      if (!context.mounted) return;
+      overlays.notify(
+        context: context,
+        message: 'Impossible d’accéder aux photos.',
+        isError: true,
+      );
+    }
   }
 
   void _send() {
@@ -138,11 +166,27 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _RoundButton(
-                    icon: isApple ? CupertinoIcons.plus : Iconsax.add,
-                    onTap: () => _openAttachments(context),
-                    tooltip: 'Ajouter une pièce jointe',
-                  ),
+                  // Pendant un téléversement, le bouton devient un indicateur :
+                  // ouvrir une seconde sélection par-dessus la première
+                  // enverrait deux messages là où l'utilisateur en veut un.
+                  if (widget.isSending)
+                    const SizedBox(
+                      width: 38,
+                      height: 38,
+                      child: Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  else
+                    _RoundButton(
+                      icon: isApple ? CupertinoIcons.plus : Iconsax.add,
+                      onTap: () => _openAttachments(context),
+                      tooltip: 'Ajouter une pièce jointe',
+                    ),
                   const SizedBox(width: DesignTokens.spaceS),
                   Expanded(
                     child: Container(

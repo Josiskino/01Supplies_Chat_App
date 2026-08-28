@@ -13,6 +13,8 @@ abstract interface class MessageDataSourceContract {
     required String conversationId,
     required String content,
     String? replyTo,
+    String type,
+    List<String> attachmentMediaIds,
   });
 
   /// Signale que le fil a été lu jusqu'au bout.

@@ -1,5 +1,7 @@
 import 'dart:async';
-import 'dart:math' as math;
+
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +29,8 @@ class VoiceRecorderBar extends StatefulWidget {
     required this.onCancel,
   });
 
-  final ValueChanged<VoiceNoteData> onSend;
+  /// Reçoit la note et le **chemin du fichier** capturé, à téléverser.
+  final void Function(VoiceNoteData note, String filePath) onSend;
   final VoidCallback onCancel;
 
   @override
@@ -42,7 +45,9 @@ class _VoiceRecorderBarState extends State<VoiceRecorderBar>
   Timer? _timer;
   Duration _elapsed = Duration.zero;
   final List<double> _waveform = [];
-  final _random = math.Random();
+
+  final AudioRecorder _recorder = AudioRecorder();
+  String? _filePath;
 
   /// Fraction écoulée depuis la dernière amplitude, entre 0 et 1.
   ///
@@ -57,11 +62,25 @@ class _VoiceRecorderBarState extends State<VoiceRecorderBar>
   void initState() {
     super.initState();
     HapticFeedback.mediumImpact();
-    _timer = Timer.periodic(_sampleInterval, (_) {
+    unawaited(_startRecording());
+
+    _timer = Timer.periodic(_sampleInterval, (_) async {
       _lastSample = DateTime.now();
+      // L'amplitude réelle du micro, ramenée dans [0,1]. `record` la donne en
+      // décibels négatifs : -45 dB correspond au silence ambiant, 0 dB à la
+      // saturation.
+      double level = 0.3;
+      try {
+        final amp = await _recorder.getAmplitude();
+        level = ((amp.current + 45) / 45).clamp(0.05, 1.0);
+      } catch (_) {
+        // Micro indisponible : le tracé reste plat plutôt que d'inventer une
+        // agitation qui ne correspond à rien.
+      }
+      if (!mounted) return;
       setState(() {
         _elapsed += _sampleInterval;
-        _waveform.add(0.25 + _random.nextDouble() * 0.75);
+        _waveform.add(level);
       });
     });
     _ticker = createTicker((_) {
@@ -73,18 +92,53 @@ class _VoiceRecorderBarState extends State<VoiceRecorderBar>
     })..start();
   }
 
+  /// Ouvre la capture dans un fichier temporaire.
+  ///
+  /// AAC dans un conteneur M4A : c'est le format que lisent aussi bien iOS
+  /// qu'Android, et celui déjà utilisé par l'app cliente. Un encodage exotique
+  /// donnerait des notes que l'un des deux camps ne saurait pas jouer.
+  Future<void> _startRecording() async {
+    try {
+      if (!await _recorder.hasPermission()) {
+        if (mounted) widget.onCancel();
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: path,
+      );
+      _filePath = path;
+    } catch (_) {
+      if (mounted) widget.onCancel();
+    }
+  }
+
   @override
   void dispose() {
     _ticker.dispose();
     _timer?.cancel();
+    // Coupe la capture même si l'écran est quitté sans envoyer : un
+    // enregistrement laissé ouvert continue de consommer le micro.
+    unawaited(_recorder.stop().catchError((_) => null));
+    unawaited(_recorder.dispose());
     super.dispose();
   }
 
-  void _send() {
+  Future<void> _send() async {
     _timer?.cancel();
     HapticFeedback.lightImpact();
+
+    final path = await _recorder.stop() ?? _filePath;
+    if (path == null || !mounted) {
+      widget.onCancel();
+      return;
+    }
     widget.onSend(
       VoiceNoteData(duration: _elapsed, waveform: List.of(_waveform)),
+      path,
     );
   }
 

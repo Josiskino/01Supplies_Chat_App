@@ -100,6 +100,10 @@ class _ConversationDetailScreenState
   /// Bascule le composer vers la barre d'enregistrement.
   bool _recording = false;
 
+  /// Un téléversement est en cours : le composer le montre plutôt que de
+  /// paraître inerte pendant l'envoi d'une photo.
+  bool _sendingAttachment = false;
+
   /// Une clé par message, pour pouvoir défiler jusqu'à lui.
   ///
   /// `Scrollable.ensureVisible` a besoin du `BuildContext` de la cible : il faut
@@ -210,16 +214,51 @@ class _ConversationDetailScreenState
     setState(() => _highlighted = null);
   }
 
-  /// Envoi d'une note vocale — **pas encore branché**.
-  ///
-  /// `POST /messages` accepte `type: audio` avec un média, mais l'envoi de
-  /// fichier passe par `media/upload` et n'est pas fait. Prévenir vaut mieux
-  /// qu'afficher une bulle qui ne partira jamais.
-  void _sendVoice(VoiceNoteData voice) {
+  /// Envoie la note vocale capturée.
+  Future<void> _sendVoice(VoiceNoteData voice, String filePath) async {
     setState(() => _recording = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Les notes vocales arrivent bientôt.')),
-    );
+    await _sendFiles([filePath], MessageType.audio);
+  }
+
+  /// Envoie des images choisies dans la photothèque ou prises à l'instant.
+  Future<void> _sendImages(List<String> paths) =>
+      _sendFiles(paths, MessageType.image);
+
+  /// Dépose les fichiers puis les envoie en un seul message.
+  ///
+  /// L'attente est signalée : un envoi de photos passe par un téléversement,
+  /// et sans repère l'utilisateur croit que rien ne part.
+  Future<void> _sendFiles(List<String> paths, MessageType type) async {
+    if (paths.isEmpty) return;
+    final reply = _replyTo;
+    setState(() {
+      _replyTo = null;
+      _sendingAttachment = true;
+    });
+
+    final ok = await ref
+        .read(threadProvider(widget.conversationId).notifier)
+        .sendAttachments(
+          filePaths: paths,
+          type: type,
+          replyTo: reply?.messageId,
+        );
+
+    if (!mounted) return;
+    setState(() => _sendingAttachment = false);
+    if (ok) return;
+
+    setState(() => _replyTo = reply);
+    ref
+        .read(platformUiProvider)
+        .overlays
+        .notify(
+          context: context,
+          message: type == MessageType.audio
+              ? 'Note vocale non envoyée. Réessayez.'
+              : 'Envoi des photos impossible. Réessayez.',
+          isError: true,
+        );
   }
 
   /// Nom de l'agent déjà sur le dossier, ou `null` si personne.
@@ -497,6 +536,8 @@ class _ConversationDetailScreenState
           else
             MessageComposer(
               onSend: _send,
+              onPickImages: _sendImages,
+              isSending: _sendingAttachment,
               placeholder: 'Écrire un message…',
               replyTo: _replyTo,
               onCancelReply: () => setState(() => _replyTo = null),

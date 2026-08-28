@@ -34,6 +34,8 @@ class MessageRemoteDataSource implements MessageDataSourceContract {
     required String conversationId,
     required String content,
     String? replyTo,
+    String type = 'text',
+    List<String> attachmentMediaIds = const [],
   }) {
     return _client.request<MessageModel>(
       path: ApiEndpoints.messages,
@@ -41,8 +43,12 @@ class MessageRemoteDataSource implements MessageDataSourceContract {
       data: {
         'conversationId': conversationId,
         'content': content,
-        'type': 'text',
+        'type': type,
         'replyTo': ?replyTo,
+        // Les identifiants de média, pas les URL : c'est ce lien qui empêche le
+        // serveur de considérer le fichier comme orphelin et de l'effacer.
+        if (attachmentMediaIds.isNotEmpty)
+          'attachmentMediaIds': attachmentMediaIds,
       },
       dataKey: 'data',
       fromJson: (json) => MessageModel.fromJson(json),

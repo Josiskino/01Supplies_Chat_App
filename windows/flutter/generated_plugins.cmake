@@ -3,9 +3,12 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_windows
   connectivity_plus
+  file_selector_windows
   firebase_core
   flutter_acrylic
+  record_windows
   screen_retriever_windows
   url_launcher_windows
   window_manager

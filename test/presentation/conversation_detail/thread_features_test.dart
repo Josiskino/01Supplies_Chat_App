@@ -59,7 +59,20 @@ class _StubThread extends Thread {
   Future<void> markRead() async {}
 
   @override
-  Future<bool> send(String content, {String? replyTo}) async => true;
+  Future<bool> send(
+    String content, {
+    String? replyTo,
+    MessageType type = MessageType.text,
+    List<String> attachmentMediaIds = const [],
+  }) async => true;
+
+  @override
+  Future<bool> sendAttachments({
+    required List<String> filePaths,
+    required MessageType type,
+    String content = '',
+    String? replyTo,
+  }) async => true;
 }
 
 /// Couvre les quatre comportements portés depuis l'app cliente : séparateurs de
