@@ -100,10 +100,6 @@ class _ConversationDetailScreenState
   /// Bascule le composer vers la barre d'enregistrement.
   bool _recording = false;
 
-  /// Un téléversement est en cours : le composer le montre plutôt que de
-  /// paraître inerte pendant l'envoi d'une photo.
-  bool _sendingAttachment = false;
-
   /// Une clé par message, pour pouvoir défiler jusqu'à lui.
   ///
   /// `Scrollable.ensureVisible` a besoin du `BuildContext` de la cible : il faut
@@ -231,10 +227,7 @@ class _ConversationDetailScreenState
   Future<void> _sendFiles(List<String> paths, MessageType type) async {
     if (paths.isEmpty) return;
     final reply = _replyTo;
-    setState(() {
-      _replyTo = null;
-      _sendingAttachment = true;
-    });
+    setState(() => _replyTo = null);
 
     final ok = await ref
         .read(threadProvider(widget.conversationId).notifier)
@@ -244,9 +237,7 @@ class _ConversationDetailScreenState
           replyTo: reply?.messageId,
         );
 
-    if (!mounted) return;
-    setState(() => _sendingAttachment = false);
-    if (ok) return;
+    if (!mounted || ok) return;
 
     setState(() => _replyTo = reply);
     ref
@@ -537,7 +528,6 @@ class _ConversationDetailScreenState
             MessageComposer(
               onSend: _send,
               onPickImages: _sendImages,
-              isSending: _sendingAttachment,
               placeholder: 'Écrire un message…',
               replyTo: _replyTo,
               onCancelReply: () => setState(() => _replyTo = null),

@@ -40,6 +40,7 @@ class PhotoStack extends StatelessWidget {
     required this.onTap,
     this.timeLabel,
     this.height = 190,
+    this.isUploading = false,
   });
 
   /// Toutes les images du lot, dans l'ordre d'envoi.
@@ -57,6 +58,14 @@ class PhotoStack extends StatelessWidget {
   /// aux bords entrevus, que seule la mise en page connaît. Posée de l'extérieur,
   /// elle tombait sous le tirage de front, dans la tranche du paquet.
   final String? timeLabel;
+
+  /// Le téléversement est en cours : la pile s'assombrit et porte un
+  /// indicateur.
+  ///
+  /// Le retour est posé **sur l'image** et non ailleurs dans l'écran : c'est
+  /// elle qu'on regarde en attendant, et un indicateur logé dans la barre de
+  /// saisie n'apprend pas laquelle des photos est concernée.
+  final bool isUploading;
 
   /// Hauteur de l'aperçu.
   ///
@@ -161,12 +170,32 @@ class PhotoStack extends StatelessWidget {
                         path: images[card.imageIndex],
                         width: card.width,
                         height: card.height,
+                        dimmed: isUploading,
                       ),
                     ),
                   ),
-                if (images.length > 1)
+                if (images.length > 1 && !isUploading)
                   Positioned.fill(
                     child: Center(child: _CountBadge(count: images.length)),
+                  ),
+                // L'indicateur seul est posé sur la boîte ; l'assombrissement,
+                // lui, appartient à chaque carte — appliqué ici, il peindrait
+                // aussi la marge de rotation et cernerait la pile d'un
+                // rectangle gris.
+                if (isUploading)
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: Center(
+                        child: SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 if (timeLabel != null && timeLabel!.isNotEmpty)
                   Positioned(
@@ -311,11 +340,15 @@ class _PhotoCard extends StatelessWidget {
     required this.path,
     required this.width,
     required this.height,
+    this.dimmed = false,
   });
 
   final String path;
   final double width;
   final double height;
+
+  /// Assombrit le tirage pendant le téléversement.
+  final bool dimmed;
 
   /// Le liseré reste fin : sur un tirage de la taille d'une vignette, un bord
   /// épais tient plus de place que ce qu'il encadre.
@@ -352,6 +385,11 @@ class _PhotoCard extends StatelessWidget {
           fit: BoxFit.cover,
           width: width,
           height: height,
+          // Assombri par la couche de peinture plutôt que par un widget
+          // superposé : le voile épouse ainsi exactement le tirage, coins
+          // arrondis compris.
+          color: dimmed ? Colors.black.withValues(alpha: 0.45) : null,
+          colorBlendMode: dimmed ? BlendMode.darken : null,
           errorBuilder: (context, error, stackTrace) => ColoredBox(
             color: Colors.black.withValues(alpha: 0.08),
             child: const Center(

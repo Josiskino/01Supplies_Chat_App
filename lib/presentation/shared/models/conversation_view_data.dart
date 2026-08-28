@@ -221,11 +221,13 @@ class ChatMessageData {
       voice: message.type == MessageType.audio
           ? const VoiceNoteData(duration: Duration.zero, waveform: _flatWave)
           : null,
-      status: switch (message.delivery) {
-        MessageDelivery.sent => MessageStatus.sent,
-        MessageDelivery.delivered => MessageStatus.delivered,
-        MessageDelivery.read => MessageStatus.read,
-      },
+      status: message.isPending
+          ? MessageStatus.sending
+          : switch (message.delivery) {
+              MessageDelivery.sent => MessageStatus.sent,
+              MessageDelivery.delivered => MessageStatus.delivered,
+              MessageDelivery.read => MessageStatus.read,
+            },
     );
   }
 }

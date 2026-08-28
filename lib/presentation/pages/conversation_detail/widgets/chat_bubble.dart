@@ -173,6 +173,10 @@ class ChatBubble extends StatelessWidget {
                                 ),
                                 child: PhotoStack(
                                   images: message.attachments,
+                                  // Le voile de chargement vit sur la pile
+                                  // elle-même, pas sur le composer.
+                                  isUploading:
+                                      message.status == MessageStatus.sending,
                                   // Sans bulle, l'heure n'a aucune ligne où se
                                   // glisser : la pile la pose sur la photo, à la
                                   // place que sa géométrie lui laisse.

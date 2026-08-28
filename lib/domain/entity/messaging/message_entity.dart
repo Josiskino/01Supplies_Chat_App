@@ -48,6 +48,7 @@ class MessageEntity {
     this.replyToAuthor,
     this.attachments = const [],
     this.reaction,
+    this.isPending = false,
   });
 
   final String id;
@@ -70,6 +71,12 @@ class MessageEntity {
 
   /// Première réaction posée, celle que la bulle affiche.
   final String? reaction;
+
+  /// Message affiché avant d'exister côté serveur, le temps du téléversement.
+  ///
+  /// Un booléen plutôt qu'un identifiant à préfixe : reconnaître un état à la
+  /// forme d'une chaîne casse dès que le serveur change ses identifiants.
+  final bool isPending;
 
   bool get hasAttachments => attachments.isNotEmpty;
 

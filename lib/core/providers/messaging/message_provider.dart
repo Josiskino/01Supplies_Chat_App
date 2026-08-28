@@ -227,10 +227,10 @@ class Thread extends _$Thread {
           senderId: ref.read(currentUserProvider)?.id ?? '',
           content: content,
           type: type,
-          // « En cours d'envoi » : le message n'a pas encore d'accusé.
           delivery: MessageDelivery.sent,
           sentAt: DateTime.now(),
           attachments: filePaths,
+          isPending: true,
         ),
       ]),
     );

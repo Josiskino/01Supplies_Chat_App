@@ -23,7 +23,6 @@ class MessageComposer extends ConsumerStatefulWidget {
     this.onCancelReply,
     this.onRecordVoice,
     this.onPickImages,
-    this.isSending = false,
   });
 
   final ValueChanged<String>? onSend;
@@ -39,10 +38,6 @@ class MessageComposer extends ConsumerStatefulWidget {
 
   /// Envoie des images choisies dans la photothèque ou prises à l'instant.
   final ValueChanged<List<String>>? onPickImages;
-
-  /// Un téléversement est en cours : le bouton d'ajout se met en attente plutôt
-  /// que d'accepter une seconde sélection par-dessus la première.
-  final bool isSending;
 
   @override
   ConsumerState<MessageComposer> createState() => _MessageComposerState();
@@ -166,27 +161,14 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Pendant un téléversement, le bouton devient un indicateur :
-                  // ouvrir une seconde sélection par-dessus la première
-                  // enverrait deux messages là où l'utilisateur en veut un.
-                  if (widget.isSending)
-                    const SizedBox(
-                      width: 38,
-                      height: 38,
-                      child: Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    )
-                  else
-                    _RoundButton(
-                      icon: isApple ? CupertinoIcons.plus : Iconsax.add,
-                      onTap: () => _openAttachments(context),
-                      tooltip: 'Ajouter une pièce jointe',
-                    ),
+                  // Le bouton reste disponible pendant un téléversement :
+                  // l'attente se voit sur la bulle concernée, et rien
+                  // n'empêche de préparer l'envoi suivant.
+                  _RoundButton(
+                    icon: isApple ? CupertinoIcons.plus : Iconsax.add,
+                    onTap: () => _openAttachments(context),
+                    tooltip: 'Ajouter une pièce jointe',
+                  ),
                   const SizedBox(width: DesignTokens.spaceS),
                   Expanded(
                     child: Container(
