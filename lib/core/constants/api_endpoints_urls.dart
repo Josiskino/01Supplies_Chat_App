@@ -43,6 +43,12 @@ class ApiEndpoints {
   static String markDelivered(String conversationId) =>
       'messaging/conversations/$conversationId/delivered';
 
+  //**** NOTIFICATIONS *****//
+  /// Enregistre le jeton FCM de l'appareil, pour que le backend puisse le
+  /// joindre quand l'application est fermée.
+  static const String devices = 'users/me/devices';
+  static String device(String deviceId) => 'users/me/devices/$deviceId';
+
   //**** MEDIA *****//
   static const String mediaUpload = 'media/upload';
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/locale/locale_provider.dart';
 import 'config/router/app_router.dart';
+import 'core/providers/realtime/push_provider.dart';
 import 'core/providers/realtime/realtime_provider.dart';
 import 'presentation/widgets/common/incoming_message_listener.dart';
 import 'config/theme/cupertino_theme.dart';
@@ -26,6 +27,8 @@ class MyApp extends ConsumerWidget {
     // canal de l'utilisateur dès qu'une session s'ouvre, et rien ne l'observe
     // par ailleurs. Sans cette lecture, aucun événement n'arriverait jamais.
     ref.watch(messageEventsProvider);
+    // Enregistre l'appareil auprès du backend dès qu'une session s'ouvre.
+    ref.watch(pushRegistrationProvider);
 
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeProvider);

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Capacité Push. Sans elle, iOS n'attribue aucun jeton APNs : Firebase ne
+	     peut alors pas produire de jeton FCM, et l'appareil reste injoignable
+	     sans qu'aucune erreur ne le signale.
+
+	     `development` couvre les builds de debug et TestFlight ; l'App Store
+	     bascule automatiquement sur l'environnement de production. -->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

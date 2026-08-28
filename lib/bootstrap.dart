@@ -4,6 +4,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -108,6 +109,20 @@ Future<void> bootstrap(Flavor flavor) async {
   PaintingBinding.instance.imageCache.maximumSizeBytes = 250 << 20; // 250 Mio
 
   await dotenv.load(fileName: FlavorConfig.envFile);
+
+  // Firebase avant tout usage de la messagerie : `FirebaseMessaging.instance`
+  // lève si l'application n'est pas initialisée. Un échec n'est pas fatal — les
+  // notifications système manqueront, le reste fonctionnera.
+  //
+  // Android et iOS seulement : le desktop n'a pas de fichier de configuration,
+  // et l'initialisation y échouerait à chaque lancement.
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      AppLogger().error('Firebase non initialisé', feature: 'Push', error: e);
+    }
+  }
 
   // Charge les symboles fr_FR pour `DateFormat(..., 'fr_FR')`. Sans cet appel,
   // le premier formatage lève `LocaleDataException`.

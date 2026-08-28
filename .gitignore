@@ -68,3 +68,8 @@ android/key.properties
 
 # ── Signature / export iOS ─────────────────────────────────────────────────
 ios/ExportOptions.plist
+# Configuration Firebase : clés propres au projet, régénérables depuis la
+# console. Versionnées dans les autres apps de la famille, exclues ici par
+# prudence — elles portent l'identifiant du projet et sa clé d'API.
+ios/Runner/GoogleService-Info.plist
+ios/config/**/GoogleService-Info.plist

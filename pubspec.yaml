@@ -36,6 +36,16 @@ dependencies:
   # canal soit tranché (cf. « À trancher » dans ce fichier CLAUDE.md).
   pusher_channels_flutter: ^2.4.0
 
+  # Notifications système. Le backend publie déjà des push de messagerie
+  # (`type: message.new`, `conversationId`) que l'app cliente route ; il ne
+  # manquait que le jeton d'appareil côté logistique.
+  #
+  # ⚠️ Android et iOS uniquement : `firebase_messaging` ne supporte pas Windows,
+  # et sur macOS il exige une configuration APNs distincte. Le desktop reste donc
+  # sans notification système.
+  firebase_core: ^3.1.0
+  firebase_messaging: ^15.0.0
+
   # ── Configuration & stockage ──────────────────────────────────────────────
   flutter_dotenv: ^6.0.0
   shared_preferences: ^2.5.4

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
+import '../../../core/providers/realtime/push_provider.dart';
 import '../../../core/providers/realtime/realtime_provider.dart';
 import '../../../core/services/message_events_service.dart';
 
@@ -36,6 +37,16 @@ class _IncomingMessageListenerState
       final message = next.value;
       if (message == null || !mounted) return;
       _show(message);
+    });
+
+    // Le tap sur une notification système ouvre directement la conversation.
+    ref.listen<AsyncValue<PushRoute>>(pushRouteProvider, (_, next) {
+      final route = next.value;
+      if (route == null || !mounted) return;
+      context.push(
+        AppUiRoute.conversationDetailPath(route.conversationId),
+        extra: {'contactName': route.title},
+      );
     });
 
     return widget.child;
