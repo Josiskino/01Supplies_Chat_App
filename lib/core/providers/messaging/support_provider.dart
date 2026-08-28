@@ -76,6 +76,7 @@ class SupportQueue extends _$SupportQueue {
         if (byId[t.conversationId] case final c?)
           t.withConversation(
             lastMessage: c.lastMessage,
+            lastMessageType: c.lastMessageType,
             lastMessageAt: c.lastMessageAt,
             unreadCount: c.unreadCount,
           )

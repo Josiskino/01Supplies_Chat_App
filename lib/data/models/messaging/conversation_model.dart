@@ -8,6 +8,7 @@ class ConversationModel {
     required this.updatedAt,
     this.supportTicketId,
     this.lastMessage,
+    this.lastMessageType,
     this.lastSender,
     this.lastMessageAt,
     this.unreadCount = 0,
@@ -18,6 +19,7 @@ class ConversationModel {
   final String updatedAt;
   final String? supportTicketId;
   final String? lastMessage;
+  final String? lastMessageType;
   final UserModel? lastSender;
   final String? lastMessageAt;
   final int unreadCount;
@@ -35,6 +37,7 @@ class ConversationModel {
       // conversation de la demande correspondante dans la file.
       supportTicketId: meta?['supportTicketId']?.toString(),
       lastMessage: last?['content']?.toString(),
+      lastMessageType: last?['type']?.toString(),
       lastSender: lastSender == null ? null : UserModel.fromJson(lastSender),
       lastMessageAt: last?['createdAt']?.toString(),
       unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
@@ -57,6 +60,7 @@ class ConversationModel {
     updatedAt: DateTime.tryParse(updatedAt)?.toLocal() ?? DateTime.now(),
     supportTicketId: supportTicketId,
     lastMessage: lastMessage,
+    lastMessageType: lastMessageType,
     lastSender: lastSender?.toEntity(),
     lastMessageAt: lastMessageAt == null
         ? null

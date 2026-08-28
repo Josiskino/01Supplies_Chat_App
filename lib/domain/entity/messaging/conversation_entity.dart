@@ -12,6 +12,7 @@ class ConversationEntity {
     required this.updatedAt,
     this.supportTicketId,
     this.lastMessage,
+    this.lastMessageType,
     this.lastSender,
     this.lastMessageAt,
     this.unreadCount = 0,
@@ -25,7 +26,14 @@ class ConversationEntity {
   final String? supportTicketId;
 
   /// Contenu du dernier message échangé.
+  ///
+  /// Vide pour une photo ou une note vocale : le contenu textuel n'existe pas.
+  /// C'est [lastMessageType] qui permet alors d'annoncer « Photo » plutôt que
+  /// de laisser l'aperçu retomber sur une description périmée.
   final String? lastMessage;
+
+  /// Nature du dernier message : `text`, `image`, `audio`, `file`…
+  final String? lastMessageType;
 
   final UserEntity? lastSender;
   final DateTime? lastMessageAt;

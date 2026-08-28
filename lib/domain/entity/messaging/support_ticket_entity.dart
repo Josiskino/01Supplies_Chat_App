@@ -74,6 +74,7 @@ class SupportTicketEntity {
     this.assigneeName,
     this.participantIds = const [],
     this.lastMessage,
+    this.lastMessageType,
     this.lastMessageAt,
     this.liveUnreadCount,
   });
@@ -118,6 +119,9 @@ class SupportTicketEntity {
   /// participants. L'aperçu retombe alors sur la description de la demande.
   final String? lastMessage;
 
+  /// Nature du dernier message, pour l'annoncer quand il n'a pas de texte.
+  final String? lastMessageType;
+
   final DateTime? lastMessageAt;
 
   /// Compteur de non-lus tenu par la conversation, plus juste que celui du
@@ -128,6 +132,19 @@ class SupportTicketEntity {
   String get preview {
     final last = lastMessage?.trim();
     if (last != null && last.isNotEmpty) return last;
+
+    // Une photo ou une note vocale n'a pas de texte. Sans ce libellé, l'aperçu
+    // retombait sur la description d'ouverture du dossier : la ligne remontait
+    // bien en tête, mais annonçait un message vieux de plusieurs jours.
+    switch (lastMessageType) {
+      case 'image':
+        return '📷 Photo';
+      case 'audio':
+        return '🎤 Note vocale';
+      case 'file':
+        return '📎 Fichier';
+    }
+
     final desc = description.trim();
     return desc.isEmpty ? subject : desc;
   }
@@ -140,6 +157,7 @@ class SupportTicketEntity {
   /// Copie enrichie des informations de la conversation.
   SupportTicketEntity withConversation({
     String? lastMessage,
+    String? lastMessageType,
     DateTime? lastMessageAt,
     int? unreadCount,
   }) => SupportTicketEntity(
@@ -157,6 +175,7 @@ class SupportTicketEntity {
     assigneeName: assigneeName,
     participantIds: participantIds,
     lastMessage: lastMessage ?? this.lastMessage,
+    lastMessageType: lastMessageType ?? this.lastMessageType,
     lastMessageAt: lastMessageAt ?? this.lastMessageAt,
     liveUnreadCount: unreadCount ?? liveUnreadCount,
   );
