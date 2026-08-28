@@ -1,5 +1,8 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../domain/entity/auth/user_entity.dart';
+import '../../../domain/entity/messaging/support_ticket_entity.dart';
+
 /// Modèles de **présentation** de l'espace de travail desktop.
 ///
 /// Volontairement séparés des entités du domaine, qui n'existent pas encore : les
@@ -51,6 +54,34 @@ class ConversationListItemData {
 
   /// Un appel manqué s'affiche avec une icône dédiée à la place de l'aperçu.
   final bool isMissedCall;
+
+  /// Projette un ticket de la file dans une ligne de conversation.
+  ///
+  /// L'aperçu reprend la **description** du ticket, c'est-à-dire ce que le
+  /// client a écrit en ouvrant sa demande : la file ne transporte pas les
+  /// messages du fil, et afficher le sujet seul ne dirait rien de ce qu'il veut.
+  factory ConversationListItemData.fromTicket(
+    SupportTicketEntity ticket, {
+    required String timeLabel,
+  }) {
+    final preview = ticket.description.trim().isEmpty
+        ? ticket.subject
+        : ticket.description.trim();
+    return ConversationListItemData(
+      // L'identifiant de **conversation**, pas celui du ticket : c'est lui qui
+      // ouvre le fil et sert de canal temps réel.
+      id: ticket.conversationId,
+      name: ticket.authorName,
+      preview: preview,
+      timeLabel: timeLabel,
+      avatarUrl: ticket.author?.avatarUrl,
+      unreadCount: ticket.unreadCount,
+      hasUnread: ticket.unreadCount > 0,
+      // L'étoile marque les dossiers que personne n'a encore pris : c'est
+      // l'information qui décide de l'action dans une file partagée.
+      isStarred: ticket.isUnclaimed && ticket.status.isActive,
+    );
+  }
 }
 
 /// Un message du fil de discussion (colonne 4).
@@ -236,6 +267,22 @@ class ContactProfileData {
   final String? location;
   final String? memberSince;
   final String? website;
+
+  /// Projette un compte de l'API dans le modèle de vue du répertoire.
+  ///
+  /// Les champs que l'API ne fournit pas restent nuls plutôt que d'être
+  /// approximés : une ville inventée dans une fiche contact se lit comme une
+  /// donnée vérifiée.
+  factory ContactProfileData.fromUser(UserEntity user) => ContactProfileData(
+    name: user.displayName,
+    role: user.role?.label ?? '',
+    avatarUrl: user.avatarUrl,
+    phone: user.phones.isEmpty ? null : user.phones.first,
+    email: user.email,
+    // La présence n'est pas exposée par l'API : afficher tout le monde comme
+    // « hors ligne » serait faux, mais moins trompeur qu'un point vert inventé.
+    presence: PresenceStatus.offline,
+  );
 }
 
 /// Section de la colonne de navigation (colonne 2).

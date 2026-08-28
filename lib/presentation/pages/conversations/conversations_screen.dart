@@ -8,6 +8,8 @@ import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
+import '../../../core/providers/messaging/support_provider.dart';
+import '../../../core/utils/chat_date_formatter.dart';
 import '../../../core/utils/localization_helper.dart';
 import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
@@ -18,7 +20,10 @@ import 'widgets/pinned_strip_header.dart';
 
 /// Liste des fils de discussion avec les clients.
 ///
-/// ⚠️ Les données viennent de [ConversationFixtures] : la structure est réelle, le
+/// Affiche la **file d'attente commune** du support : tous les admins voient les
+/// mêmes demandes, et le premier qui répond s'en saisit. Cf. `supportQueue`.
+///
+/// ⚠️ La bande d'épinglés vient encore de [ConversationFixtures] : la structure est réelle, le
 /// contenu est une maquette. La feature messagerie remplacera la source par un
 /// provider sans toucher à la présentation.
 class ConversationsScreen extends ConsumerStatefulWidget {
@@ -44,7 +49,34 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     final l10n = LocalizationHelper.of(context);
     final platformUi = ref.watch(platformUiProvider);
     final isApple = platformUi.platform.isApple;
-    const conversations = ConversationFixtures.conversations;
+    final async = ref.watch(supportQueueProvider);
+
+    // La file est la seule source : tant qu'elle n'a pas répondu, l'écran ne
+    // peut rien afficher de vrai.
+    if (async.isLoading && !async.hasValue) {
+      return PlatformPage(
+        title: l10n.conversationsTitle,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (async.hasError && !async.hasValue) {
+      return PlatformPage(
+        title: l10n.conversationsTitle,
+        body: EmptyStateWidget(
+          icon: Iconsax.cloud_cross,
+          title: 'File indisponible',
+          message: async.error.toString().replaceFirst('Exception: ', ''),
+        ),
+      );
+    }
+
+    final conversations = [
+      for (final ticket in async.value ?? const [])
+        ConversationListItemData.fromTicket(
+          ticket,
+          timeLabel: ChatDateFormatter.listLabel(ticket.updatedAt),
+        ),
+    ];
 
     if (conversations.isEmpty) {
       return PlatformPage(

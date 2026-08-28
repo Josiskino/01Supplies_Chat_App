@@ -21,10 +21,27 @@ class ApiEndpoints {
   static String userById(String id) => 'users/$id';
 
   //**** MESSAGING *****//
-  // Le module messaging du backend est déjà consommé par les apps client et
-  // livreur. Les chemins ci-dessous sont le point d'entrée connu ; la feature
-  // les complétera (conversations, messages, pièces jointes, accusés de lecture).
-  static const String supportTickets = 'messaging/support/me';
+  // Le module messaging est partagé avec les apps client et livreur.
+  //
+  // ⚠️ Deux vues distinctes des tickets, à ne pas confondre :
+  //  - `supportQueue` : **tous** les tickets de la plateforme, la file commune
+  //    que les admins se répartissent. C'est ce que montre l'onglet
+  //    Conversations.
+  //  - `myTickets` : ceux qui vous sont assignés. Vide tant qu'on ne s'est
+  //    saisi de rien — ce qui donne une app vide si on l'utilise pour la liste.
+  static const String supportQueue = 'messaging/support';
+  static const String myTickets = 'messaging/support/me';
+  static String claimTicket(String id) => 'messaging/support/$id/claim';
+  static String assignTicket(String id) => 'messaging/support/$id/assign';
+
+  static const String conversations = 'messaging/conversations';
+  static const String messages = 'messaging/messages';
+  static String messagesOfConversation(String id) =>
+      'messaging/messages/conversation/$id';
+  static String markRead(String conversationId) =>
+      'messaging/conversations/$conversationId/read';
+  static String markDelivered(String conversationId) =>
+      'messaging/conversations/$conversationId/delivered';
 
   //**** MEDIA *****//
   static const String mediaUpload = 'media/upload';

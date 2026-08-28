@@ -54,6 +54,26 @@ class ChatDateFormatter {
     return '${date.day} ${_mois[date.month - 1]} ${date.year}';
   }
 
+  /// Libellé compact pour une **liste** de conversations.
+  ///
+  /// Distinct de [dayLabel] : dans une liste, l'entrée du jour doit montrer son
+  /// heure — c'est ce qui permet de trier du regard les échanges de la matinée —
+  /// alors qu'un séparateur de fil annonce « Aujourd'hui ».
+  static String listLabel(DateTime date, {DateTime? now}) {
+    final current = now ?? DateTime.now();
+    final d = DateTime(date.year, date.month, date.day);
+    final today = DateTime(current.year, current.month, current.day);
+    final diff = today.difference(d).inDays;
+
+    if (diff == 0) return timeLabel(date);
+    if (diff == 1) return 'Hier';
+    if (diff >= 2 && diff <= 6) return _jours[date.weekday - 1];
+    // L'année n'est rappelée que si elle diffère : « 12 août 2024 » dans une
+    // liste de l'année courante n'apprend rien et allonge la colonne.
+    final base = '${date.day} ${_mois[date.month - 1]}';
+    return date.year == current.year ? base : '$base ${date.year}';
+  }
+
   /// Heure "HH:mm" (24h).
   static String timeLabel(DateTime date) =>
       '${date.hour.toString().padLeft(2, '0')}:'

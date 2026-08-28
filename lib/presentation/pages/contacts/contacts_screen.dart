@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../../config/theme/design_tokens.dart';
+import '../../../core/providers/directory/directory_provider.dart';
 import '../../../core/utils/localization_helper.dart';
 import '../../desktop/widgets/presence_avatar.dart';
-import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
 import '../../widgets/search/custom_search_bar.dart';
 
-/// Annuaire des employés joignables par message.
-class ContactsScreen extends StatefulWidget {
+/// Répertoire des interlocuteurs : clients et partenaires de la plateforme.
+///
+/// La liste est chargée en une fois et filtrée en mémoire — cf.
+/// `contactsProvider` pour la raison.
+class ContactsScreen extends ConsumerStatefulWidget {
   const ContactsScreen({super.key});
 
   @override
-  State<ContactsScreen> createState() => _ContactsScreenState();
+  ConsumerState<ContactsScreen> createState() => _ContactsScreenState();
 }
 
-class _ContactsScreenState extends State<ContactsScreen> {
+class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
@@ -28,11 +32,11 @@ class _ContactsScreenState extends State<ContactsScreen> {
     super.dispose();
   }
 
-  List<ContactProfileData> get _filteredEmployees {
+  List<ContactProfileData> _filter(List<ContactProfileData> source) {
     final normalizedQuery = _normalize(_query);
-    if (normalizedQuery.isEmpty) return ConversationFixtures.employees;
+    if (normalizedQuery.isEmpty) return source;
 
-    return ConversationFixtures.employees.where((employee) {
+    return source.where((employee) {
       final searchable = _normalize(
         [
           employee.name,
@@ -64,7 +68,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = LocalizationHelper.of(context);
-    final employees = _filteredEmployees;
+    final async = ref.watch(contactsProvider);
 
     return PlatformPage(
       title: l10n.contactsTitle,
@@ -78,46 +82,79 @@ class _ContactsScreenState extends State<ContactsScreen> {
               ),
               child: CustomSearchBar(
                 controller: _searchController,
-                hintText: 'Rechercher un employé',
+                hintText: 'Rechercher un client ou un partenaire',
                 onChanged: (value) => setState(() => _query = value),
                 onSubmitted: (value) => setState(() => _query = value),
               ),
             ),
           ),
-          if (employees.isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: EmptyStateWidget(
-                icon: Iconsax.search_normal,
-                title: 'Aucun employé trouvé',
-                message: 'Essayez un nom, un rôle, une ville ou un numéro.',
+          ...switch (async) {
+            AsyncLoading() => [
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
               ),
-            )
-          else
-            SliverPadding(
-              padding: EdgeInsets.only(
-                bottom:
-                    MediaQuery.paddingOf(context).bottom + DesignTokens.spaceM,
-              ),
-              sliver: SliverList.separated(
-                itemCount: employees.length,
-                separatorBuilder: (context, index) => Divider(
-                  height: DesignTokens.borderWidthThin,
-                  thickness: DesignTokens.borderWidthThin,
-                  indent: DesignTokens.spaceL + DesignTokens.avatarL + 14,
-                  color: DesignTokens.getBorderColor(
-                    Theme.of(context).brightness == Brightness.dark,
-                    opacity: 0.10,
-                  ),
+            ],
+            AsyncError(:final error) => [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: EmptyStateWidget(
+                  icon: Iconsax.cloud_cross,
+                  title: 'Répertoire indisponible',
+                  message: error.toString().replaceFirst('Exception: ', ''),
                 ),
-                itemBuilder: (context, index) {
-                  return _EmployeeRow(employee: employees[index]);
-                },
               ),
+            ],
+            AsyncValue(:final value?) => _buildList(
+              context,
+              _filter(value.map(ContactProfileData.fromUser).toList()),
             ),
+          },
         ],
       ),
     );
+  }
+
+  /// Liste filtrée, ou état vide quand la recherche ne rend rien.
+  List<Widget> _buildList(
+    BuildContext context,
+    List<ContactProfileData> employees,
+  ) {
+    if (employees.isEmpty) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyStateWidget(
+            icon: Iconsax.search_normal,
+            title: 'Aucun contact trouvé',
+            message: 'Essayez un nom, un rôle, un e-mail ou un numéro.',
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.paddingOf(context).bottom + DesignTokens.spaceM,
+        ),
+        sliver: SliverList.separated(
+          itemCount: employees.length,
+          separatorBuilder: (context, index) => Divider(
+            height: DesignTokens.borderWidthThin,
+            thickness: DesignTokens.borderWidthThin,
+            indent: DesignTokens.spaceL + DesignTokens.avatarL + 14,
+            color: DesignTokens.getBorderColor(
+              Theme.of(context).brightness == Brightness.dark,
+              opacity: 0.10,
+            ),
+          ),
+          itemBuilder: (context, index) {
+            return _EmployeeRow(employee: employees[index]);
+          },
+        ),
+      ),
+    ];
   }
 }
 

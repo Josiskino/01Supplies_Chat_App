@@ -6,6 +6,8 @@ import 'package:iconsax/iconsax.dart';
 import '../../../config/locale/locale_provider.dart';
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
+import '../../../core/providers/auth/auth_provider.dart';
+import '../../../domain/entity/auth/user_entity.dart';
 import '../../../config/theme/theme.dart';
 import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/providers/auth/auth_status_provider.dart';
@@ -35,6 +37,7 @@ class SettingsScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeProvider);
     final locale = ref.watch(localeProvider);
     final overlays = ref.watch(platformUiProvider).overlays;
+    final user = ref.watch(currentUserProvider);
 
     final themeLabels = [l10n.themeSystem, l10n.themeLight, l10n.themeDark];
     const themeModes = [ThemeMode.system, ThemeMode.light, ThemeMode.dark];
@@ -53,13 +56,13 @@ class SettingsScreen extends ConsumerWidget {
           bottom: MediaQuery.paddingOf(context).bottom + DesignTokens.spaceXxl,
         ),
         children: [
-          const _ProfileHeader(),
+          _ProfileHeader(user: user),
           const SizedBox(height: DesignTokens.spaceXl),
 
           // Carte d'affectation, à la place de la bannière promotionnelle de la
           // maquette : sur une app interne, ce qui mérite d'être mis en avant
           // n'est pas une offre, c'est le rôle qui décide de ce qu'on voit.
-          const _AssignmentCard(),
+          _AssignmentCard(user: user),
           const SizedBox(height: DesignTokens.spaceXl),
 
           SettingsGroup(
@@ -179,27 +182,33 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-/// En-tête : avatar, nom, adresse.
+/// En-tête : avatar, nom, adresse du compte connecté.
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader();
+  const _ProfileHeader({required this.user});
+
+  /// Nul pendant la restauration de session, au tout premier affichage.
+  final UserEntity? user;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Un tiret plutôt qu'un nom inventé : afficher une identité qui n'est pas
+    // celle du connecté est pire que d'admettre qu'on ne la connaît pas encore.
+    final name = user?.displayName ?? '—';
 
     return Column(
       children: [
-        const PresenceAvatar(name: 'Agent 01Supplies', size: 88),
+        PresenceAvatar(name: name, avatarUrl: user?.avatarUrl, size: 88),
         const SizedBox(height: DesignTokens.spaceM),
         Text(
-          'Agent 01Supplies',
+          name,
           style: theme.textTheme.headlineSmall
               ?.merge(AppleType.title3)
               .copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 2),
         Text(
-          'agent@01supplies.com',
+          user?.email ?? '',
           style: theme.textTheme.bodyMedium
               ?.merge(AppleType.subheadline)
               .copyWith(
@@ -211,9 +220,11 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-/// Carte sombre rappelant l'affectation de l'agent.
+/// Carte colorée rappelant le rôle du compte connecté.
 class _AssignmentCard extends StatelessWidget {
-  const _AssignmentCard();
+  const _AssignmentCard({required this.user});
+
+  final UserEntity? user;
 
   @override
   Widget build(BuildContext context) {
@@ -241,14 +252,16 @@ class _AssignmentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Agent logistique',
+                  user?.role?.label ?? 'Équipe 01Supplies',
                   style: theme.textTheme.titleMedium
                       ?.merge(AppleType.headline)
                       .copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Secteur Cocody · équipe du matin',
+                  // L'affectation (secteur, équipe) n'est pas encore exposée par
+                  // l'API : on affiche ce qu'on sait, l'adresse du compte.
+                  user?.email ?? '',
                   style: theme.textTheme.bodySmall
                       ?.merge(AppleType.subheadline)
                       .copyWith(color: Colors.white.withValues(alpha: 0.8)),
