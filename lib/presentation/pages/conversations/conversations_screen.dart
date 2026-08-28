@@ -96,12 +96,22 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
         ),
     ];
 
-    // Les épinglées coiffent la liste, l'ordre par date restant celui du
-    // serveur à l'intérieur de chaque groupe.
+    // Les épinglées coiffent la liste, les plus récentes en tête à l'intérieur
+    // de chaque groupe.
+    //
+    // Les deux critères sont comparés dans le **même** tri : `List.sort` n'est
+    // pas stable en Dart, et trier sur le seul épinglage rebattait l'ordre
+    // chronologique établi en amont — une conversation où l'on venait
+    // d'écrire restait au milieu de la liste.
+    final order = {
+      for (var i = 0; i < conversations.length; i++) conversations[i].id: i,
+    };
     conversations.sort((a, b) {
       final ap = pinnedIds.contains(a.id) ? 0 : 1;
       final bp = pinnedIds.contains(b.id) ? 0 : 1;
-      return ap.compareTo(bp);
+      if (ap != bp) return ap.compareTo(bp);
+      // À épinglage égal, on conserve l'ordre reçu, déjà trié par date.
+      return order[a.id]!.compareTo(order[b.id]!);
     });
 
     final pinned = _pinnedStrip(conversations, pinnedIds);

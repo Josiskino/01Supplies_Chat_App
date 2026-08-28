@@ -146,6 +146,11 @@ class Thread extends _$Thread {
         _ => const <MessageEntity>[],
       };
       state = AsyncValue.data(ThreadMessages([...current, message]));
+
+      // La liste porte le dernier message et sa date : sans ce rechargement,
+      // la conversation où l'on vient d'écrire garde l'aperçu précédent et ne
+      // remonte pas en tête.
+      ref.invalidate(supportQueueProvider);
       return true;
     });
   }

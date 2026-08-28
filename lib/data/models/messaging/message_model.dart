@@ -56,8 +56,13 @@ class MessageModel {
   }
 
   /// Les pièces jointes arrivent soit en URL brutes, soit en objets média.
+  ///
+  /// Le serveur renseigne **les deux** champs avec les mêmes fichiers :
+  /// `attachments` et `attachmentMedia` portent des URL identiques. Sans
+  /// déduplication, une photo envoyée seule s'affichait en pile de deux, avec
+  /// un compteur annonçant « 2 photos » pour une seule image.
   static List<String> _parseAttachments(Map<String, dynamic> json) {
-    final urls = <String>[];
+    final urls = <String>{};
     for (final key in ['attachments', 'attachmentMedia']) {
       final raw = json[key];
       if (raw is! List) continue;
@@ -70,7 +75,7 @@ class MessageModel {
         }
       }
     }
-    return urls;
+    return urls.toList();
   }
 
   MessageEntity toEntity() {
