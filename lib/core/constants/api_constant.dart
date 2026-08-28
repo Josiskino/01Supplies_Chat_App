@@ -26,6 +26,23 @@ class ApiConstant {
   /// URL du canal temps réel (Socket.IO). Utilisée par la feature messagerie.
   static String get socketUrl => dotenv.env['SOCKET_URL'] ?? '';
 
+  // ── Temps réel (Pusher) ───────────────────────────────────────────────────
+  // Mêmes identifiants que l'app cliente : les deux applications écoutent les
+  // mêmes canaux, l'une côté client, l'autre côté logistique.
+
+  static String get pusherAppKey => _stripQuotes(dotenv.env['PUSHER_APP_KEY']);
+
+  static String get pusherCluster {
+    final c = _stripQuotes(dotenv.env['PUSHER_CLUSTER']);
+    return c.isEmpty ? 'mt1' : c;
+  }
+
+  /// Endpoint qui signe l'abonnement aux canaux privés, relatif à [baseUrl].
+  static String get pusherAuthPath {
+    final p = _stripQuotes(dotenv.env['PUSHER_AUTH_PATH']);
+    return p.isEmpty ? '/pusher/auth' : p;
+  }
+
   /// Construit l'URL complète d'un média ; passe-through si déjà absolue.
   static String? buildImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) return null;

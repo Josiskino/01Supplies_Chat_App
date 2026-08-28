@@ -307,7 +307,7 @@ final class ThreadProvider
   }
 }
 
-String _$threadHash() => r'bb84623579ac1cde56b3e0cad25fc7f960e26328';
+String _$threadHash() => r'8436e57b60f0aec49ffe5e21661ad7c077707b53';
 
 /// Le fil d'une conversation.
 ///

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../data/datasources/abstract/messaging/message_datasource_contract.dart';
@@ -8,6 +10,7 @@ import '../../../domain/repository/messaging/message_repository.dart';
 import '../../../domain/usecases/messaging/message_usecases.dart';
 import '../../abstract/failure.dart';
 import '../auth/auth_provider.dart';
+import '../realtime/realtime_provider.dart';
 import '../request/api_provider.dart';
 
 part 'message_provider.g.dart';
@@ -50,6 +53,19 @@ MarkReadUseCase markReadUseCase(Ref ref) =>
 class Thread extends _$Thread {
   @override
   Future<List<MessageEntity>> build(String conversationId) async {
+    // Abonnement au canal du fil, relâché avec le provider. Sans cela, il
+    // faudrait quitter et rouvrir la conversation pour voir une réponse.
+    final events = ref.read(messageEventsProvider);
+    unawaited(events.watchConversation(conversationId));
+    ref.onDispose(() => unawaited(events.unwatchConversation(conversationId)));
+
+    // Un message arrivé par Pusher recharge le fil plutôt que d'y être inséré :
+    // le serveur reste seul maître de l'ordre, des accusés et des réactions.
+    final sub = events.threadChanges.listen((id) {
+      if (id == conversationId) ref.invalidateSelf();
+    });
+    ref.onDispose(sub.cancel);
+
     final result = await ref
         .read(fetchMessagesUseCaseProvider)
         .call(FetchMessagesParams(conversationId: conversationId));

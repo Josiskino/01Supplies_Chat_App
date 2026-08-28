@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/locale/locale_provider.dart';
 import 'config/router/app_router.dart';
+import 'core/providers/realtime/realtime_provider.dart';
 import 'config/theme/cupertino_theme.dart';
 import 'config/theme/theme.dart';
 import 'core/utils/localization_helper.dart';
@@ -20,6 +21,11 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Instancié ici pour qu'il existe dès le lancement : le service s'abonne au
+    // canal de l'utilisateur dès qu'une session s'ouvre, et rien ne l'observe
+    // par ailleurs. Sans cette lecture, aucun événement n'arriverait jamais.
+    ref.watch(messageEventsProvider);
+
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeProvider);
     final locale = ref.watch(localeProvider);

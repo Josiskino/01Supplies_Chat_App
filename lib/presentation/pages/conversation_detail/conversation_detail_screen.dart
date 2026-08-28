@@ -57,6 +57,14 @@ const Object _unset = Object();
 
 class _ConversationDetailScreenState
     extends ConsumerState<ConversationDetailScreen> {
+  /// L'accusé de lecture n'est envoyé qu'une fois, après le premier chargement.
+  ///
+  /// Le déclencher à l'ouverture le lançait **avant** que le fil ne soit
+  /// construit — et sur une conversation dont on n'est pas participant, cet
+  /// appel échoue de toute façon. On attend donc d'avoir des messages, ce qui
+  /// prouve que l'accès est acquis.
+  bool _readAcknowledged = false;
+
   /// Réactions posées depuis cet appareil.
   ///
   /// Conservées à part tant que `POST /messages/{id}/reactions` n'est pas
@@ -83,12 +91,6 @@ class _ConversationDetailScreenState
   @override
   void initState() {
     super.initState();
-    // Le fil marque la conversation comme lue dès son ouverture : c'est le
-    // geste que l'utilisateur vient de faire, inutile de le lui demander.
-    Future.microtask(() {
-      if (!mounted) return;
-      ref.read(threadProvider(widget.conversationId).notifier).markRead();
-    });
   }
 
   /// En-tête du fil.
@@ -341,6 +343,16 @@ class _ConversationDetailScreenState
     final conversation = _conversation;
     final async = ref.watch(threadProvider(widget.conversationId));
     final messages = _visibleMessages(async.value ?? const []);
+
+    if (async.hasValue && !_readAcknowledged) {
+      _readAcknowledged = true;
+      // Après la frame : `markRead` modifie l'état d'un provider, ce qu'on ne
+      // fait pas pendant la construction d'un widget.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(threadProvider(widget.conversationId).notifier).markRead();
+      });
+    }
 
     // En-tête construit dans le corps, sans barre de navigation.
     //
