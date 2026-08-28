@@ -1,4 +1,5 @@
 import '../../../../core/utils/api_types.dart';
+import '../../../models/messaging/conversation_model.dart';
 import '../../../models/messaging/support_ticket_model.dart';
 
 /// Accès distant à la file d'attente du support.
@@ -6,6 +7,16 @@ abstract interface class SupportDataSourceContract {
   /// Tous les tickets de la plateforme, la file commune aux admins.
   Future<ApiResult<List<SupportTicketModel>>> fetchQueue({
     String? status,
+    int page,
+    int limit,
+  });
+
+  /// Les conversations dont l'utilisateur est participant.
+  ///
+  /// Seule source du **dernier message** et du compteur de non-lus : le ticket
+  /// ne connaît que la demande d'origine, et son `description` reste figée à
+  /// l'ouverture du dossier.
+  Future<ApiResult<List<ConversationModel>>> fetchConversations({
     int page,
     int limit,
   });

@@ -150,6 +150,54 @@ final class FetchQueueUseCaseProvider
 
 String _$fetchQueueUseCaseHash() => r'f6561fd81f105520ce31c283135dacc18d9eafda';
 
+@ProviderFor(fetchConversationsUseCase)
+final fetchConversationsUseCaseProvider = FetchConversationsUseCaseProvider._();
+
+final class FetchConversationsUseCaseProvider
+    extends
+        $FunctionalProvider<
+          FetchConversationsUseCase,
+          FetchConversationsUseCase,
+          FetchConversationsUseCase
+        >
+    with $Provider<FetchConversationsUseCase> {
+  FetchConversationsUseCaseProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'fetchConversationsUseCaseProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$fetchConversationsUseCaseHash();
+
+  @$internal
+  @override
+  $ProviderElement<FetchConversationsUseCase> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  FetchConversationsUseCase create(Ref ref) {
+    return fetchConversationsUseCase(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(FetchConversationsUseCase value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<FetchConversationsUseCase>(value),
+    );
+  }
+}
+
+String _$fetchConversationsUseCaseHash() =>
+    r'43e8798ee02048f126fe7d5017a4d3628cd2db88';
+
 @ProviderFor(joinTicketUseCase)
 final joinTicketUseCaseProvider = JoinTicketUseCaseProvider._();
 
@@ -240,7 +288,7 @@ final class SupportQueueProvider
   SupportQueue create() => SupportQueue();
 }
 
-String _$supportQueueHash() => r'2199148adf33df4184eaad389cc230d97894e0e7';
+String _$supportQueueHash() => r'e2a1f94bafd78f138d5bdf943c2b33340847a876';
 
 /// La file d'attente commune, telle que l'onglet Conversations l'affiche.
 ///

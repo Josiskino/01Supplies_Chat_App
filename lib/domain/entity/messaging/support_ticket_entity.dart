@@ -73,6 +73,9 @@ class SupportTicketEntity {
     this.assigneeId,
     this.assigneeName,
     this.participantIds = const [],
+    this.lastMessage,
+    this.lastMessageAt,
+    this.liveUnreadCount,
   });
 
   final String id;
@@ -108,6 +111,55 @@ class SupportTicketEntity {
   /// que sur les conversations dont on est participant, et c'est aussi la seule
   /// façon de faire vivre les compteurs de non-lus sans ouvrir chaque fil.
   final List<String> participantIds;
+
+  /// Dernier message échangé, quand la conversation est accessible.
+  ///
+  /// Absent des dossiers qu'on n'a pas rejoints : l'API ne livre le fil qu'à ses
+  /// participants. L'aperçu retombe alors sur la description de la demande.
+  final String? lastMessage;
+
+  final DateTime? lastMessageAt;
+
+  /// Compteur de non-lus tenu par la conversation, plus juste que celui du
+  /// ticket, qui ne bouge pas au fil des échanges.
+  final int? liveUnreadCount;
+
+  /// Ce que la liste doit montrer : le dernier échange, ou à défaut la demande.
+  String get preview {
+    final last = lastMessage?.trim();
+    if (last != null && last.isNotEmpty) return last;
+    final desc = description.trim();
+    return desc.isEmpty ? subject : desc;
+  }
+
+  /// Date de tri et d'affichage : celle du dernier message si on le connaît.
+  DateTime get displayDate => lastMessageAt ?? updatedAt;
+
+  int get displayUnreadCount => liveUnreadCount ?? unreadCount;
+
+  /// Copie enrichie des informations de la conversation.
+  SupportTicketEntity withConversation({
+    String? lastMessage,
+    DateTime? lastMessageAt,
+    int? unreadCount,
+  }) => SupportTicketEntity(
+    id: id,
+    conversationId: conversationId,
+    subject: subject,
+    description: description,
+    status: status,
+    priority: priority,
+    category: category,
+    updatedAt: updatedAt,
+    author: author,
+    unreadCount: this.unreadCount,
+    assigneeId: assigneeId,
+    assigneeName: assigneeName,
+    participantIds: participantIds,
+    lastMessage: lastMessage ?? this.lastMessage,
+    lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+    liveUnreadCount: unreadCount ?? liveUnreadCount,
+  );
 
   /// Suis-je dans cette conversation ?
   bool includes(String? userId) =>

@@ -59,26 +59,24 @@ class ConversationListItemData {
 
   /// Projette un ticket de la file dans une ligne de conversation.
   ///
-  /// L'aperçu reprend la **description** du ticket, c'est-à-dire ce que le
-  /// client a écrit en ouvrant sa demande : la file ne transporte pas les
-  /// messages du fil, et afficher le sujet seul ne dirait rien de ce qu'il veut.
+  /// L'aperçu vient du **dernier message** dès que la conversation est
+  /// accessible ; il retombe sur la description de la demande pour les dossiers
+  /// qu'on n'a pas rejoints, dont l'API ne livre pas le fil.
   factory ConversationListItemData.fromTicket(
     SupportTicketEntity ticket, {
     required String timeLabel,
   }) {
-    final preview = ticket.description.trim().isEmpty
-        ? ticket.subject
-        : ticket.description.trim();
     return ConversationListItemData(
       // L'identifiant de **conversation**, pas celui du ticket : c'est lui qui
       // ouvre le fil et sert de canal temps réel.
       id: ticket.conversationId,
       name: ticket.authorName,
-      preview: preview,
+      // Le dernier échange quand on y a accès, la demande d'origine sinon.
+      preview: ticket.preview,
       timeLabel: timeLabel,
       avatarUrl: ticket.author?.avatarUrl,
-      unreadCount: ticket.unreadCount,
-      hasUnread: ticket.unreadCount > 0,
+      unreadCount: ticket.displayUnreadCount,
+      hasUnread: ticket.displayUnreadCount > 0,
       // L'étoile marque les dossiers que personne n'a encore pris : c'est
       // l'information qui décide de l'action dans une file partagée.
       isStarred: ticket.isUnclaimed && ticket.status.isActive,

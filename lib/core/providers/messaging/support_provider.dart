@@ -27,6 +27,10 @@ FetchQueueUseCase fetchQueueUseCase(Ref ref) =>
     FetchQueueUseCase(ref.watch(supportRepositoryProvider));
 
 @riverpod
+FetchConversationsUseCase fetchConversationsUseCase(Ref ref) =>
+    FetchConversationsUseCase(ref.watch(supportRepositoryProvider));
+
+@riverpod
 JoinTicketUseCase joinTicketUseCase(Ref ref) =>
     JoinTicketUseCase(ref.watch(supportRepositoryProvider));
 
@@ -42,14 +46,42 @@ JoinTicketUseCase joinTicketUseCase(Ref ref) =>
 class SupportQueue extends _$SupportQueue {
   @override
   Future<List<SupportTicketEntity>> build() async {
-    final result = await ref
+    final queue = await ref
         .read(fetchQueueUseCaseProvider)
         .call(const FetchQueueParams());
 
-    return result.match(
+    final tickets = queue.match(
       (failure) => throw Exception(failure.message),
-      (tickets) => tickets,
+      (value) => value,
     );
+
+    // Deux sources, deux rôles. La file dit **quelles demandes existent** ; les
+    // conversations disent **ce qui s'y est dit depuis**. Le ticket porte une
+    // `description` figée à son ouverture : s'en contenter afficherait
+    // éternellement le premier message, et une heure qui ne bouge jamais.
+    final conversations = await ref
+        .read(fetchConversationsUseCaseProvider)
+        .call(const FetchConversationsParams());
+
+    final byId = {
+      for (final c in conversations.getOrElse((_) => const [])) c.id: c,
+    };
+
+    final merged = [
+      for (final t in tickets)
+        if (byId[t.conversationId] case final c?)
+          t.withConversation(
+            lastMessage: c.lastMessage,
+            lastMessageAt: c.lastMessageAt,
+            unreadCount: c.unreadCount,
+          )
+        else
+          t,
+    ];
+
+    // Le plus récemment actif en tête, sur la date réelle du dernier échange.
+    merged.sort((a, b) => b.displayDate.compareTo(a.displayDate));
+    return merged;
   }
 
   Future<void> refresh() async {

@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 
 import '../../../core/abstract/failure.dart';
+import '../../entity/messaging/conversation_entity.dart';
 import '../../entity/messaging/support_ticket_entity.dart';
 
 /// La file d'attente du support, vue du domaine.
@@ -8,6 +9,8 @@ abstract interface class SupportRepository {
   Future<Either<Failure, List<SupportTicketEntity>>> fetchQueue(
     FetchQueueParams params,
   );
+
+  Future<Either<Failure, List<ConversationEntity>>> fetchConversations();
 
   Future<Either<Failure, Unit>> join(JoinTicketParams params);
 }

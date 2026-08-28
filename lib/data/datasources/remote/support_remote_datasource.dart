@@ -1,6 +1,7 @@
 import '../../../core/abstract/api_client_interface.dart';
 import '../../../core/constants/api_endpoints_urls.dart';
 import '../../../core/utils/api_types.dart';
+import '../../models/messaging/conversation_model.dart';
 import '../../models/messaging/support_ticket_model.dart';
 import '../abstract/messaging/support_datasource_contract.dart';
 
@@ -28,6 +29,23 @@ class SupportRemoteDataSource implements SupportDataSourceContract {
       fromJson: (json) => (json['data'] as List? ?? const [])
           .whereType<Map>()
           .map((e) => SupportTicketModel.fromJson(e.cast<String, dynamic>()))
+          .toList(),
+    );
+  }
+
+  @override
+  Future<ApiResult<List<ConversationModel>>> fetchConversations({
+    int page = 1,
+    int limit = 50,
+  }) {
+    return _client.request<List<ConversationModel>>(
+      path: ApiEndpoints.conversations,
+      method: HttpMethod.get,
+      queryParameters: {'page': page, 'limit': limit},
+      dataKey: 'data',
+      fromJson: (json) => (json['data'] as List? ?? const [])
+          .whereType<Map>()
+          .map((e) => ConversationModel.fromJson(e.cast<String, dynamic>()))
           .toList(),
     );
   }

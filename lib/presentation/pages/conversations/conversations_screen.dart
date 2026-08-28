@@ -74,7 +74,9 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       for (final ticket in async.value ?? const [])
         ConversationListItemData.fromTicket(
           ticket,
-          timeLabel: ChatDateFormatter.listLabel(ticket.updatedAt),
+          // La date du dernier message, non celle du ticket : ce dernier ne
+          // bouge pas au fil des échanges et figeait l'heure affichée.
+          timeLabel: ChatDateFormatter.listLabel(ticket.displayDate),
         ),
     ];
 
