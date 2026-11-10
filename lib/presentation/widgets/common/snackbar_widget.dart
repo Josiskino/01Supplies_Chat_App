@@ -26,7 +26,9 @@ class SnackbarWidget {
       context: context,
       message: message,
       backgroundColor: Colors.green,
-      icon: Iconsax.tick_circle5,
+      // Variante contour : la pleine est sur une marque combinante, décalée
+      // au rendu (voir `nav_destinations.dart`).
+      icon: Iconsax.tick_circle,
       duration: duration,
       onAction: onAction,
       actionLabel: actionLabel,

@@ -73,3 +73,4 @@ ios/ExportOptions.plist
 # prudence — elles portent l'identifiant du projet et sa clé d'API.
 ios/Runner/GoogleService-Info.plist
 ios/config/**/GoogleService-Info.plist
+android/app/google-services.json

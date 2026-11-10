@@ -171,7 +171,10 @@ class SettingsCheckmark extends StatelessWidget {
     }
 
     return Icon(
-      Iconsax.tick_circle5,
+      // `tick_circle` et non `tick_circle5` : la variante pleine est sur
+      // U+0610, une marque combinante arabe, que le shaper décale vers la
+      // droite (voir `nav_destinations.dart`).
+      Iconsax.tick_circle,
       color: isDarkMode
           ? AppColors.primaryColorDark
           : AppColors.primaryColorLight,

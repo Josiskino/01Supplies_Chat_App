@@ -110,8 +110,16 @@ abstract final class NavDestinations {
     NavDestinationSpec(
       index: 3,
       subPath: 'settings',
+      // Même icône dans les deux états, à dessein. Toute la famille
+      // `setting*5` — les variantes pleines — tombe sur des marques
+      // combinantes hébraïques (U+05BB à U+05BF) : HarfBuzz leur applique un
+      // positionnement de marque et l'engrenage sortait décalé d'une demi-
+      // largeur vers la droite dans sa pastille, seul de toute la barre. La
+      // seule exception, `setting_45` (U+05BE, ponctuation espaçante), dessine
+      // des curseurs et non un engrenage. La sélection reste lisible : pastille
+      // teintée, icône colorée et libellé en gras.
       icon: Iconsax.setting_2,
-      selectedIcon: Iconsax.setting_25,
+      selectedIcon: Iconsax.setting_2,
       cupertinoIcon: CupertinoIcons.settings,
       cupertinoSelectedIcon: CupertinoIcons.settings_solid,
       sfSymbol: 'gearshape',
