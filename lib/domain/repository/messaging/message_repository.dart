@@ -12,6 +12,13 @@ abstract interface class MessageRepository {
   Future<Either<Failure, MessageEntity>> sendMessage(SendMessageParams params);
 
   Future<Either<Failure, Unit>> markRead(MarkReadParams params);
+  Future<Either<Failure, Unit>> markDelivered(
+    String conversationId,
+    List<String> messageIds,
+  );
+  Future<Either<Failure, Unit>> react(String messageId, String emoji);
+  Future<Either<Failure, Unit>> edit(String messageId, String content);
+  Future<Either<Failure, Unit>> delete(String messageId);
 }
 
 class FetchMessagesParams {
@@ -19,11 +26,13 @@ class FetchMessagesParams {
     required this.conversationId,
     this.page = 1,
     this.limit = 50,
+    this.before,
   });
 
   final String conversationId;
   final int page;
   final int limit;
+  final String? before;
 }
 
 class SendMessageParams {
@@ -50,6 +59,7 @@ class SendMessageParams {
 }
 
 class MarkReadParams {
-  const MarkReadParams(this.conversationId);
+  const MarkReadParams(this.conversationId, {this.messageIds});
+  final List<String>? messageIds;
   final String conversationId;
 }

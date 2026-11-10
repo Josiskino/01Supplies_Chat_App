@@ -15,6 +15,7 @@ class MessageModel {
     this.replyTo,
     this.replyToMessage,
     this.attachments = const [],
+    this.attachmentMediaIds = const [],
     this.reactions = const [],
   });
 
@@ -29,6 +30,7 @@ class MessageModel {
   final String? replyTo;
   final Map<String, dynamic>? replyToMessage;
   final List<String> attachments;
+  final List<String> attachmentMediaIds;
   final List<Map<String, dynamic>> reactions;
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,7 @@ class MessageModel {
       replyTo: json['replyTo']?.toString(),
       replyToMessage: (json['replyToMessage'] as Map?)?.cast<String, dynamic>(),
       attachments: _parseAttachments(json),
+      attachmentMediaIds: _parseAttachmentMediaIds(json),
       reactions:
           (json['reactions'] as List?)
               ?.whereType<Map>()
@@ -78,6 +81,25 @@ class MessageModel {
     return urls.toList();
   }
 
+  static List<String> _parseAttachmentMediaIds(Map<String, dynamic> json) {
+    final ids = <String>{};
+    final explicit = json['attachmentMediaIds'];
+    if (explicit is List) {
+      for (final value in explicit.whereType<String>()) {
+        if (value.isNotEmpty) ids.add(value);
+      }
+    }
+    for (final key in ['attachmentMedia', 'attachments']) {
+      final media = json[key];
+      if (media is! List) continue;
+      for (final item in media.whereType<Map>()) {
+        final value = item['id'] ?? item['_id'];
+        if (value is String && value.isNotEmpty) ids.add(value);
+      }
+    }
+    return ids.toList();
+  }
+
   MessageEntity toEntity() {
     final reply = replyToMessage;
     final replyAuthor = (reply?['sender'] as Map?)?.cast<String, dynamic>();
@@ -97,6 +119,7 @@ class MessageModel {
           ? null
           : UserModel.fromJson(replyAuthor).toEntity().displayName,
       attachments: attachments,
+      attachmentMediaIds: attachmentMediaIds,
       // Une seule réaction est affichée par la bulle : la première posée.
       reaction: reactions.isEmpty ? null : reactions.first['emoji']?.toString(),
     );

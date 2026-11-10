@@ -300,8 +300,8 @@ String _$joinTicketUseCaseHash() => r'57ecd83f79c198e26cc06c497a379a877666880c';
 ///
 /// Tous les admins voient la même liste : un client écrit, son ticket y paraît,
 /// et le premier qui répond s'en saisit. C'est pourquoi elle vient de
-/// `/messaging/support` et non de `/support/me`, qui ne rendrait que les
-/// dossiers déjà pris — donc rien, au premier lancement.
+/// `/messaging/support` et non de `/support/me`, qui ne rend que les tickets
+/// créés par le compte authentifié (la vue client).
 
 @ProviderFor(SupportQueue)
 final supportQueueProvider = SupportQueueProvider._();
@@ -310,16 +310,16 @@ final supportQueueProvider = SupportQueueProvider._();
 ///
 /// Tous les admins voient la même liste : un client écrit, son ticket y paraît,
 /// et le premier qui répond s'en saisit. C'est pourquoi elle vient de
-/// `/messaging/support` et non de `/support/me`, qui ne rendrait que les
-/// dossiers déjà pris — donc rien, au premier lancement.
+/// `/messaging/support` et non de `/support/me`, qui ne rend que les tickets
+/// créés par le compte authentifié (la vue client).
 final class SupportQueueProvider
     extends $AsyncNotifierProvider<SupportQueue, List<ConversationListEntry>> {
   /// La file d'attente commune, telle que l'onglet Conversations l'affiche.
   ///
   /// Tous les admins voient la même liste : un client écrit, son ticket y paraît,
   /// et le premier qui répond s'en saisit. C'est pourquoi elle vient de
-  /// `/messaging/support` et non de `/support/me`, qui ne rendrait que les
-  /// dossiers déjà pris — donc rien, au premier lancement.
+  /// `/messaging/support` et non de `/support/me`, qui ne rend que les tickets
+  /// créés par le compte authentifié (la vue client).
   SupportQueueProvider._()
     : super(
         from: null,
@@ -339,14 +339,14 @@ final class SupportQueueProvider
   SupportQueue create() => SupportQueue();
 }
 
-String _$supportQueueHash() => r'accb1a4d283a0f4a036598fa862bbb1bbf29de71';
+String _$supportQueueHash() => r'768ca73cd747eaaccc1dd04ad4c6261a58150886';
 
 /// La file d'attente commune, telle que l'onglet Conversations l'affiche.
 ///
 /// Tous les admins voient la même liste : un client écrit, son ticket y paraît,
 /// et le premier qui répond s'en saisit. C'est pourquoi elle vient de
-/// `/messaging/support` et non de `/support/me`, qui ne rendrait que les
-/// dossiers déjà pris — donc rien, au premier lancement.
+/// `/messaging/support` et non de `/support/me`, qui ne rend que les tickets
+/// créés par le compte authentifié (la vue client).
 
 abstract class _$SupportQueue
     extends $AsyncNotifier<List<ConversationListEntry>> {

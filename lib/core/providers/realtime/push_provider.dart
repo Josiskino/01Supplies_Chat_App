@@ -1,90 +1,83 @@
 import 'dart:async';
-import 'dart:io';
-
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
 import '../../auth/auth_gate.dart';
 import '../../services/push_notification_service.dart';
+import '../../services/push_message.dart';
+import '../auth/auth_provider.dart';
 import '../auth/auth_status_provider.dart';
+import '../messaging/support_provider.dart';
 import '../request/api_provider.dart';
 
 part 'push_provider.g.dart';
 
 @Riverpod(keepAlive: true)
-PushNotificationService pushNotifications(Ref ref) =>
-    PushNotificationService(ref.watch(apiClientProvider));
+PushNotificationService pushNotifications(Ref ref) {
+  final service = PushNotificationService(ref.watch(apiClientProvider));
+  ref.onDispose(() => unawaited(service.dispose()));
+  return service;
+}
 
-/// Enregistre l'appareil dès qu'une session s'ouvre.
-///
-/// Lié à l'authentification et non au démarrage : l'endpoint est authentifié, et
-/// un jeton déposé sans session ne serait rattaché à aucun compte — l'appareil
-/// resterait injoignable.
 @Riverpod(keepAlive: true)
 void pushRegistration(Ref ref) {
-  if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
-
-  ref.listen<AuthGateStatus>(authStatusProvider, (previous, next) {
-    if (next == AuthGateStatus.authenticated) {
-      unawaited(ref.read(pushNotificationsProvider).registerDevice());
+  final service = ref.watch(pushNotificationsProvider);
+  void syncSession() {
+    final status = ref.read(authStatusProvider);
+    if (status == AuthGateStatus.initial || status == AuthGateStatus.loading) {
+      return;
     }
-  }, fireImmediately: true);
-}
-
-/// Conversation à ouvrir suite au tap sur une notification.
-///
-/// Le message porte `conversationId` — même charge utile que celle routée par
-/// l'app cliente. Sans cet aiguillage, toucher une notification ouvrirait
-/// l'accueil, obligeant à retrouver la discussion à la main.
-@Riverpod(keepAlive: true)
-Stream<PushRoute> pushRoute(Ref ref) {
-  if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) {
-    return const Stream.empty();
+    final account = status == AuthGateStatus.authenticated
+        ? ref.read(currentUserProvider)?.id
+        : null;
+    unawaited(service.setSession(account));
   }
 
-  final controller = StreamController<PushRoute>.broadcast();
-
-  // Application ouverte en arrière-plan, l'utilisateur touche la notification.
-  final sub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
-    final route = PushRoute.fromData(message.data);
-    if (route != null) controller.add(route);
-  });
-
-  // Application lancée **depuis** la notification : le message est consommé une
-  // seule fois, et se perd si personne ne le demande au démarrage.
-  unawaited(
-    FirebaseMessaging.instance.getInitialMessage().then((message) {
-      if (message == null) return;
-      final route = PushRoute.fromData(message.data);
-      if (route != null) controller.add(route);
-    }),
+  ref.listen(
+    authStatusProvider,
+    (_, _) => syncSession(),
+    fireImmediately: true,
   );
-
-  ref.onDispose(() {
-    unawaited(sub.cancel());
-    unawaited(controller.close());
+  ref.listen(currentUserProvider, (_, _) => syncSession());
+  final subscription = service.foregroundMessages.listen((message) {
+    if (!ref.mounted ||
+        ref.read(authStatusProvider) != AuthGateStatus.authenticated ||
+        message.recipientId != ref.read(currentUserProvider)?.id) {
+      return;
+    }
+    // Pusher remains responsible for foreground message banners. FCM catches
+    // up the queue without displaying a second copy of the same notification.
+    ref.invalidate(supportQueueProvider);
   });
-
-  return controller.stream;
+  ref.onDispose(() => unawaited(subscription.cancel()));
 }
 
-/// Destination extraite d'une notification.
+/// Routes only messages accepted by the active account's push session.
+@Riverpod(keepAlive: true)
+Stream<PushRoute> pushRoute(Ref ref) {
+  final service = ref.watch(pushNotificationsProvider);
+  return service.openedMessages
+      .where(
+        (message) =>
+            ref.mounted &&
+            ref.read(authStatusProvider) == AuthGateStatus.authenticated &&
+            message.recipientId == ref.read(currentUserProvider)?.id,
+      )
+      .map((message) => PushRoute.fromData(message.data))
+      .where((route) => route != null)
+      .cast<PushRoute>();
+}
+
 class PushRoute {
   const PushRoute({required this.conversationId, required this.title});
-
   final String conversationId;
   final String title;
-
-  static PushRoute? fromData(Map<String, dynamic> data) {
+  static PushRoute? fromData(Map<String, dynamic> payload) {
+    final data = PushMessage.normalize(payload);
     final id = data['conversationId']?.toString();
-    if (id == null || id.isEmpty) return null;
-    return PushRoute(
-      conversationId: id,
-      title:
-          data['senderName']?.toString() ??
-          data['conversationName']?.toString() ??
-          'Conversation',
-    );
+    if (id == null || id.isEmpty) {
+      return null;
+    }
+    // The target endpoint still checks membership. A stale push never supplies
+    // a client name as trusted screen metadata.
+    return PushRoute(conversationId: id, title: 'Conversation');
   }
 }

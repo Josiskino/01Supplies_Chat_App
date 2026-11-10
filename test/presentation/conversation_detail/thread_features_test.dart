@@ -105,6 +105,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump();
   }
 
   group('séparateurs de jour', () {
@@ -132,8 +133,11 @@ void main() {
     testWidgets('le fil affiche ses pilules de date', (tester) async {
       await pump(tester);
       expect(find.byType(StickyDateList), findsOneWidget);
-      // Une seule pilule est montée au repos : la liste ne construit que son
-      // viewport, et le séparateur du jour précédent est hors écran.
+      // Author labels increase bubble height; scroll toward the day boundary.
+      for (var i = 0; i < 8 && find.byType(DatePill).evaluate().isEmpty; i++) {
+        await tester.drag(find.byType(StickyDateList), const Offset(0, 300));
+        await tester.pump();
+      }
       expect(find.byType(DatePill), findsAtLeastNWidgets(1));
     });
   });

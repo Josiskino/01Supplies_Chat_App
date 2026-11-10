@@ -13,13 +13,17 @@ class ConversationListPanel extends StatelessWidget {
     required this.conversations,
     required this.selectedId,
     required this.onSelected,
-    this.statusFilterLabel = 'Ouvertes',
+    this.statusFilterLabel = 'Discussions',
+    this.onQueryChanged,
+    this.searchFocusNode,
   });
 
   final List<ConversationListItemData> conversations;
   final String? selectedId;
   final ValueChanged<String> onSelected;
   final String statusFilterLabel;
+  final ValueChanged<String>? onQueryChanged;
+  final FocusNode? searchFocusNode;
 
   static const double width = 288;
 
@@ -41,7 +45,25 @@ class ConversationListPanel extends StatelessWidget {
         right: false,
         child: Column(
           children: [
-            _FilterBar(statusLabel: statusFilterLabel),
+            Padding(
+              padding: const EdgeInsets.all(DesignTokens.spaceM),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(statusFilterLabel, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: DesignTokens.spaceS),
+                  TextField(
+                    focusNode: searchFocusNode,
+                    onChanged: onQueryChanged,
+                    decoration: const InputDecoration(
+                      hintText: 'Rechercher une conversation',
+                      prefixIcon: Icon(Iconsax.search_normal),
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: ListView.builder(
                 // Marge haute explicite : la pastille de sélection de la première
@@ -66,88 +88,6 @@ class ConversationListPanel extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({required this.statusLabel});
-
-  final String statusLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(
-        DesignTokens.spaceL,
-        DesignTokens.spaceM,
-        DesignTokens.spaceM,
-        DesignTokens.spaceM,
-      ),
-      decoration: BoxDecoration(
-        // Même traitement que l'en-tête du fil : la barre de filtres doit se lire
-        // comme une zone fixe au-dessus d'une liste qui défile.
-        color: GlassSurfaces.raised(isDark).withValues(alpha: 0.28),
-        border: Border(
-          bottom: BorderSide(
-            color: GlassSurfaces.innerDivider(isDark),
-            width: DesignTokens.borderWidthRegular,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Filtre d'état : la file de travail d'un agent, à distinguer des
-          // conversations closes.
-          InkWell(
-            onTap: () {},
-            borderRadius: DesignTokens.borderRadiusS,
-            child: Row(
-              children: [
-                Text(
-                  statusLabel,
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
-                ),
-                const SizedBox(width: 2),
-                Icon(
-                  Iconsax.arrow_down_1,
-                  size: DesignTokens.iconXs,
-                  color: DesignTokens.getTextColorWithOpacity(context, 0.5),
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          InkWell(
-            onTap: () {},
-            borderRadius: DesignTokens.borderRadiusS,
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: [
-                  Icon(
-                    Iconsax.filter,
-                    size: DesignTokens.iconXs,
-                    color: DesignTokens.getTextColorWithOpacity(context, 0.6),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Filtrer',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontSize: 12,
-                      color: DesignTokens.getTextColorWithOpacity(context, 0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -234,6 +174,17 @@ class _ConversationTile extends StatelessWidget {
                             ),
                         ],
                       ),
+                      if (data.kindLabel != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            data.kindLabel!,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 10,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 3),
                       Row(
                         children: [

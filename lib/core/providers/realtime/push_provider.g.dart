@@ -54,31 +54,14 @@ final class PushNotificationsProvider
   }
 }
 
-String _$pushNotificationsHash() => r'7044b2f64b7a5730b888049d2b683885e5b2a0cd';
-
-/// Enregistre l'appareil dès qu'une session s'ouvre.
-///
-/// Lié à l'authentification et non au démarrage : l'endpoint est authentifié, et
-/// un jeton déposé sans session ne serait rattaché à aucun compte — l'appareil
-/// resterait injoignable.
+String _$pushNotificationsHash() => r'7b8d8d9e78b5e8b5ba4acf2aef0fecede52f86df';
 
 @ProviderFor(pushRegistration)
 final pushRegistrationProvider = PushRegistrationProvider._();
 
-/// Enregistre l'appareil dès qu'une session s'ouvre.
-///
-/// Lié à l'authentification et non au démarrage : l'endpoint est authentifié, et
-/// un jeton déposé sans session ne serait rattaché à aucun compte — l'appareil
-/// resterait injoignable.
-
 final class PushRegistrationProvider
     extends $FunctionalProvider<void, void, void>
     with $Provider<void> {
-  /// Enregistre l'appareil dès qu'une session s'ouvre.
-  ///
-  /// Lié à l'authentification et non au démarrage : l'endpoint est authentifié, et
-  /// un jeton déposé sans session ne serait rattaché à aucun compte — l'appareil
-  /// resterait injoignable.
   PushRegistrationProvider._()
     : super(
         from: null,
@@ -112,32 +95,20 @@ final class PushRegistrationProvider
   }
 }
 
-String _$pushRegistrationHash() => r'a535c3ca04b2e436024a921b00c1bcc41da2c393';
+String _$pushRegistrationHash() => r'51bdad499cd03a83c6c077e0308cbc27d1506e9f';
 
-/// Conversation à ouvrir suite au tap sur une notification.
-///
-/// Le message porte `conversationId` — même charge utile que celle routée par
-/// l'app cliente. Sans cet aiguillage, toucher une notification ouvrirait
-/// l'accueil, obligeant à retrouver la discussion à la main.
+/// Routes only messages accepted by the active account's push session.
 
 @ProviderFor(pushRoute)
 final pushRouteProvider = PushRouteProvider._();
 
-/// Conversation à ouvrir suite au tap sur une notification.
-///
-/// Le message porte `conversationId` — même charge utile que celle routée par
-/// l'app cliente. Sans cet aiguillage, toucher une notification ouvrirait
-/// l'accueil, obligeant à retrouver la discussion à la main.
+/// Routes only messages accepted by the active account's push session.
 
 final class PushRouteProvider
     extends
         $FunctionalProvider<AsyncValue<PushRoute>, PushRoute, Stream<PushRoute>>
     with $FutureModifier<PushRoute>, $StreamProvider<PushRoute> {
-  /// Conversation à ouvrir suite au tap sur une notification.
-  ///
-  /// Le message porte `conversationId` — même charge utile que celle routée par
-  /// l'app cliente. Sans cet aiguillage, toucher une notification ouvrirait
-  /// l'accueil, obligeant à retrouver la discussion à la main.
+  /// Routes only messages accepted by the active account's push session.
   PushRouteProvider._()
     : super(
         from: null,
@@ -163,4 +134,4 @@ final class PushRouteProvider
   }
 }
 
-String _$pushRouteHash() => r'f995d01f4cf41d357f8ddd182d2886fc5b97346c';
+String _$pushRouteHash() => r'f6b9820a0061d77704860b568084e4a56c882797';

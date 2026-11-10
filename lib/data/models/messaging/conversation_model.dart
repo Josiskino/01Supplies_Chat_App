@@ -7,6 +7,7 @@ class ConversationModel {
     required this.id,
     required this.updatedAt,
     this.supportTicketId,
+    this.type = 'direct',
     this.lastMessage,
     this.lastMessageType,
     this.lastSender,
@@ -16,6 +17,7 @@ class ConversationModel {
   });
 
   final String id;
+  final String type;
   final String updatedAt;
   final String? supportTicketId;
   final String? lastMessage;
@@ -32,6 +34,10 @@ class ConversationModel {
 
     return ConversationModel(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
+      type:
+          (json['type'] ??
+                  (meta?['supportTicketId'] != null ? 'support' : 'direct'))
+              .toString(),
       updatedAt: (json['updatedAt'] ?? '').toString(),
       // Le lien vers le ticket : c'est lui qui permet de rapprocher cette
       // conversation de la demande correspondante dans la file.
@@ -49,6 +55,7 @@ class ConversationModel {
     if (raw is! List) return const [];
     return raw
         .whereType<Map>()
+        .where((p) => p['isActive'] != false)
         .map((p) => p['user'])
         .whereType<Map>()
         .map((u) => UserModel.fromJson(u.cast<String, dynamic>()))
@@ -57,6 +64,7 @@ class ConversationModel {
 
   ConversationEntity toEntity() => ConversationEntity(
     id: id,
+    type: type,
     updatedAt: DateTime.tryParse(updatedAt)?.toLocal() ?? DateTime.now(),
     supportTicketId: supportTicketId,
     lastMessage: lastMessage,

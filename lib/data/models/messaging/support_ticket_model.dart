@@ -1,5 +1,6 @@
 import '../../../domain/entity/messaging/support_ticket_entity.dart';
 import '../auth/user_model.dart';
+import 'conversation_model.dart';
 
 /// Représentation JSON d'un ticket de support.
 class SupportTicketModel {
@@ -17,6 +18,7 @@ class SupportTicketModel {
     this.assignedTo,
     this.assigneeName,
     this.participantIds = const [],
+    this.conversation,
   });
 
   final String id;
@@ -32,6 +34,7 @@ class SupportTicketModel {
   final String? assignedTo;
   final String? assigneeName;
   final List<String> participantIds;
+  final ConversationModel? conversation;
 
   factory SupportTicketModel.fromJson(Map<String, dynamic> json) {
     final conv = (json['conversation'] as Map?)?.cast<String, dynamic>();
@@ -55,7 +58,8 @@ class SupportTicketModel {
       // les prises successives, mais c'est `assignedTo` qui dit qui détient le
       // dossier maintenant.
       assignedTo: json['assignedTo']?.toString(),
-      assigneeName: _parseAssigneeName(conv),
+      assigneeName: _parseAssigneeName(json, conv),
+      conversation: conv == null ? null : ConversationModel.fromJson(conv),
       participantIds: _parseParticipantIds(conv),
     );
   }
@@ -65,6 +69,7 @@ class SupportTicketModel {
     if (parts is! List) return const [];
     return parts
         .whereType<Map>()
+        .where((p) => p['isActive'] != false)
         .map((p) {
           final u = p['user'];
           return (p['userId'] ?? (u is Map ? u['id'] : null) ?? '').toString();
@@ -74,12 +79,22 @@ class SupportTicketModel {
   }
 
   /// Nom de l'agent en charge, lu sur les participants de la conversation.
-  static String? _parseAssigneeName(Map<String, dynamic>? conversation) {
+  static String? _parseAssigneeName(
+    Map<String, dynamic> ticket,
+    Map<String, dynamic>? conversation,
+  ) {
+    final assigned = ticket['assignedAgent'];
+    if (assigned is Map) {
+      return UserModel.fromJson(
+        assigned.cast<String, dynamic>(),
+      ).toEntity().displayName;
+    }
     final parts = conversation?['participants'];
     if (parts is! List) return null;
     for (final p in parts) {
       if (p is! Map) continue;
-      if (p['role'] != 'support_agent') continue;
+      if (p['role'] != 'support_agent' || p['isActive'] == false) continue;
+      if (p['userId']?.toString() != ticket['assignedTo']?.toString()) continue;
       final u = p['user'];
       if (u is Map) {
         final name = UserModel.fromJson(
@@ -105,5 +120,11 @@ class SupportTicketModel {
     assigneeId: assignedTo,
     assigneeName: assigneeName,
     participantIds: participantIds,
+    lastMessage: conversation?.lastMessage,
+    lastMessageType: conversation?.lastMessageType,
+    lastMessageAt: DateTime.tryParse(
+      conversation?.lastMessageAt ?? conversation?.updatedAt ?? '',
+    )?.toLocal(),
+    liveUnreadCount: conversation?.unreadCount,
   );
 }

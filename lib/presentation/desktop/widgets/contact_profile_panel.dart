@@ -105,26 +105,6 @@ class ContactProfilePanel extends StatelessWidget {
                     ),
                     const SizedBox(height: DesignTokens.spaceL),
 
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _ProfileAction(
-                          icon: Iconsax.message_text,
-                          tooltip: 'Envoyer un message',
-                        ),
-                        _ProfileAction(icon: Iconsax.call, tooltip: 'Appeler'),
-                        _ProfileAction(
-                          icon: Iconsax.sms,
-                          tooltip: 'Envoyer un e-mail',
-                        ),
-                        _ProfileAction(
-                          icon: Iconsax.more,
-                          tooltip: 'Plus d\'actions',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: DesignTokens.spaceXl),
-
                     _ProfileField(
                       icon: Iconsax.call,
                       label: 'Téléphone',
@@ -166,45 +146,6 @@ class ContactProfilePanel extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileAction extends StatelessWidget {
-  const _ProfileAction({required this.icon, required this.tooltip});
-
-  final IconData icon;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: DesignTokens.spaceXs),
-      child: Tooltip(
-        message: tooltip,
-        waitDuration: const Duration(milliseconds: 400),
-        child: Material(
-          color: isDark
-              ? theme.colorScheme.surface
-              : DesignTokens.getSubtleBackground(context, opacity: 0.05),
-          shape: const CircleBorder(),
-          child: InkWell(
-            onTap: () {},
-            customBorder: const CircleBorder(),
-            child: Padding(
-              padding: const EdgeInsets.all(DesignTokens.spaceM),
-              child: Icon(
-                icon,
-                size: DesignTokens.iconS,
-                color: DesignTokens.getTextColorWithOpacity(context, 0.65),
-              ),
-            ),
-          ),
         ),
       ),
     );

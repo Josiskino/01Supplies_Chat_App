@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
+import '../../../../core/services/audio_recording_service.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -17,28 +16,25 @@ import '../../../shared/models/conversation_view_data.dart';
 /// Reprend le geste de WhatsApp : un point rouge qui pulse, le temps qui court,
 /// « Glisser pour annuler » à gauche, et l'envoi à droite.
 ///
-/// ⚠️ Rien n'est **réellement capturé** : la forme d'onde est générée, le
-/// minuteur est un [Timer]. Ajouter la capture demanderait `record`, la
-/// permission micro sur quatre plateformes et une politique de stockage — un
-/// chantier à part, qui n'a pas à retarder la validation de l'interface. Le
-/// point d'accroche est [onSend], qui reçoit déjà un [VoiceNoteData] complet.
 class VoiceRecorderBar extends StatefulWidget {
   const VoiceRecorderBar({
     super.key,
     required this.onSend,
     required this.onCancel,
+    this.sessionFactory,
   });
 
   /// Reçoit la note et le **chemin du fichier** capturé, à téléverser.
   final void Function(VoiceNoteData note, String filePath) onSend;
   final VoidCallback onCancel;
+  final VoiceRecordingSession Function()? sessionFactory;
 
   @override
   State<VoiceRecorderBar> createState() => _VoiceRecorderBarState();
 }
 
 class _VoiceRecorderBarState extends State<VoiceRecorderBar>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   /// Intervalle entre deux amplitudes — la cadence d'un vrai flux de capture.
   static const Duration _sampleInterval = Duration(milliseconds: 80);
 
@@ -46,8 +42,10 @@ class _VoiceRecorderBarState extends State<VoiceRecorderBar>
   Duration _elapsed = Duration.zero;
   final List<double> _waveform = [];
 
-  final AudioRecorder _recorder = AudioRecorder();
-  String? _filePath;
+  late final VoiceRecordingSession _session;
+  bool _ready = false;
+  bool _sending = false;
+  bool _sampling = false;
 
   /// Fraction écoulée depuis la dernière amplitude, entre 0 et 1.
   ///
@@ -61,28 +59,10 @@ class _VoiceRecorderBarState extends State<VoiceRecorderBar>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     HapticFeedback.mediumImpact();
+    _session = widget.sessionFactory?.call() ?? VoiceRecordingSession();
     unawaited(_startRecording());
-
-    _timer = Timer.periodic(_sampleInterval, (_) async {
-      _lastSample = DateTime.now();
-      // L'amplitude réelle du micro, ramenée dans [0,1]. `record` la donne en
-      // décibels négatifs : -45 dB correspond au silence ambiant, 0 dB à la
-      // saturation.
-      double level = 0.3;
-      try {
-        final amp = await _recorder.getAmplitude();
-        level = ((amp.current + 45) / 45).clamp(0.05, 1.0);
-      } catch (_) {
-        // Micro indisponible : le tracé reste plat plutôt que d'inventer une
-        // agitation qui ne correspond à rien.
-      }
-      if (!mounted) return;
-      setState(() {
-        _elapsed += _sampleInterval;
-        _waveform.add(level);
-      });
-    });
     _ticker = createTicker((_) {
       final since = DateTime.now().difference(_lastSample).inMicroseconds;
       final next = (since / _sampleInterval.inMicroseconds)
@@ -92,54 +72,96 @@ class _VoiceRecorderBarState extends State<VoiceRecorderBar>
     })..start();
   }
 
-  /// Ouvre la capture dans un fichier temporaire.
-  ///
-  /// AAC dans un conteneur M4A : c'est le format que lisent aussi bien iOS
-  /// qu'Android, et celui déjà utilisé par l'app cliente. Un encodage exotique
-  /// donnerait des notes que l'un des deux camps ne saurait pas jouer.
   Future<void> _startRecording() async {
     try {
-      if (!await _recorder.hasPermission()) {
-        if (mounted) widget.onCancel();
-        return;
-      }
-      final dir = await getTemporaryDirectory();
-      final path =
-          '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc),
-        path: path,
-      );
-      _filePath = path;
+      final started = await _session.start();
+      if (!mounted || !started) return;
+      setState(() => _ready = true);
+      _timer = Timer.periodic(_sampleInterval, (_) => unawaited(_sample()));
+    } catch (error) {
+      if (!mounted) return;
+      _notifyError(error);
+      widget.onCancel();
+    }
+  }
+
+  Future<void> _sample() async {
+    if (_sampling || !_ready || _sending) return;
+    _sampling = true;
+    try {
+      final level = await _session.amplitude();
+      if (!mounted) return;
+      _lastSample = DateTime.now();
+      setState(() {
+        _elapsed = _session.elapsed;
+        // Keep capture memory bounded even if a recording lasts several hours.
+        if (_waveform.length >= 1500) _waveform.removeRange(0, 750);
+        _waveform.add(level);
+      });
     } catch (_) {
-      if (mounted) widget.onCancel();
+      /* An amplitude read must not interrupt capture. */
+    } finally {
+      _sampling = false;
+    }
+  }
+
+  void _notifyError(Object error) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error is VoiceRecordingException
+              ? error.message
+              : 'Impossible d’enregistrer le vocal. Réessayez.',
+        ),
+      ),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _timer?.cancel();
+      unawaited(_session.close());
+      widget.onCancel();
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _timer?.cancel();
-    // Coupe la capture même si l'écran est quitté sans envoyer : un
-    // enregistrement laissé ouvert continue de consommer le micro.
-    unawaited(_recorder.stop().catchError((_) => null));
-    unawaited(_recorder.dispose());
+    unawaited(_session.close());
     super.dispose();
   }
 
   Future<void> _send() async {
+    if (!_ready || _sending) return;
+    setState(() => _sending = true);
     _timer?.cancel();
     HapticFeedback.lightImpact();
-
-    final path = await _recorder.stop() ?? _filePath;
-    if (path == null || !mounted) {
+    try {
+      final recording = await _session.finish();
+      if (!mounted) {
+        // Completion after navigation has no outgoing operation to own the file.
+        await deleteTemporaryVoiceRecording(recording.path);
+        return;
+      }
+      widget.onSend(
+        VoiceNoteData(
+          duration: recording.duration,
+          waveform: List.of(_waveform),
+          source: recording.path,
+        ),
+        recording.path,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _notifyError(error);
       widget.onCancel();
-      return;
     }
-    widget.onSend(
-      VoiceNoteData(duration: _elapsed, waveform: List.of(_waveform)),
-      path,
-    );
   }
 
   @override
@@ -196,7 +218,7 @@ class _VoiceRecorderBarState extends State<VoiceRecorderBar>
             ),
             const SizedBox(width: DesignTokens.spaceS),
             GestureDetector(
-              onTap: _send,
+              onTap: _ready && !_sending ? _send : null,
               behavior: HitTestBehavior.opaque,
               child: Container(
                 width: 38,

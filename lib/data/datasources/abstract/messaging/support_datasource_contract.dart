@@ -13,9 +13,9 @@ abstract interface class SupportDataSourceContract {
 
   /// Les conversations dont l'utilisateur est participant.
   ///
-  /// Seule source du **dernier message** et du compteur de non-lus : le ticket
-  /// ne connaît que la demande d'origine, et son `description` reste figée à
-  /// l'ouverture du dossier.
+  /// Complète les conversations embarquées dans les tickets et apporte les
+  /// conversations directes. Les listes sont paginées jusqu'à leur dernière
+  /// page pour produire une vue complète avant fusion.
   Future<ApiResult<List<ConversationModel>>> fetchConversations({
     int page,
     int limit,
@@ -29,11 +29,9 @@ abstract interface class SupportDataSourceContract {
   /// personne.
   Future<ApiResult<ConversationModel>> createDirectConversation(String userId);
 
-  /// Rejoint un ticket en s'y déclarant agent.
-  ///
-  /// Passe par `assign` et non `claim` : `claim` répond 409 sur un dossier déjà
-  /// pris, alors que l'équipe travaille à plusieurs sur une même demande —
-  /// `assign` ajoute l'agent aux participants sans évincer les précédents.
+  /// Prend le dossier au nom de la session authentifiée via `/claim`.
+  /// Une prise remplace l'ancien agent. [agentId] reste uniquement pour la
+  /// compatibilité des appelants : il n'est jamais envoyé au serveur.
   Future<ApiResult<bool>> joinTicket({
     required String ticketId,
     required String agentId,

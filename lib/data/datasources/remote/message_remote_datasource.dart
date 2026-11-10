@@ -14,11 +14,16 @@ class MessageRemoteDataSource implements MessageDataSourceContract {
     required String conversationId,
     int page = 1,
     int limit = 50,
+    String? before,
   }) {
     return _client.request<List<MessageModel>>(
       path: ApiEndpoints.messagesOfConversation(conversationId),
       method: HttpMethod.get,
-      queryParameters: {'page': page, 'limit': limit},
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        'before': ?before,
+      },
       dataKey: 'data',
       // `ApiResponseHandler` réenveloppe les listes sous `data` : cf. le même
       // motif dans la source du support.
@@ -56,11 +61,55 @@ class MessageRemoteDataSource implements MessageDataSourceContract {
   }
 
   @override
-  Future<ApiResult<bool>> markRead(String conversationId) {
+  Future<ApiResult<bool>> markRead(
+    String conversationId, {
+    List<String>? messageIds,
+  }) {
     return _client.request<bool>(
       path: ApiEndpoints.markRead(conversationId),
       method: HttpMethod.post,
+      data: messageIds == null ? null : {'messageIds': messageIds},
       fromJson: (_) => true,
     );
   }
+
+  @override
+  Future<ApiResult<bool>> markDelivered(
+    String conversationId, {
+    required List<String> messageIds,
+  }) => _client.request<bool>(
+    path:
+        'messaging/conversations/${Uri.encodeComponent(conversationId)}/delivered',
+    method: HttpMethod.post,
+    data: {'messageIds': messageIds},
+    fromJson: (_) => true,
+  );
+
+  @override
+  Future<ApiResult<bool>> react(
+    String messageId,
+    String emoji,
+  ) => _client.request<bool>(
+    path:
+        '${ApiEndpoints.messages}/${Uri.encodeComponent(messageId)}/reactions',
+    method: HttpMethod.post,
+    data: {'emoji': emoji},
+    fromJson: (_) => true,
+  );
+
+  @override
+  Future<ApiResult<bool>> edit(String messageId, String content) =>
+      _client.request<bool>(
+        path: '${ApiEndpoints.messages}/${Uri.encodeComponent(messageId)}',
+        method: HttpMethod.patch,
+        data: {'content': content},
+        fromJson: (_) => true,
+      );
+
+  @override
+  Future<ApiResult<bool>> delete(String messageId) => _client.request<bool>(
+    path: '${ApiEndpoints.messages}/${Uri.encodeComponent(messageId)}',
+    method: HttpMethod.delete,
+    fromJson: (_) => true,
+  );
 }

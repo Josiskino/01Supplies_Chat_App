@@ -1,142 +1,233 @@
+import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
+import '../../../../core/services/audio_playback_service.dart';
 import '../../../shared/models/conversation_view_data.dart';
 
-/// Contenu d'une bulle portant une note vocale : lecture, forme d'onde, durée.
-///
-/// ⚠️ La lecture est **simulée** : la tête de lecture avance sur un
-/// [AnimationController] calé sur la durée annoncée, sans décoder d'audio. Le
-/// socle n'a pas de couche média, et la présentation n'a pas à l'attendre pour
-/// être jugée. Brancher un vrai lecteur revient à remplacer le contrôleur par la
-/// position du flux — la peinture, elle, ne change pas.
 class VoiceNoteBubble extends StatefulWidget {
   const VoiceNoteBubble({
     super.key,
     required this.voice,
     required this.foreground,
     required this.accent,
+    this.playerFactory,
+    this.refreshSource,
   });
-
   final VoiceNoteData voice;
-
-  /// Couleur du texte et des icônes, héritée de la bulle qui la contient.
   final Color foreground;
-
-  /// Couleur des barres déjà lues.
   final Color accent;
+  final AudioPlaybackService Function()? playerFactory;
 
+  /// Re-signs a remote attachment after an explicit retry, when available.
+  final Future<String?> Function()? refreshSource;
   @override
   State<VoiceNoteBubble> createState() => _VoiceNoteBubbleState();
 }
 
-class _VoiceNoteBubbleState extends State<VoiceNoteBubble>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: widget.voice.duration,
-  );
+class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
+  AudioPlaybackService? _player;
+  final List<StreamSubscription<dynamic>> _subscriptions = [];
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+  bool _playing = false;
+  bool _loading = false;
+  bool _error = false;
+  int _generation = 0;
+  bool _refreshing = false;
+  String? _playbackSource;
 
   @override
   void initState() {
     super.initState();
-    // La fin de lecture doit rebasculer le bouton sur « lire ». Rien ne le fait
-    // spontanément : `AnimatedBuilder` suit les *valeurs*, et à la dernière
-    // image `isAnimating` est encore vrai — c'est le changement de **statut**,
-    // émis juste après, qui porte l'information.
-    _controller.addStatusListener(_onStatus);
+    _duration = widget.voice.duration;
+    _playbackSource = widget.voice.source;
   }
 
-  /// Avancement de la tête de lecture, exposé pour les tests.
-  @visibleForTesting
-  double get playbackProgress => _controller.value;
+  AudioPlaybackService _ensurePlayer() {
+    if (_player != null) return _player!;
+    final player = widget.playerFactory?.call() ?? DeviceAudioPlaybackService();
+    _player = player;
+    _subscriptions.addAll([
+      player.position.listen((value) {
+        if (mounted) setState(() => _position = value);
+      }, onError: _onPlaybackError),
+      player.duration.listen((value) {
+        if (mounted) setState(() => _duration = value);
+      }, onError: _onPlaybackError),
+      player.playing.listen((value) {
+        if (mounted) setState(() => _playing = value);
+      }, onError: _onPlaybackError),
+      player.completed.listen((_) {
+        if (mounted) {
+          setState(() {
+            _playing = false;
+            _position = Duration.zero;
+          });
+        }
+      }, onError: _onPlaybackError),
+    ]);
+    return player;
+  }
 
-  void _onStatus(AnimationStatus status) {
+  void _onPlaybackError(Object error, StackTrace stack) {
     if (!mounted) return;
-    if (status == AnimationStatus.completed) {
-      // Remise à zéro en fin de lecture : la forme d'onde repart vierge et le
-      // message redevient « à écouter ». Laissée pleine, elle donnait un
-      // message définitivement barré, et le prochain appui semblait sans effet
-      // le temps que la tête reparte du début.
-      _controller.value = 0;
+    setState(() {
+      _playing = false;
+      _loading = false;
+      _error = true;
+    });
+  }
+
+  @visibleForTesting
+  double get playbackProgress => _duration.inMilliseconds <= 0
+      ? 0
+      : (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0);
+
+  Future<void> _toggle() async {
+    var source = _playbackSource;
+    if (source == null || source.isEmpty || _loading) return;
+    final retry = _error;
+    final generation = _generation;
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
+    try {
+      if (retry && widget.refreshSource != null) {
+        _refreshing = true;
+        final refreshed = await widget.refreshSource!();
+        if (!mounted || generation != _generation) return;
+        source = refreshed?.isNotEmpty == true ? refreshed! : _playbackSource!;
+        _playbackSource = source;
+      }
+      final player = _ensurePlayer();
+      if (_playing) {
+        await player.pause();
+      } else {
+        await VoicePlaybackCoordinator.shared.activate(player);
+        if (!mounted || generation != _generation) return;
+        await player.play(source);
+      }
+    } catch (_) {
+      if (mounted && generation == _generation) {
+        setState(() {
+          _error = true;
+          _playing = false;
+        });
+      }
+    } finally {
+      if (mounted && generation == _generation) {
+        _refreshing = false;
+        setState(() => _loading = false);
+      }
     }
-    setState(() {});
+  }
+
+  Future<void> _releasePlayer() async {
+    final player = _player;
+    _player = null;
+    if (player != null) VoicePlaybackCoordinator.shared.release(player);
+    final subscriptions = List<StreamSubscription<dynamic>>.of(_subscriptions);
+    _subscriptions.clear();
+    await Future.wait(subscriptions.map((sub) => sub.cancel()));
+    if (player != null) {
+      try {
+        await player.dispose();
+      } catch (_) {
+        /* Already detached. */
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant VoiceNoteBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.voice.source != widget.voice.source) {
+      _playbackSource = widget.voice.source;
+      // Refreshing the thread can deliver the new URL before its future
+      // completes. Keep that retry alive and let it start the refreshed source.
+      if (_refreshing) {
+        _position = Duration.zero;
+        _duration = widget.voice.duration;
+        return;
+      }
+      _generation++;
+      unawaited(_releasePlayer());
+      _position = Duration.zero;
+      _duration = widget.voice.duration;
+      _playing = false;
+      _loading = false;
+      _error = false;
+    }
   }
 
   @override
   void dispose() {
-    _controller.removeStatusListener(_onStatus);
-    _controller.dispose();
+    _generation++;
+    unawaited(_releasePlayer());
     super.dispose();
-  }
-
-  void _toggle() {
-    if (_controller.isAnimating) {
-      _controller.stop();
-    } else {
-      // Une lecture terminée repart du début plutôt que de rester bloquée.
-      if (_controller.value >= 1) _controller.value = 0;
-      _controller.forward();
-    }
-    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    final unavailable =
+        widget.voice.source == null || widget.voice.source!.isEmpty;
+    final label = unavailable
+        ? 'Audio indisponible'
+        : _error
+        ? 'Réessayer la lecture'
+        : _playing
+        ? 'Mettre en pause'
+        : 'Lire la note vocale';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: _toggle,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) => Icon(
-              _controller.isAnimating
-                  ? CupertinoIcons.pause_fill
-                  : CupertinoIcons.play_fill,
-              size: 26,
-              color: widget.foreground,
-            ),
+        Tooltip(
+          message: label,
+          child: IconButton(
+            tooltip: null,
+            onPressed: unavailable || _loading ? null : _toggle,
+            icon: _loading
+                ? SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: widget.foreground,
+                    ),
+                  )
+                : Icon(
+                    _error
+                        ? CupertinoIcons.arrow_clockwise
+                        : _playing
+                        ? CupertinoIcons.pause_fill
+                        : CupertinoIcons.play_fill,
+                    size: 26,
+                    color: widget.foreground,
+                  ),
           ),
         ),
-        const SizedBox(width: DesignTokens.spaceM),
+        const SizedBox(width: DesignTokens.spaceS),
         Flexible(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) => CustomPaint(
-              size: const Size(150, 26),
-              painter: _WaveformPainter(
-                amplitudes: widget.voice.waveform,
-                progress: _controller.value,
-                played: widget.accent,
-                pending: widget.foreground.withValues(alpha: 0.35),
-              ),
+          child: CustomPaint(
+            size: const Size(150, 26),
+            painter: _WaveformPainter(
+              amplitudes: widget.voice.waveform,
+              progress: playbackProgress,
+              played: widget.accent,
+              pending: widget.foreground.withValues(alpha: 0.35),
             ),
           ),
         ),
         const SizedBox(width: DesignTokens.spaceS),
-        AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            // Pendant la lecture, le compteur montre le temps écoulé ; à
-            // l'arrêt, la durée totale. C'est ce que fait WhatsApp, et cela
-            // évite d'afficher un 0:00 fixe sur un message non lu.
-            // À l'arrêt comme en fin de lecture, c'est la durée totale qui
-            // s'affiche : un compteur figé à 0:13 sur une note de 0:14 se lit
-            // comme une lecture interrompue.
-            final shown = _controller.isAnimating
-                ? widget.voice.duration * _controller.value
-                : widget.voice.duration;
-            return Text(
-              _format(shown),
-              style: Theme.of(context).textTheme.labelSmall
-                  ?.merge(AppleType.caption1)
-                  .copyWith(color: widget.foreground.withValues(alpha: 0.75)),
-            );
-          },
+        Text(
+          _format(_playing ? _position : _duration),
+          style: Theme.of(context).textTheme.labelSmall
+              ?.merge(AppleType.caption1)
+              .copyWith(color: widget.foreground.withValues(alpha: 0.75)),
         ),
       ],
     );

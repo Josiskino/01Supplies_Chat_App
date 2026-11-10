@@ -13,6 +13,12 @@ abstract final class LogRedaction {
     'refreshtoken',
     'refresh_token',
     'token',
+    'fcmtoken',
+    'fcm_token',
+    'devicetoken',
+    'device_token',
+    'pushtoken',
+    'push_token',
     'password',
     'newpassword',
     'oldpassword',
@@ -33,7 +39,7 @@ abstract final class LogRedaction {
   static Object? redact(Object? data, {int depth = 0}) {
     // Garde-fou : une structure cyclique ou très profonde ne doit pas faire
     // boucler la journalisation elle-même.
-    if (depth > 5) return data;
+    if (depth > 5) return '<masqué:profondeur>';
 
     if (data is Map) {
       return data.map((key, value) {

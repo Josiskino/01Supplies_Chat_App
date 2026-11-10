@@ -23,6 +23,9 @@ class WorkspaceIconRail extends StatelessWidget {
     this.topInset = 0,
     this.onToggleTheme,
     this.isDarkMode = false,
+    this.visibleIndices,
+    this.onSettings,
+    this.onContacts,
   });
 
   final int selectedIndex;
@@ -35,6 +38,9 @@ class WorkspaceIconRail extends StatelessWidget {
 
   final VoidCallback? onToggleTheme;
   final bool isDarkMode;
+  final Set<int>? visibleIndices;
+  final VoidCallback? onSettings;
+  final VoidCallback? onContacts;
 
   /// Largeur du rail.
   ///
@@ -118,6 +124,13 @@ class WorkspaceIconRail extends StatelessWidget {
                 ),
               ),
 
+              if (onContacts != null)
+                _RailIcon(
+                  icon: CupertinoIcons.person_2,
+                  tooltip: 'Contacts',
+                  isSelected: selectedIndex == -1,
+                  onTap: onContacts!,
+                ),
               // Bascule clair/sombre. Ce n'est pas sur la maquette, mais l'effet de
               // verre change radicalement d'aspect entre les deux thèmes : y accéder
               // en un clic évite de passer par les réglages pour comparer.
@@ -132,19 +145,20 @@ class WorkspaceIconRail extends StatelessWidget {
                 ),
 
               // Réglages et compte, ancrés en bas comme sur la maquette.
-              _RailIcon(
-                icon: AppIcons.of(AppIcons.settings, isApple: true),
-                tooltip: 'Réglages',
-                isSelected: false,
-                onTap: () {},
-              ),
+              if (onSettings != null)
+                _RailIcon(
+                  icon: AppIcons.of(AppIcons.settings, isApple: true),
+                  tooltip: 'Réglages',
+                  isSelected: false,
+                  onTap: onSettings!,
+                ),
               const SizedBox(height: DesignTokens.spaceS),
               Padding(
                 padding: const EdgeInsets.only(bottom: DesignTokens.spaceM),
                 child: PresenceAvatar(
                   name: userName.isEmpty ? 'Agent' : userName,
                   size: DesignTokens.avatarS,
-                  presence: PresenceStatus.online,
+                  presence: PresenceStatus.offline,
                 ),
               ),
             ],

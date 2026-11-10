@@ -1,144 +1,269 @@
+import 'dart:async';
 import 'dart:convert';
-
-import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 import '../utils/app_logger.dart';
+import 'pusher_transport.dart';
 
-/// Repris tel quel de l'app cliente, dont les événements de messagerie
-/// transitent déjà par Pusher : s'en écarter obligerait le backend à publier
-/// deux fois.
-///
-/// ⚠️ `pusher_channels_flutter` ne supporte ni macOS ni Windows. Sur ces
-/// plateformes le service reste silencieux et le fil ne se met à jour qu'au
-/// rechargement — cf. « À trancher » dans le CLAUDE.md.
 typedef PusherEventHandler = void Function(Map<String, dynamic> data);
-
-/// Authorizer : appelé par Pusher pour les channels privés. Doit retourner
-/// `{auth: '...', channel_data: '...'}` (le backend signe la requête).
 typedef PusherAuthorizer =
     Future<Map<String, dynamic>?> Function(String channelName, String socketId);
 
-/// Service Pusher singleton — wrappe `pusher_channels_flutter` avec une
-/// API simplifiée : `connect`, `bindEvent`, `unbindEvent`, `disconnect`.
-///
-/// Les écrans/viewmodels appellent `bindEvent(channel, event, handler)` et
-/// le service gère automatiquement le subscribe/unsubscribe selon qu'il
-/// reste ou non des handlers sur le channel.
+enum RealtimeConnectionState {
+  disconnected,
+  connecting,
+  connected,
+  reconnecting,
+}
+
+/// Shared Pusher protocol connection with desired subscriptions retained across
+/// network loss. Each callback and authorization is fenced by connection epoch.
 class PusherService {
-  PusherChannelsFlutter? _instance;
-  bool _isConnected = false;
-  final AppLogger _logger = AppLogger();
+  PusherService({
+    PusherTransport Function()? transportFactory,
+    this.retryDelay = const Duration(seconds: 2),
+  }) : _transportFactory = transportFactory ?? WebSocketPusherTransport.new;
+  final PusherTransport Function() _transportFactory;
+  final Duration retryDelay;
+  final _logger = AppLogger();
+  final _states = StreamController<RealtimeConnectionState>.broadcast(
+    sync: true,
+  );
+  Stream<RealtimeConnectionState> get connectionStates => _states.stream;
+  RealtimeConnectionState _state = RealtimeConnectionState.disconnected;
+  RealtimeConnectionState get connectionState => _state;
+  bool get isConnected => _state == RealtimeConnectionState.connected;
+  final Map<String, Map<String, Set<PusherEventHandler>>> _handlers = {};
+  final Set<String> _subscribed = {};
+  final Set<String> _subscribing = {};
+  PusherTransport? _transport;
+  StreamSubscription<Object>? _subscription;
+  Timer? _retry;
+  Timer? _heartbeat;
+  Timer? _handshakeTimeout;
+  Timer? _pongTimeout;
+  Future<void>? _opening;
+  int _epoch = 0;
+  bool _wanted = false;
+  String? _socketId;
+  String _apiKey = '';
+  String _cluster = '';
+  PusherAuthorizer? _authorizer;
 
-  // channelName → eventName → list of handlers
-  final Map<String, Map<String, List<PusherEventHandler>>> _handlers = {};
-
-  // bindEvent calls received before connect() completes — replayed in connect().
-  final List<_PendingBind> _pendingBinds = [];
-
-  bool get isConnected => _isConnected;
+  void _setState(RealtimeConnectionState state) {
+    if (_state == state) {
+      return;
+    }
+    _state = state;
+    if (!_states.isClosed) {
+      _states.add(state);
+    }
+  }
 
   Future<void> connect({
     required String apiKey,
     required String cluster,
     required PusherAuthorizer authorizer,
   }) async {
-    if (_isConnected) return;
     if (apiKey.isEmpty) {
-      _logger.warning('skipped — empty apiKey', feature: 'Pusher');
       return;
     }
-
-    _instance = PusherChannelsFlutter.getInstance();
+    _apiKey = apiKey;
+    _cluster = cluster;
+    _authorizer = authorizer;
+    _wanted = true;
+    if (isConnected) {
+      return;
+    }
+    final existing = _opening;
+    if (existing != null) {
+      return existing;
+    }
+    final opening = _open();
+    _opening = opening;
     try {
-      await _instance!.init(
-        apiKey: apiKey,
-        cluster: cluster,
-        onConnectionStateChange: (current, previous) {
-          _logger.info('state $previous → $current', feature: 'Pusher');
-        },
-        onError: (message, code, error) {
-          _logger.error(
-            'error: $message (code=$code)',
-            feature: 'Pusher',
-            error: error,
-          );
-        },
-        onSubscriptionSucceeded: (channelName, data) {
-          _logger.info('subscribed OK: $channelName', feature: 'Pusher');
-        },
-        onSubscriptionError: (message, error) {
-          _logger.error(
-            'subscription error: $message',
-            feature: 'Pusher',
-            error: error,
-          );
-        },
-        onEvent: _routeEvent,
-        onAuthorizer: (channelName, socketId, options) async {
-          _logger.debug(
-            'authorizer called',
-            feature: 'Pusher',
-            data: {'channel': channelName, 'socketId': socketId},
-          );
-          try {
-            final result = await authorizer(channelName, socketId);
-            _logger.debug(
-              'authorizer returned ${result != null ? "OK" : "NULL"}',
-              feature: 'Pusher',
-              data: {'channel': channelName},
-            );
-            return result;
-          } catch (e, s) {
-            _logger.error(
-              'authorize $channelName failed',
-              feature: 'Pusher',
-              error: e,
-              stackTrace: s,
-            );
-            return null;
-          }
-        },
-      );
-      await _instance!.connect();
-      _isConnected = true;
-      await _drainPendingBinds();
-    } catch (e, s) {
-      _logger.error(
-        'connect failed',
-        feature: 'Pusher',
-        error: e,
-        stackTrace: s,
-      );
-      _isConnected = false;
+      await opening;
+    } finally {
+      if (identical(_opening, opening)) {
+        _opening = null;
+      }
     }
   }
 
-  void _routeEvent(PusherEvent event) {
-    final channelMap = _handlers[event.channelName];
-    if (channelMap == null) return;
-    final handlers = channelMap[event.eventName];
-    if (handlers == null || handlers.isEmpty) return;
-
-    Map<String, dynamic> data = const {};
-    final raw = event.data;
-    if (raw is String && raw.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) data = decoded;
-      } catch (_) {}
-    } else if (raw is Map<String, dynamic>) {
-      data = raw;
+  Future<void> _open() async {
+    final epoch = ++_epoch;
+    _retry?.cancel();
+    _setState(RealtimeConnectionState.connecting);
+    final transport = _transportFactory();
+    _transport = transport;
+    try {
+      await transport.connect(
+        Uri.https('ws-$_cluster.pusher.com', '/app/$_apiKey', {
+          'protocol': '7',
+          'client': '01chat-dart',
+          'version': '1.0',
+          'flash': 'false',
+        }).replace(scheme: 'wss'),
+      );
+      if (!_wanted || epoch != _epoch) {
+        await transport.close();
+        return;
+      }
+      _handshakeTimeout?.cancel();
+      _handshakeTimeout = Timer(
+        const Duration(seconds: 25),
+        () => _lost(epoch),
+      );
+      _subscription = transport.frames.listen(
+        (frame) {
+          if (epoch == _epoch) {
+            _onFrame(frame, epoch);
+          }
+        },
+        onError: (Object error) {
+          if (epoch == _epoch) {
+            _lost(epoch);
+          }
+        },
+        onDone: () {
+          if (epoch == _epoch) {
+            _lost(epoch);
+          }
+        },
+      );
+    } catch (error) {
+      _logger.warning('Connection unavailable', feature: 'Pusher');
+      if (epoch == _epoch) {
+        _lost(epoch);
+      }
     }
+  }
 
-    for (final handler in List<PusherEventHandler>.from(handlers)) {
+  void _lost(int epoch) {
+    if (epoch != _epoch) {
+      return;
+    }
+    ++_epoch;
+    _socketId = null;
+    _subscribed.clear();
+    _subscribing.clear();
+    _heartbeat?.cancel();
+    _handshakeTimeout?.cancel();
+    _pongTimeout?.cancel();
+    unawaited(_subscription?.cancel());
+    unawaited(_transport?.close());
+    _transport = null;
+    if (!_wanted) {
+      _setState(RealtimeConnectionState.disconnected);
+      return;
+    }
+    _setState(RealtimeConnectionState.reconnecting);
+    _retry?.cancel();
+    _retry = Timer(retryDelay, () {
+      if (_wanted) {
+        unawaited(_open());
+      }
+    });
+  }
+
+  Map<String, dynamic> _map(Object? value) {
+    if (value is String) {
+      try {
+        value = jsonDecode(value);
+      } catch (_) {
+        return {};
+      }
+    }
+    return value is Map ? Map<String, dynamic>.from(value) : {};
+  }
+
+  void _onFrame(Object frame, int epoch) {
+    final envelope = _map(frame);
+    final event = envelope['event']?.toString();
+    final data = _map(envelope['data']);
+    final channel = envelope['channel']?.toString();
+    if (event == 'pusher:connection_established') {
+      _handshakeTimeout?.cancel();
+      _socketId = data['socket_id']?.toString();
+      if (_socketId == null) {
+        return;
+      }
+      _setState(RealtimeConnectionState.connected);
+      _heartbeat?.cancel();
+      final timeout = (data['activity_timeout'] as num?)?.toInt() ?? 120;
+      _heartbeat = Timer.periodic(Duration(seconds: timeout.clamp(10, 120)), (
+        _,
+      ) {
+        _send({'event': 'pusher:ping', 'data': {}});
+        _pongTimeout?.cancel();
+        _pongTimeout = Timer(const Duration(seconds: 30), () => _lost(epoch));
+      });
+      for (final name in _handlers.keys.toList()) {
+        unawaited(_subscribe(name, epoch));
+      }
+      return;
+    }
+    if (event == 'pusher:ping') {
+      _send({'event': 'pusher:pong', 'data': {}});
+      return;
+    }
+    if (event == 'pusher:pong') {
+      _pongTimeout?.cancel();
+      return;
+    }
+    if (event == 'pusher:error') {
+      _lost(epoch);
+      return;
+    }
+    if (channel == null || event == null) {
+      return;
+    }
+    if (event == 'pusher_internal:subscription_succeeded') {
+      _subscribing.remove(channel);
+      _subscribed.add(channel);
+    }
+    final callbacks = _handlers[channel]?[event]?.toList() ?? [];
+    for (final handler in callbacks) {
       try {
         handler(data);
-      } catch (e, s) {
+      } catch (error, stack) {
         _logger.error(
-          'handler crashed on ${event.eventName}',
+          'Event handler failed',
           feature: 'Pusher',
-          error: e,
-          stackTrace: s,
+          error: error,
+          stackTrace: stack,
         );
+      }
+    }
+  }
+
+  Future<void> _subscribe(String channel, int epoch) async {
+    final socket = _socketId;
+    if (socket == null ||
+        !_handlers.containsKey(channel) ||
+        _subscribed.contains(channel) ||
+        !_subscribing.add(channel)) {
+      return;
+    }
+    try {
+      Map<String, dynamic> auth = {};
+      if (channel.startsWith('private-') || channel.startsWith('presence-')) {
+        final signed = await _authorizer?.call(channel, socket);
+        if (signed == null || signed['auth'] == null) {
+          throw StateError('Authorization unavailable');
+        }
+        auth = signed;
+      }
+      if (epoch != _epoch || !_wanted || !_handlers.containsKey(channel)) {
+        return;
+      }
+      _send({
+        'event': 'pusher:subscribe',
+        'data': {'channel': channel, ...auth},
+      });
+    } catch (_) {
+      if (epoch == _epoch) {
+        _subscribing.remove(channel);
+        // A failed authorization is retried only on explicit rebinding or a
+        // reconnect, avoiding infinite retries for revoked support access.
       }
     }
   }
@@ -148,43 +273,12 @@ class PusherService {
     required String eventName,
     required PusherEventHandler handler,
   }) async {
-    if (_instance == null) {
-      _logger.debug(
-        'bindEvent queued (pre-init)',
-        feature: 'Pusher',
-        data: {'channel': channelName, 'event': eventName},
-      );
-      _pendingBinds.add(_PendingBind(channelName, eventName, handler));
-      return;
-    }
-
-    final shouldSubscribe = !_handlers.containsKey(channelName);
-    _handlers.putIfAbsent(channelName, () => {});
-    _handlers[channelName]!.putIfAbsent(eventName, () => []);
-    _handlers[channelName]![eventName]!.add(handler);
-
-    if (shouldSubscribe) {
-      try {
-        await _instance!.subscribe(channelName: channelName);
-      } catch (e, s) {
-        // Le SDK natif refuse un double abonnement au même canal. C'est bénin :
-        // le canal est déjà souscrit et notre handler vient d'être enregistré
-        // dans `_handlers` → les events continuent d'être dispatchés. On ne
-        // remonte donc pas une erreur bruyante dans ce cas précis.
-        if (e.toString().contains('Already subscribed')) {
-          _logger.debug(
-            'subscribe $channelName: déjà abonné (ignoré, bénin)',
-            feature: 'Pusher',
-          );
-        } else {
-          _logger.error(
-            'subscribe $channelName failed',
-            feature: 'Pusher',
-            error: e,
-            stackTrace: s,
-          );
-        }
-      }
+    _handlers
+        .putIfAbsent(channelName, () => {})
+        .putIfAbsent(eventName, () => {})
+        .add(handler);
+    if (isConnected) {
+      await _subscribe(channelName, _epoch);
     }
   }
 
@@ -193,57 +287,71 @@ class PusherService {
     required String eventName,
     PusherEventHandler? handler,
   }) async {
-    final channelMap = _handlers[channelName];
-    if (channelMap == null) return;
-
-    final eventHandlers = channelMap[eventName];
-    if (eventHandlers != null) {
-      if (handler == null) {
-        channelMap.remove(eventName);
-      } else {
-        eventHandlers.remove(handler);
-        if (eventHandlers.isEmpty) channelMap.remove(eventName);
+    final events = _handlers[channelName];
+    if (events == null) {
+      return;
+    }
+    if (handler == null) {
+      events.remove(eventName);
+    } else {
+      events[eventName]?.remove(handler);
+      if (events[eventName]?.isEmpty ?? false) {
+        events.remove(eventName);
       }
     }
-
-    if (channelMap.isEmpty) {
+    if (events.isEmpty) {
       _handlers.remove(channelName);
-      try {
-        await _instance?.unsubscribe(channelName: channelName);
-      } catch (_) {}
+      _subscribed.remove(channelName);
+      _subscribing.remove(channelName);
+      if (isConnected) {
+        _send({
+          'event': 'pusher:unsubscribe',
+          'data': {'channel': channelName},
+        });
+      }
     }
   }
 
+  Future<bool> trigger({
+    required String channelName,
+    required String eventName,
+    required Map<String, dynamic> data,
+  }) async {
+    if (!isConnected ||
+        !_subscribed.contains(channelName) ||
+        !eventName.startsWith('client-') ||
+        !(channelName.startsWith('private-') ||
+            channelName.startsWith('presence-'))) {
+      return false;
+    }
+    _send({'event': eventName, 'channel': channelName, 'data': data});
+    return true;
+  }
+
+  void _send(Map<String, dynamic> frame) => _transport?.send(jsonEncode(frame));
   Future<void> disconnect() async {
+    _wanted = false;
+    ++_epoch;
+    _retry?.cancel();
+    _heartbeat?.cancel();
+    _handshakeTimeout?.cancel();
+    _pongTimeout?.cancel();
+    _socketId = null;
     _handlers.clear();
-    _pendingBinds.clear();
-    try {
-      await _instance?.disconnect();
-    } catch (_) {}
-    _isConnected = false;
+    _subscribed.clear();
+    _subscribing.clear();
+    final subscription = _subscription;
+    _subscription = null;
+    final transport = _transport;
+    _transport = null;
+    _opening = null;
+    _setState(RealtimeConnectionState.disconnected);
+    await subscription?.cancel();
+    await transport?.close();
   }
 
-  Future<void> _drainPendingBinds() async {
-    if (_pendingBinds.isEmpty) return;
-    _logger.info(
-      'replaying ${_pendingBinds.length} queued binding(s)',
-      feature: 'Pusher',
-    );
-    final queued = List<_PendingBind>.from(_pendingBinds);
-    _pendingBinds.clear();
-    for (final p in queued) {
-      await bindEvent(
-        channelName: p.channelName,
-        eventName: p.eventName,
-        handler: p.handler,
-      );
-    }
+  Future<void> dispose() async {
+    await disconnect();
+    await _states.close();
   }
-}
-
-class _PendingBind {
-  _PendingBind(this.channelName, this.eventName, this.handler);
-  final String channelName;
-  final String eventName;
-  final PusherEventHandler handler;
 }

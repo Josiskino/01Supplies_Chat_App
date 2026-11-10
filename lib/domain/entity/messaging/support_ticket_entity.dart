@@ -99,11 +99,8 @@ class SupportTicketEntity {
   /// Membre de l'équipe qui s'est saisi du dossier. Nul s'il attend encore.
   final String? assigneeId;
 
-  /// Son nom, tiré des participants de la conversation.
-  ///
-  /// L'API ne renvoie que l'identifiant de l'assigné, et le répertoire ne
-  /// contient que les clients et partenaires : le nom d'un collègue ne s'y
-  /// trouve pas. Il est donc lu sur la conversation, seul endroit qui le porte.
+  /// Son nom, fourni par `assignedAgent`, avec repli sur le participant
+  /// actif dont l'identifiant correspond exactement à `assignedTo`.
   final String? assigneeName;
 
   /// Tous les comptes présents dans la conversation, agents compris.
@@ -115,8 +112,8 @@ class SupportTicketEntity {
 
   /// Dernier message échangé, quand la conversation est accessible.
   ///
-  /// Absent des dossiers qu'on n'a pas rejoints : l'API ne livre le fil qu'à ses
-  /// participants. L'aperçu retombe alors sur la description de la demande.
+  /// Fourni par la conversation embarquée dans le ticket, même sans accès au
+  /// fil complet. L'aperçu retombe sur la demande si aucun message n'existe.
   final String? lastMessage;
 
   /// Nature du dernier message, pour l'annoncer quand il n'a pas de texte.

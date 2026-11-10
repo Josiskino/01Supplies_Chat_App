@@ -5,6 +5,9 @@ import '../../../domain/usecases/auth/auth_usecases.dart';
 import '../../auth/auth_gate.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_logger.dart';
+import '../directory/directory_provider.dart';
+import '../messaging/support_provider.dart';
+import '../realtime/push_provider.dart';
 import 'auth_provider.dart';
 
 part 'auth_status_provider.g.dart';
@@ -104,14 +107,41 @@ class AuthStatusNotifier extends _$AuthStatusNotifier {
       'signIn',
       'Session ouverte (${session.user.role?.wireName})',
     );
+    _resetSessionData();
     state = AuthGateStatus.authenticated;
     return true;
   }
 
   Future<void> signOut() async {
+    // Revoke push ownership while the authenticated request can still succeed.
+    try {
+      await ref.read(pushNotificationsProvider).setSession(null);
+    } catch (error) {
+      AppLogger().error(
+        'Push cleanup failed during sign-out',
+        feature: 'Push',
+        error: error,
+      );
+    }
+    if (!ref.mounted) return;
     await ref.read(signOutUseCaseProvider).call(const SignOutParams());
     if (!ref.mounted) return;
     ref.read(currentUserProvider.notifier).set(null);
+    _resetSessionData();
     state = AuthGateStatus.unauthenticated;
+  }
+
+  /// Vide les caches liés à la session précédente.
+  ///
+  /// Sans cela, les providers de données construits **avant** l'ouverture de
+  /// session gardent leur échec 401 : l'écran des conversations est déjà monté
+  /// dans l'`IndexedStack` quand le routeur redirige vers la connexion, ses
+  /// tentatives échouent faute de jeton, et Riverpod finit par épuiser ses
+  /// relances. Rien ne les relancerait après le login, et la liste resterait
+  /// bloquée sur « Session expirée ». Le miroir vaut à la déconnexion : les
+  /// données du compte sortant ne doivent pas survivre au suivant.
+  void _resetSessionData() {
+    ref.invalidate(supportQueueProvider);
+    ref.invalidate(contactsProvider);
   }
 }

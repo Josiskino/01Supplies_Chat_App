@@ -168,7 +168,9 @@ class _CupertinoConversationRow extends StatelessWidget {
                         ),
                       Expanded(
                         child: Text(
-                          data.preview,
+                          data.kindLabel == null
+                              ? data.preview
+                              : '${data.kindLabel} · ${data.preview}',
                           // Deux lignes d'aperçu, comme Messages : une seule ligne
                           // tronque trop tôt pour juger de l'urgence d'un message.
                           maxLines: 2,
@@ -327,7 +329,9 @@ class _MaterialConversationRow extends StatelessWidget {
                           ),
                         Expanded(
                           child: Text(
-                            data.preview,
+                            data.kindLabel == null
+                                ? data.preview
+                                : '${data.kindLabel} · ${data.preview}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(

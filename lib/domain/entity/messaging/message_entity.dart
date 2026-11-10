@@ -47,8 +47,10 @@ class MessageEntity {
     this.replyToContent,
     this.replyToAuthor,
     this.attachments = const [],
+    this.attachmentMediaIds = const [],
     this.reaction,
     this.isPending = false,
+    this.isFailed = false,
   });
 
   final String id;
@@ -69,6 +71,9 @@ class MessageEntity {
   /// URL des pièces jointes, dans l'ordre d'envoi.
   final List<String> attachments;
 
+  /// Stable media IDs used to renew private attachment URLs on demand.
+  final List<String> attachmentMediaIds;
+
   /// Première réaction posée, celle que la bulle affiche.
   final String? reaction;
 
@@ -77,6 +82,30 @@ class MessageEntity {
   /// Un booléen plutôt qu'un identifiant à préfixe : reconnaître un état à la
   /// forme d'une chaîne casse dès que le serveur change ses identifiants.
   final bool isPending;
+  final bool isFailed;
+
+  MessageEntity copyWith({
+    MessageDelivery? delivery,
+    bool? isPending,
+    bool? isFailed,
+  }) => MessageEntity(
+    id: id,
+    conversationId: conversationId,
+    senderId: senderId,
+    content: content,
+    type: type,
+    delivery: delivery ?? this.delivery,
+    sentAt: sentAt,
+    sender: sender,
+    replyToId: replyToId,
+    replyToContent: replyToContent,
+    replyToAuthor: replyToAuthor,
+    attachments: attachments,
+    attachmentMediaIds: attachmentMediaIds,
+    reaction: reaction,
+    isPending: isPending ?? this.isPending,
+    isFailed: isFailed ?? this.isFailed,
+  );
 
   bool get hasAttachments => attachments.isNotEmpty;
 

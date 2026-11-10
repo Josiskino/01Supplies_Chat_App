@@ -26,6 +26,8 @@ class ChatBubble extends StatelessWidget {
     required this.isFirstOfGroup,
     required this.isLastOfGroup,
     this.showStatus = false,
+    this.showAuthorAlways = false,
+    this.refreshVoiceSource,
     this.onTapQuote,
     this.onOpenGallery,
     this.contactName = '',
@@ -44,6 +46,8 @@ class ChatBubble extends StatelessWidget {
   /// Réservé au **dernier** message émis du fil : iOS n'en montre qu'un, et le
   /// répéter transformerait la colonne de droite en litanie de « Distribué ».
   final bool showStatus;
+  final bool showAuthorAlways;
+  final Future<String?> Function()? refreshVoiceSource;
 
   /// Appelé au tap sur la citation, avec l'identifiant du message d'origine.
   final ValueChanged<String>? onTapQuote;
@@ -104,10 +108,11 @@ class ChatBubble extends StatelessWidget {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          if (!isMine && isFirstOfGroup && message.senderName != null)
+          if (message.senderName != null &&
+              (showAuthorAlways || (!isMine && isFirstOfGroup)))
             Padding(
-              padding: const EdgeInsets.only(
-                left: _avatarGutter + DesignTokens.spaceM,
+              padding: EdgeInsets.only(
+                left: isMine ? 0 : _avatarGutter + DesignTokens.spaceM,
                 bottom: 3,
               ),
               child: Text(
@@ -218,6 +223,7 @@ class ChatBubble extends StatelessWidget {
                                     else if (message.isVoice)
                                       VoiceNoteBubble(
                                         voice: message.voice!,
+                                        refreshSource: refreshVoiceSource,
                                         foreground: foreground,
                                         // Sur une bulle émise, l'accent de marque se
                                         // confondrait avec son fond : la partie lue est donc

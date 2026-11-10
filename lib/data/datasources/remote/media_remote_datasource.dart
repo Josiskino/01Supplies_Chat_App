@@ -10,6 +10,15 @@ class MediaRemoteDataSource implements MediaDataSourceContract {
   final ApiClientInterface _client;
 
   @override
+  Future<ApiResult<MediaUploadModel>> getById(String mediaId) =>
+      _client.request<MediaUploadModel>(
+        path: 'media/${Uri.encodeComponent(mediaId)}',
+        method: HttpMethod.get,
+        dataKey: 'data',
+        fromJson: MediaUploadModel.fromJson,
+      );
+
+  @override
   Future<ApiResult<MediaUploadModel>> upload(String filePath) {
     return _client.uploadSingleFile<MediaUploadModel>(
       path: ApiEndpoints.mediaUpload,

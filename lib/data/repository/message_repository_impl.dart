@@ -22,6 +22,7 @@ class MessageRepositoryImpl extends BaseRepository
         conversationId: params.conversationId,
         page: params.page,
         limit: params.limit,
+        before: params.before,
       ),
     );
 
@@ -53,8 +54,32 @@ class MessageRepositoryImpl extends BaseRepository
   @override
   Future<Either<Failure, Unit>> markRead(MarkReadParams params) async {
     final result = await execute<bool>(
-      () => _remote.markRead(params.conversationId),
+      () => _remote.markRead(
+        params.conversationId,
+        messageIds: params.messageIds,
+      ),
     );
     return result.map((_) => unit);
   }
+
+  @override
+  Future<Either<Failure, Unit>> markDelivered(
+    String conversationId,
+    List<String> messageIds,
+  ) async => (await execute<bool>(
+    () => _remote.markDelivered(conversationId, messageIds: messageIds),
+  )).map((_) => unit);
+  @override
+  Future<Either<Failure, Unit>> react(String messageId, String emoji) async =>
+      (await execute<bool>(
+        () => _remote.react(messageId, emoji),
+      )).map((_) => unit);
+  @override
+  Future<Either<Failure, Unit>> edit(String messageId, String content) async =>
+      (await execute<bool>(
+        () => _remote.edit(messageId, content),
+      )).map((_) => unit);
+  @override
+  Future<Either<Failure, Unit>> delete(String messageId) async =>
+      (await execute<bool>(() => _remote.delete(messageId))).map((_) => unit);
 }

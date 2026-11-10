@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,9 @@ import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_images.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/providers/messaging/message_provider.dart';
+import '../../../core/providers/messaging/draft_provider.dart';
+import '../../../core/providers/auth/auth_provider.dart';
+import '../../../core/services/message_events_service.dart';
 import '../../../core/providers/realtime/realtime_provider.dart';
 import '../../../core/providers/messaging/support_provider.dart';
 import '../../../domain/entity/messaging/message_entity.dart';
@@ -36,9 +41,13 @@ class ConversationDetailScreen extends ConsumerStatefulWidget {
     super.key,
     required this.conversationId,
     this.contactName,
+    this.embedded = false,
+    this.onBack,
   });
 
   final String conversationId;
+  final bool embedded;
+  final VoidCallback? onBack;
 
   /// Passé par la liste pour afficher le bon nom dès le premier frame, sans
   /// attendre une résolution asynchrone.
@@ -57,10 +66,17 @@ class ConversationDetailScreen extends ConsumerStatefulWidget {
 const Object _unset = Object();
 
 class _ConversationDetailScreenState
-    extends ConsumerState<ConversationDetailScreen> {
+    extends ConsumerState<ConversationDetailScreen>
+    with WidgetsBindingObserver {
+  late final MessageEventsService _events;
+  late final VisibleConversation _visibleConversation;
+
   @override
   void initState() {
     super.initState();
+    _events = ref.read(messageEventsProvider);
+    _visibleConversation = ref.read(visibleConversationProvider.notifier);
+    WidgetsBinding.instance.addObserver(this);
     // Déclare le fil affiché : un message arrivé sous les yeux de
     // l'utilisateur ne doit pas déclencher de notification.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -74,31 +90,49 @@ class _ConversationDetailScreenState
     // `ref` reste lisible pendant `dispose` pour un ConsumerState, mais le
     // provider peut déjà être détruit à la fermeture de l'application.
     try {
-      ref.read(visibleConversationProvider.notifier).set(null);
+      _visibleConversation.set(null);
     } catch (_) {}
+    WidgetsBinding.instance.removeObserver(this);
+    _scroll.dispose();
+    _editController.dispose();
     super.dispose();
   }
 
-  /// L'accusé de lecture n'est envoyé qu'une fois, après le premier chargement.
-  ///
-  /// Le déclencher à l'ouverture le lançait **avant** que le fil ne soit
-  /// construit — et sur une conversation dont on n'est pas participant, cet
-  /// appel échoue de toute façon. On attend donc d'avoir des messages, ce qui
-  /// prouve que l'accès est acquis.
-  bool _readAcknowledged = false;
+  final ScrollController _scroll = ScrollController();
+  bool _readScheduled = false;
 
-  /// Réactions posées depuis cet appareil.
-  ///
-  /// Conservées à part tant que `POST /messages/{id}/reactions` n'est pas
-  /// branché : elles se superposent aux messages du serveur, et disparaîtront
-  /// au rechargement — ce qui vaut mieux qu'un emoji qui ne part jamais.
-  final Map<String, String?> _localReactions = {};
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _scheduleRead();
+  }
+
+  void _scheduleRead() {
+    if (_readScheduled) return;
+    _readScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _readScheduled = false;
+      if (!mounted) return;
+      if (WidgetsBinding.instance.lifecycleState != null &&
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        return;
+      }
+      if (_scroll.hasClients &&
+          _scroll.position.pixels - _scroll.position.minScrollExtent > 80) {
+        return;
+      }
+      unawaited(
+        ref.read(threadProvider(widget.conversationId).notifier).markRead(),
+      );
+    });
+  }
 
   /// Message auquel la saisie en cours répond, le cas échéant.
   ChatReplyPreview? _replyTo;
 
   /// Bascule le composer vers la barre d'enregistrement.
   bool _recording = false;
+  ChatMessageData? _editing;
+  final TextEditingController _editController = TextEditingController();
 
   /// Une clé par message, pour pouvoir défiler jusqu'à lui.
   ///
@@ -127,8 +161,12 @@ class _ConversationDetailScreenState
   /// Les fixtures sont génériques ; en production, cette information viendra de
   /// l'entité message.
   ChatMessageData _withSender(ChatMessageData message) {
-    if (message.isMine || message.senderName != null) return message;
-    return _copy(message, senderName: _conversation.name);
+    if (message.senderName != null) return message;
+    final me = ref.read(currentUserProvider);
+    return _copy(
+      message,
+      senderName: message.isMine ? (me?.displayName ?? 'Vous') : 'Utilisateur',
+    );
   }
 
   /// Copie d'un message, un champ à la fois.
@@ -164,8 +202,16 @@ class _ConversationDetailScreenState
   /// Purement locale pour l'instant : `POST /messages/{id}/reactions` existe
   /// mais n'est pas branché, et une réaction qui ne part pas doit au moins ne
   /// pas survivre au rechargement.
-  void _react(ChatMessageData message, String? emoji) {
-    setState(() => _localReactions[message.id] = emoji);
+  Future<void> _react(ChatMessageData message, String? emoji) async {
+    final value = emoji ?? message.reaction;
+    if (value == null) return;
+    final ok = await ref
+        .read(threadProvider(widget.conversationId).notifier)
+        .react(message.id, value);
+    if (!mounted || ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Réaction non envoyée. Réessayez.')),
+    );
   }
 
   /// Prépare une réponse au message glissé.
@@ -239,7 +285,7 @@ class _ConversationDetailScreenState
 
     if (!mounted || ok) return;
 
-    setState(() => _replyTo = reply);
+    if (_replyTo == null) setState(() => _replyTo = reply);
     ref
         .read(platformUiProvider)
         .overlays
@@ -265,59 +311,12 @@ class _ConversationDetailScreenState
     return entry.assigneeName ?? 'un membre de l’équipe';
   }
 
-  /// Rejoint le dossier, puis ouvre le fil.
-  ///
-  /// L'assignation porte sur le **ticket**, alors que l'écran ne connaît que la
-  /// conversation : le rapprochement se fait par la file, seule à porter les
-  /// deux identifiants.
-  Future<void> _claim() async {
-    final queue = ref.read(supportQueueProvider).value ?? const [];
-    final entry = queue
-        .where((e) => e.conversationId == widget.conversationId)
-        .firstOrNull;
-    final ticketId = entry?.ticketId;
-
-    if (ticketId == null) {
-      if (!mounted) return;
-      ref
-          .read(platformUiProvider)
-          .overlays
-          .notify(
-            context: context,
-            message: 'Dossier introuvable dans la file. Rechargez la liste.',
-            isError: true,
-          );
-      return;
-    }
-
-    final me = ref.read(currentUserIdProvider);
-    if (me == null) return;
-
-    final ok = await ref
-        .read(supportQueueProvider.notifier)
-        .join(ticketId: ticketId, agentId: me);
+  void _typingChanged(bool active) {
     if (!mounted) return;
-
-    if (ok) {
-      await ref.read(threadProvider(widget.conversationId).notifier).refresh();
-      return;
-    }
-
-    // Notification de la plateforme plutôt qu'un bandeau maison : posé
-    // au-dessus du composer, celui-ci passait derrière lui et l'échec semblait
-    // n'avoir aucun effet.
-    if (!mounted) return;
-    ref
-        .read(platformUiProvider)
-        .overlays
-        .notify(
-          context: context,
-          message: 'Impossible de rejoindre la discussion. Réessayez.',
-          isError: true,
-        );
+    unawaited(_events.setTyping(widget.conversationId, isTyping: active));
   }
 
-  Future<void> _send(String text) async {
+  Future<bool> _send(String text) async {
     final reply = _replyTo;
     setState(() => _replyTo = null);
 
@@ -325,13 +324,14 @@ class _ConversationDetailScreenState
         .read(threadProvider(widget.conversationId).notifier)
         .send(text, replyTo: reply?.messageId);
 
-    if (!mounted || sent) return;
+    if (!mounted || sent) return sent;
     // L'envoi a échoué : la citation est rendue à l'utilisateur plutôt que
     // perdue, et le message reste dans le champ de saisie.
-    setState(() => _replyTo = reply);
+    if (_replyTo == null) setState(() => _replyTo = reply);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Message non envoyé. Réessayez.')),
     );
+    return false;
   }
 
   /// Actions du menu d'en-tête.
@@ -346,10 +346,10 @@ class _ConversationDetailScreenState
         .pickOption(
           context: context,
           title: name,
-          labels: const ['Marquer comme non lu', 'Actualiser la discussion'],
+          labels: const ['Actualiser la discussion'],
         );
     if (choice == null || !context.mounted) return;
-    if (choice == 1) {
+    if (choice == 0) {
       await ref.read(threadProvider(widget.conversationId).notifier).refresh();
     }
   }
@@ -368,7 +368,7 @@ class _ConversationDetailScreenState
         label: 'Répondre',
         icon: Iconsax.undo,
         sfSymbol: 'arrowshape.turn.up.left',
-        onPressed: () {},
+        onPressed: () => _startReply(message),
       ),
       PlatformMenuAction(
         label: 'Copier',
@@ -378,18 +378,15 @@ class _ConversationDetailScreenState
           Clipboard.setData(ClipboardData(text: message.text));
         },
       ),
-      PlatformMenuAction(
-        label: 'Transférer',
-        icon: Iconsax.send_2,
-        sfSymbol: 'arrowshape.turn.up.right',
-        onPressed: () {},
-      ),
-      if (message.isMine)
+      if (message.isMine && !message.isVoice && !message.hasAttachments)
         PlatformMenuAction(
           label: 'Modifier',
           icon: Iconsax.edit_2,
           sfSymbol: 'pencil',
-          onPressed: () {},
+          onPressed: () {
+            _editController.text = message.text;
+            setState(() => _editing = message);
+          },
         ),
       if (message.isMine)
         PlatformMenuAction(
@@ -397,28 +394,64 @@ class _ConversationDetailScreenState
           icon: Iconsax.trash,
           sfSymbol: 'trash',
           isDestructive: true,
-          onPressed: () {},
+          onPressed: () => _deleteMessage(message),
         ),
     ];
+  }
+
+  Future<void> _deleteMessage(ChatMessageData message) async {
+    final accepted = await ref
+        .read(platformUiProvider)
+        .overlays
+        .confirm(
+          context: context,
+          title: 'Supprimer le message ?',
+          message: 'Cette action supprime le contenu du message.',
+          confirmLabel: 'Supprimer',
+          cancelLabel: 'Annuler',
+          isDestructive: true,
+        );
+    if (accepted != true || !mounted) return;
+    final ok = await ref
+        .read(threadProvider(widget.conversationId).notifier)
+        .delete(message.id);
+    if (!mounted || ok) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Suppression impossible.')));
+  }
+
+  Future<void> _submitEdit() async {
+    final editing = _editing;
+    final text = _editController.text.trim();
+    if (editing == null || text.isEmpty) return;
+    final ok = await ref
+        .read(threadProvider(widget.conversationId).notifier)
+        .edit(editing.id, text);
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _editing = null);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Modification impossible. Le texte est conservé.'),
+        ),
+      );
+    }
   }
 
   /// Le fil projeté pour l'affichage, réactions locales appliquées.
   List<ChatMessageData> _visibleMessages(List<MessageEntity> source) {
     final me = ref.read(currentUserIdProvider);
     return [
-      for (final m in source)
-        () {
-          final data = ChatMessageData.fromMessage(m, currentUserId: me);
-          final local = _localReactions[m.id];
-          return _localReactions.containsKey(m.id)
-              ? _copy(data, reaction: local)
-              : data;
-        }(),
+      for (final message in source)
+        ChatMessageData.fromMessage(message, currentUserId: me),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
+    final draft = ref.watch(messageDraftProvider(widget.conversationId));
     final platformUi = ref.watch(platformUiProvider);
     final isApple = platformUi.platform.isApple;
     final theme = Theme.of(context);
@@ -431,15 +464,15 @@ class _ConversationDetailScreenState
       thread is ThreadMessages ? thread.messages : const [],
     );
 
-    if (thread is ThreadMessages && !_readAcknowledged) {
-      _readAcknowledged = true;
-      // Après la frame : `markRead` modifie l'état d'un provider, ce qu'on ne
-      // fait pas pendant la construction d'un widget.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ref.read(threadProvider(widget.conversationId).notifier).markRead();
-      });
-    }
+    if (thread is ThreadMessages) _scheduleRead();
+    final typing =
+        ref.watch(typingUsersProvider(widget.conversationId)).value ??
+        const <String, String>{};
+    final present =
+        ref.watch(conversationPresenceProvider(widget.conversationId)).value ??
+        const <String, Map<String, dynamic>>{};
+    final me = ref.watch(currentUserIdProvider);
+    final peerPresent = present.keys.any((id) => id != me);
 
     // En-tête construit dans le corps, sans barre de navigation.
     //
@@ -457,7 +490,7 @@ class _ConversationDetailScreenState
         children: [
           _ConversationHeader(
             conversation: conversation,
-            onBack: () => context.pop(),
+            onBack: widget.embedded ? widget.onBack : () => context.pop(),
             onMore: () => _openCallOptions(context, conversation.name),
             isApple: isApple,
           ),
@@ -501,26 +534,79 @@ class _ConversationDetailScreenState
                     onRetry: () => ref
                         .read(threadProvider(widget.conversationId).notifier)
                         .refresh(),
-                    onClaim: _claim,
                   )
                 else
-                  StickyDateList(
-                    now: DateTime.now(),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: DesignTokens.spaceM,
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (_) {
+                      _scheduleRead();
+                      return false;
+                    },
+                    child: StickyDateList(
+                      controller: _scroll,
+                      now: DateTime.now(),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: DesignTokens.spaceM,
+                      ),
+                      messages: [
+                        for (var i = 0; i < messages.length; i++)
+                          DatedMessage(
+                            sentAt: messages[i].sentAt ?? DateTime.now(),
+                            child: _buildBubble(
+                              context,
+                              platformUi,
+                              messages,
+                              i,
+                            ),
+                          ),
+                      ],
                     ),
-                    messages: [
-                      for (var i = 0; i < messages.length; i++)
-                        DatedMessage(
-                          sentAt: messages[i].sentAt ?? DateTime.now(),
-                          child: _buildBubble(context, platformUi, messages, i),
-                        ),
-                    ],
                   ),
               ],
             ),
           ),
-          if (_recording)
+          if ((thread is ThreadMessages && thread.syncError != null) ||
+              (async.hasError && async.hasValue))
+            const Text(
+              'Actualisation impossible. Les messages affichés sont conservés.',
+            ),
+          if (peerPresent) const Text('Présent dans cette discussion'),
+          if (typing.isNotEmpty) Text('${typing.values.join(', ')} écrit…'),
+          if (ref.read(threadProvider(widget.conversationId).notifier).hasMore)
+            TextButton(
+              onPressed: () => ref
+                  .read(threadProvider(widget.conversationId).notifier)
+                  .loadOlder(),
+              child: const Text('Charger les messages précédents'),
+            ),
+          if (_editing != null)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _editController,
+                      maxLines: 3,
+                      minLines: 1,
+                      decoration: const InputDecoration(
+                        labelText: 'Modifier le message',
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Annuler',
+                    onPressed: () => setState(() => _editing = null),
+                    icon: const Icon(Icons.close),
+                  ),
+                  IconButton(
+                    tooltip: 'Enregistrer',
+                    onPressed: _submitEdit,
+                    icon: const Icon(Icons.check),
+                  ),
+                ],
+              ),
+            )
+          else if (_recording)
             VoiceRecorderBar(
               onSend: _sendVoice,
               onCancel: () => setState(() => _recording = false),
@@ -528,6 +614,11 @@ class _ConversationDetailScreenState
           else
             MessageComposer(
               onSend: _send,
+              initialText: draft,
+              onDraftChanged: (text) => ref
+                  .read(messageDraftProvider(widget.conversationId).notifier)
+                  .set(text),
+              onTyping: _typingChanged,
               onPickImages: _sendImages,
               placeholder: 'Écrire un message…',
               replyTo: _replyTo,
@@ -553,6 +644,26 @@ class _ConversationDetailScreenState
   ) {
     final message = _withSender(messages[index]);
 
+    final entity = switch (ref
+        .read(threadProvider(widget.conversationId))
+        .value) {
+      ThreadMessages(:final messages) =>
+        messages.where((m) => m.id == message.id).firstOrNull,
+      _ => null,
+    };
+    if (entity?.type == MessageType.system) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Center(
+          child: Text(
+            message.text,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ),
+      );
+    }
+
     final position = _groupPosition(messages, index);
     final key = _messageKeys.putIfAbsent(message.id, GlobalKey.new);
 
@@ -566,6 +677,10 @@ class _ConversationDetailScreenState
       isFirstOfGroup: position.isFirst,
       isLastOfGroup: position.isLast,
       showStatus: index == _lastSentOf(messages),
+      showAuthorAlways: true,
+      refreshVoiceSource: () => ref
+          .read(threadProvider(widget.conversationId).notifier)
+          .refreshVoiceSource(message.id),
       onTapQuote: _scrollToMessage,
       onOpenGallery: _openGallery,
     );
@@ -577,7 +692,33 @@ class _ConversationDetailScreenState
 
     // L'indicateur de saisie n'est pas un message : rien à citer, à copier ni
     // sur quoi réagir.
-    if (message.isTyping) return keyed;
+    if (message.isTyping || message.status == MessageStatus.sending) {
+      return keyed;
+    }
+    if (message.status == MessageStatus.failed) {
+      return Column(
+        children: [
+          keyed,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => ref
+                    .read(threadProvider(widget.conversationId).notifier)
+                    .retryAttachment(message.id),
+                child: const Text('Réessayer'),
+              ),
+              TextButton(
+                onPressed: () => ref
+                    .read(threadProvider(widget.conversationId).notifier)
+                    .discardAttachment(message.id),
+                child: const Text('Supprimer'),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
 
     return SwipeToReply(
       onReply: () => _startReply(message),
@@ -589,6 +730,7 @@ class _ConversationDetailScreenState
             message: message,
             isFirstOfGroup: position.isFirst,
             isLastOfGroup: position.isLast,
+            showAuthorAlways: true,
           ),
           alignEnd: message.isMine,
           selectedReaction: message.reaction,
@@ -657,7 +799,7 @@ class _ConversationHeader extends StatelessWidget {
   });
 
   final ConversationListItemData conversation;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
   final VoidCallback onMore;
   final bool isApple;
 
@@ -688,25 +830,29 @@ class _ConversationHeader extends StatelessWidget {
       // donne pour que le nom s'y ellipse.
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onBack,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              // Marge à droite du chevron : seul, il fait 26 px, très en deçà de
-              // la cible de 44 pt attendue sur iOS.
-              padding: const EdgeInsets.only(right: DesignTokens.spaceXs),
-              child: Icon(
-                CupertinoIcons.chevron_back,
-                size: 24,
-                color: theme.colorScheme.primary,
+          if (onBack != null)
+            GestureDetector(
+              onTap: onBack,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                // Marge à droite du chevron : seul, il fait 26 px, très en deçà de
+                // la cible de 44 pt attendue sur iOS.
+                padding: const EdgeInsets.only(right: DesignTokens.spaceXs),
+                child: Icon(
+                  CupertinoIcons.chevron_back,
+                  size: 24,
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ),
-          ),
           PresenceAvatar(
             name: conversation.name,
             avatarUrl: conversation.avatarUrl,
             presence: conversation.presence,
-            size: 30,
+            // 38 et non 30 : en dessous, la pastille ne tient plus son rang face
+            // au nom en `headline` (17 pt gras) et l'en-tête paraît déséquilibré.
+            // C'est aussi l'ordre de grandeur retenu par Messages et WhatsApp.
+            size: 38,
           ),
           const SizedBox(width: DesignTokens.spaceS),
           // `Expanded` et non `Flexible` : le second laisse le nom à sa largeur
@@ -778,12 +924,7 @@ class _Highlightable extends StatelessWidget {
 /// dossier n'est pas participant de la conversation, et l'API le lui refuse.
 /// Lui montrer « erreur réseau » l'enverrait chercher un problème inexistant.
 class _ThreadError extends StatelessWidget {
-  const _ThreadError({
-    required this.error,
-    required this.onRetry,
-    required this.onClaim,
-    this.heldBy,
-  });
+  const _ThreadError({required this.error, required this.onRetry, this.heldBy});
 
   /// Agent qui détient déjà le dossier. Nul s'il est libre.
   final String? heldBy;
@@ -793,7 +934,6 @@ class _ThreadError extends StatelessWidget {
   final VoidCallback onRetry;
 
   /// Se saisir du dossier — la seule action qui débloque un fil inaccessible.
-  final VoidCallback onClaim;
 
   @override
   Widget build(BuildContext context) {
@@ -826,11 +966,8 @@ class _ThreadError extends StatelessWidget {
               !isNotParticipant
                   ? error.toString().replaceFirst('Exception: ', '')
                   : heldBy != null
-                  ? 'Rejoignez la discussion pour en lire les messages et '
-                        'répondre au client. Vous y travaillerez à plusieurs.'
-                  : 'Personne de l’équipe ne s’est encore saisi de cette '
-                        'demande. Rejoignez-la pour lire les messages et '
-                        'répondre au client.',
+                  ? 'Votre premier envoi reprendra cette discussion.'
+                  : 'Votre premier envoi prendra en charge cette discussion.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium
                   ?.merge(AppleType.subheadline)
@@ -839,10 +976,7 @@ class _ThreadError extends StatelessWidget {
                   ),
             ),
             const SizedBox(height: DesignTokens.spaceL),
-            FilledButton(
-              onPressed: isNotParticipant ? onClaim : onRetry,
-              child: Text(isNotParticipant ? 'Prendre en charge' : 'Réessayer'),
-            ),
+            FilledButton(onPressed: onRetry, child: const Text('Réessayer')),
           ],
         ),
       ),

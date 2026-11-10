@@ -7,6 +7,7 @@ abstract interface class MessageDataSourceContract {
     required String conversationId,
     int page,
     int limit,
+    String? before,
   });
 
   Future<ApiResult<MessageModel>> sendMessage({
@@ -18,5 +19,15 @@ abstract interface class MessageDataSourceContract {
   });
 
   /// Signale que le fil a été lu jusqu'au bout.
-  Future<ApiResult<bool>> markRead(String conversationId);
+  Future<ApiResult<bool>> markRead(
+    String conversationId, {
+    List<String>? messageIds,
+  });
+  Future<ApiResult<bool>> markDelivered(
+    String conversationId, {
+    required List<String> messageIds,
+  });
+  Future<ApiResult<bool>> react(String messageId, String emoji);
+  Future<ApiResult<bool>> edit(String messageId, String content);
+  Future<ApiResult<bool>> delete(String messageId);
 }

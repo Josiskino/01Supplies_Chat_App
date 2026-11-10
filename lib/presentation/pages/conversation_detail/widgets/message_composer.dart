@@ -23,9 +23,15 @@ class MessageComposer extends ConsumerStatefulWidget {
     this.onCancelReply,
     this.onRecordVoice,
     this.onPickImages,
+    this.onTyping,
+    this.initialText = '',
+    this.onDraftChanged,
   });
 
-  final ValueChanged<String>? onSend;
+  final Future<bool> Function(String)? onSend;
+  final ValueChanged<bool>? onTyping;
+  final String initialText;
+  final ValueChanged<String>? onDraftChanged;
   final String? placeholder;
 
   /// Message cité au-dessus du champ, quand une réponse est en cours.
@@ -54,24 +60,47 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   bool _hasText = false;
+  bool _sending = false;
 
   @override
   void initState() {
     super.initState();
     // Écouter le contrôleur plutôt que `onChanged` : la bascule micro/envoi doit
     // aussi suivre un collage ou un effacement programmatique.
+    _controller.text = widget.initialText;
+    _hasText = widget.initialText.trim().isNotEmpty;
     _controller.addListener(_onTextChanged);
   }
 
   void _onTextChanged() {
     final hasText = _controller.text.trim().isNotEmpty;
+    widget.onTyping?.call(hasText);
+    widget.onDraftChanged?.call(_controller.text);
     if (hasText != _hasText) {
       setState(() => _hasText = hasText);
     }
   }
 
   @override
+  void didUpdateWidget(covariant MessageComposer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialText != widget.initialText &&
+        _controller.text != widget.initialText) {
+      // External restoration is already represented in provider state. Do not
+      // echo it back into Riverpod while this widget is being rebuilt.
+      _controller.removeListener(_onTextChanged);
+      _controller.value = TextEditingValue(
+        text: widget.initialText,
+        selection: TextSelection.collapsed(offset: widget.initialText.length),
+      );
+      _hasText = widget.initialText.trim().isNotEmpty;
+      _controller.addListener(_onTextChanged);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.onTyping?.call(false);
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
@@ -84,14 +113,17 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   /// feuille Cupertino : le composer sert les deux plateformes, et c'est au
   /// contrat de décider de la présentation.
   Future<void> _openAttachments(BuildContext context) async {
-    final overlays = ref.read(platformUiProvider).overlays;
+    final ui = ref.read(platformUiProvider);
+    final overlays = ui.overlays;
     // Seules les deux premières entrées sont branchées : proposer « Document »
     // ou « Position » sans les servir ferait chercher une panne là où il n'y a
     // qu'une fonctionnalité absente.
     final choice = await overlays.pickOption(
       context: context,
       title: 'Joindre',
-      labels: const ['Photothèque', 'Prendre une photo'],
+      labels: ui.platform.isMobile
+          ? const ['Photothèque', 'Prendre une photo']
+          : const ['Choisir des images'],
     );
     if (choice == null || !context.mounted) return;
 
@@ -108,7 +140,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
               ),
             ];
 
-      if (files.isEmpty) return;
+      if (!mounted || files.isEmpty) return;
       widget.onPickImages?.call(files.map((f) => f.path).toList());
     } catch (e) {
       if (!context.mounted) return;
@@ -120,14 +152,23 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     }
   }
 
-  void _send() {
+  Future<void> _send() async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    widget.onSend?.call(text);
-    _controller.clear();
-    // Le focus est conservé : sur mobile, le clavier ne doit pas se refermer
-    // entre deux messages.
-    _focusNode.requestFocus();
+    final send = widget.onSend;
+    if (text.isEmpty || _sending || send == null) return;
+    final submitted = _controller.text;
+    setState(() => _sending = true);
+    try {
+      final accepted = await send(text);
+      if (!mounted) return;
+      // A draft edited while this send was pending belongs to the next message.
+      if (accepted && _controller.text == submitted) _controller.clear();
+      _focusNode.requestFocus();
+    } catch (_) {
+      // The originating screen reports failures; retain the draft here.
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override

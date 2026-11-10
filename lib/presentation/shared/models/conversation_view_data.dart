@@ -1,3 +1,4 @@
+import '../../../core/utils/demo_data.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../domain/entity/auth/user_entity.dart';
@@ -32,6 +33,7 @@ class ConversationListItemData {
     required this.preview,
     required this.timeLabel,
     this.avatarUrl,
+    this.kindLabel,
     this.presence = PresenceStatus.offline,
     this.hasUnread = false,
     this.unreadCount = 0,
@@ -49,6 +51,7 @@ class ConversationListItemData {
   final String timeLabel;
 
   final String? avatarUrl;
+  final String? kindLabel;
   final PresenceStatus presence;
   final bool hasUnread;
   final int unreadCount;
@@ -67,6 +70,9 @@ class ConversationListItemData {
       // L'identifiant de **conversation**, pas celui du ticket : c'est lui qui
       // ouvre le fil et sert de canal temps réel.
       id: entry.conversationId,
+      kindLabel: entry.isSupport || entry.ticketId != null
+          ? 'Support'
+          : 'Direct',
       name: entry.title,
       preview: entry.preview,
       timeLabel: timeLabel,
@@ -175,9 +181,12 @@ class ChatMessageData {
   /// [currentUserId] décide du côté de la bulle. Comparé à l'identifiant et non
   /// au nom : plusieurs admins répondent dans le même fil, et deux homonymes
   /// enverraient leurs messages du mauvais côté.
+  /// [peerName] n'est lu qu'en mode captures : voir [DemoData]. Il porte le nom
+  /// d'exemple de l'interlocuteur, pour que le fil et son en-tête concordent.
   factory ChatMessageData.fromMessage(
     MessageEntity message, {
     required String? currentUserId,
+    String? peerName,
   }) {
     // Les clients envoient leurs images avec le nom du fichier pour contenu :
     // l'afficher en légende donne « scaled_1002322126.jpg » sous la photo, ce
@@ -189,20 +198,26 @@ class ChatMessageData {
           caseSensitive: false,
         ).hasMatch(message.content.trim());
 
+    final isMine = message.isMine(currentUserId);
+
     return ChatMessageData(
       id: message.id,
       text: looksLikeFileName ? '' : message.content,
       timeLabel: ChatDateFormatter.timeLabel(message.sentAt),
-      isMine: message.isMine(currentUserId),
+      isMine: isMine,
       sentAt: message.sentAt,
-      senderName: message.authorName.isEmpty ? null : message.authorName,
-      avatarUrl: message.sender?.avatarUrl,
+      senderName: DemoData.enabled
+          ? (isMine ? null : peerName)
+          : (message.authorName.isEmpty ? null : message.authorName),
+      avatarUrl: DemoData.enabled ? null : message.sender?.avatarUrl,
       reaction: message.reaction,
       replyTo: message.replyToId == null
           ? null
           : ChatReplyPreview(
               messageId: message.replyToId!,
-              author: message.replyToAuthor ?? '',
+              author: DemoData.enabled
+                  ? (isMine ? (peerName ?? '') : DemoData.agentName)
+                  : (message.replyToAuthor ?? ''),
               text: message.replyToContent ?? '',
             ),
       attachments: message.type == MessageType.audio
@@ -215,9 +230,15 @@ class ChatMessageData {
       // s'affiche avec un tracé neutre, et la durée réelle apparaîtra à la
       // lecture. Mieux vaut cela qu'un message invisible.
       voice: message.type == MessageType.audio
-          ? const VoiceNoteData(duration: Duration.zero, waveform: _flatWave)
+          ? VoiceNoteData(
+              duration: Duration.zero,
+              waveform: _flatWave,
+              source: message.attachments.firstOrNull,
+            )
           : null,
-      status: message.isPending
+      status: message.isFailed
+          ? MessageStatus.failed
+          : message.isPending
           ? MessageStatus.sending
           : switch (message.delivery) {
               MessageDelivery.sent => MessageStatus.sent,
@@ -279,7 +300,14 @@ class ChatReplyPreview {
 
 /// Note vocale.
 class VoiceNoteData {
-  const VoiceNoteData({required this.duration, required this.waveform});
+  const VoiceNoteData({
+    required this.duration,
+    required this.waveform,
+    this.source,
+  });
+
+  /// Remote signed URL or an outgoing local temporary recording.
+  final String? source;
 
   final Duration duration;
 

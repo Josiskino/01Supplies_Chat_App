@@ -51,7 +51,7 @@ class MyApp extends ConsumerWidget {
       // pendant qu'on consulte les réglages, et c'est là qu'il faut le
       // signaler. Rattaché à un écran, il ne verrait rien le reste du temps.
       builder: (context, child) =>
-          IncomingMessageListener(child: child ?? const SizedBox.shrink()),
+          MessagingApplicationLayer(child: child ?? const SizedBox.shrink()),
       material: (context, platform) =>
           const MaterialAppData(debugShowCheckedModeBanner: false),
       cupertino: (context, platform) =>

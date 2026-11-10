@@ -13,6 +13,12 @@ class MediaRepositoryImpl extends BaseRepository implements MediaRepository {
   final MediaDataSourceContract _remote;
 
   @override
+  Future<Either<Failure, MediaUploadEntity>> getById(String mediaId) async {
+    final result = await execute<MediaUploadModel>(() => _remote.getById(mediaId));
+    return result.map((model) => model.toEntity());
+  }
+
+  @override
   Future<Either<Failure, MediaUploadEntity>> upload(
     UploadMediaParams params,
   ) async {

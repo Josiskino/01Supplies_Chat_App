@@ -202,3 +202,180 @@ final class IncomingMessageProvider
 }
 
 String _$incomingMessageHash() => r'2ba5dae10a17b3ad20c7921cce6f04bd9dee11f8';
+
+/// Participants currently typing in this conversation, expired by the service.
+
+@ProviderFor(typingUsers)
+final typingUsersProvider = TypingUsersFamily._();
+
+/// Participants currently typing in this conversation, expired by the service.
+
+final class TypingUsersProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<Map<String, String>>,
+          Map<String, String>,
+          Stream<Map<String, String>>
+        >
+    with
+        $FutureModifier<Map<String, String>>,
+        $StreamProvider<Map<String, String>> {
+  /// Participants currently typing in this conversation, expired by the service.
+  TypingUsersProvider._({
+    required TypingUsersFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'typingUsersProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$typingUsersHash();
+
+  @override
+  String toString() {
+    return r'typingUsersProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<Map<String, String>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<Map<String, String>> create(Ref ref) {
+    final argument = this.argument as String;
+    return typingUsers(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is TypingUsersProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$typingUsersHash() => r'c3e0fc1e0d8cd43d767131c264156d210365ae29';
+
+/// Participants currently typing in this conversation, expired by the service.
+
+final class TypingUsersFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<Map<String, String>>, String> {
+  TypingUsersFamily._()
+    : super(
+        retry: null,
+        name: r'typingUsersProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Participants currently typing in this conversation, expired by the service.
+
+  TypingUsersProvider call(String conversationId) =>
+      TypingUsersProvider._(argument: conversationId, from: this);
+
+  @override
+  String toString() => r'typingUsersProvider';
+}
+
+/// Members with this conversation open; this is not global online presence.
+
+@ProviderFor(conversationPresence)
+final conversationPresenceProvider = ConversationPresenceFamily._();
+
+/// Members with this conversation open; this is not global online presence.
+
+final class ConversationPresenceProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<Map<String, Map<String, dynamic>>>,
+          Map<String, Map<String, dynamic>>,
+          Stream<Map<String, Map<String, dynamic>>>
+        >
+    with
+        $FutureModifier<Map<String, Map<String, dynamic>>>,
+        $StreamProvider<Map<String, Map<String, dynamic>>> {
+  /// Members with this conversation open; this is not global online presence.
+  ConversationPresenceProvider._({
+    required ConversationPresenceFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'conversationPresenceProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$conversationPresenceHash();
+
+  @override
+  String toString() {
+    return r'conversationPresenceProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<Map<String, Map<String, dynamic>>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<Map<String, Map<String, dynamic>>> create(Ref ref) {
+    final argument = this.argument as String;
+    return conversationPresence(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ConversationPresenceProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$conversationPresenceHash() =>
+    r'541646ad6ccc0a1cee0eb98b60cd3c8d4381274f';
+
+/// Members with this conversation open; this is not global online presence.
+
+final class ConversationPresenceFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          Stream<Map<String, Map<String, dynamic>>>,
+          String
+        > {
+  ConversationPresenceFamily._()
+    : super(
+        retry: null,
+        name: r'conversationPresenceProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Members with this conversation open; this is not global online presence.
+
+  ConversationPresenceProvider call(String conversationId) =>
+      ConversationPresenceProvider._(argument: conversationId, from: this);
+
+  @override
+  String toString() => r'conversationPresenceProvider';
+}

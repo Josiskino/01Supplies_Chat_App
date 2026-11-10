@@ -37,3 +37,32 @@ class VisibleConversation extends _$VisibleConversation {
 @riverpod
 Stream<IncomingMessage> incomingMessage(Ref ref) =>
     ref.watch(messageEventsProvider).incomingMessages;
+
+/// Participants currently typing in this conversation, expired by the service.
+@riverpod
+Stream<Map<String, String>> typingUsers(Ref ref, String conversationId) {
+  final service = ref.watch(messageEventsProvider);
+  return Stream.multi((controller) {
+    controller.add(service.typingSnapshot(conversationId));
+    final subscription = service.typingChanges.listen((event) {
+      if (event.conversationId == conversationId) controller.add(event.users);
+    }, onError: controller.addError);
+    controller.onCancel = subscription.cancel;
+  });
+}
+
+/// Members with this conversation open; this is not global online presence.
+@riverpod
+Stream<Map<String, Map<String, dynamic>>> conversationPresence(
+  Ref ref,
+  String conversationId,
+) {
+  final service = ref.watch(messageEventsProvider);
+  return Stream.multi((controller) {
+    controller.add(service.presenceSnapshot(conversationId));
+    final subscription = service.presenceChanges.listen((event) {
+      if (event.conversationId == conversationId) controller.add(event.members);
+    }, onError: controller.addError);
+    controller.onCancel = subscription.cancel;
+  });
+}

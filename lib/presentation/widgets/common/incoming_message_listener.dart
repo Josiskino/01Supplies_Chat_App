@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../config/router/app_router.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/providers/realtime/push_provider.dart';
 import '../../../core/providers/realtime/realtime_provider.dart';
 import '../../../core/services/message_events_service.dart';
+
+/// Provides message banners for both Material and Cupertino application roots.
+class MessagingApplicationLayer extends StatelessWidget {
+  const MessagingApplicationLayer({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      ScaffoldMessenger(child: IncomingMessageListener(child: child));
+}
 
 /// Signale les messages arrivés hors du fil affiché.
 ///
@@ -43,10 +54,12 @@ class _IncomingMessageListenerState
     ref.listen<AsyncValue<PushRoute>>(pushRouteProvider, (_, next) {
       final route = next.value;
       if (route == null || !mounted) return;
-      context.push(
-        AppUiRoute.conversationDetailPath(route.conversationId),
-        extra: {'contactName': route.title},
-      );
+      ref
+          .read(appRouterProvider)
+          .push(
+            AppUiRoute.conversationDetailPath(route.conversationId),
+            extra: {'contactName': route.title},
+          );
     });
 
     return widget.child;
@@ -84,10 +97,12 @@ class _IncomingMessageListenerState
           ),
           action: SnackBarAction(
             label: 'Ouvrir',
-            onPressed: () => context.push(
-              AppUiRoute.conversationDetailPath(message.conversationId),
-              extra: {'contactName': message.author},
-            ),
+            onPressed: () => ref
+                .read(appRouterProvider)
+                .push(
+                  AppUiRoute.conversationDetailPath(message.conversationId),
+                  extra: {'contactName': message.author},
+                ),
           ),
         ),
       );

@@ -35,5 +35,7 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Enregistrer une note vocale dans une discussion.</string>
 </dict>
 </plist>

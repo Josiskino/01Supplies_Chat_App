@@ -16,20 +16,13 @@ class SupportRemoteDataSource implements SupportDataSourceContract {
     int page = 1,
     int limit = 50,
   }) {
-    return _client.request<List<SupportTicketModel>>(
-      // La file commune, pas `/me` : un admin qui ne s'est encore saisi de rien
-      // verrait sinon une application vide alors que des clients attendent.
+    return _fetchPages<SupportTicketModel>(
       path: ApiEndpoints.supportQueue,
-      method: HttpMethod.get,
-      queryParameters: {'status': ?status, 'page': page, 'limit': limit},
-      dataKey: 'data',
-      // `ApiResponseHandler` réenveloppe toute liste dans `{data: …}` avant
-      // d'appeler ce parseur, dont le contrat est de recevoir une Map. La
-      // liste se relit donc sous cette clé, et non à la racine.
-      fromJson: (json) => (json['data'] as List? ?? const [])
-          .whereType<Map>()
-          .map((e) => SupportTicketModel.fromJson(e.cast<String, dynamic>()))
-          .toList(),
+      page: page,
+      limit: limit,
+      filters: {'status': ?status},
+      parse: SupportTicketModel.fromJson,
+      idOf: (ticket) => ticket.id,
     );
   }
 
@@ -37,17 +30,69 @@ class SupportRemoteDataSource implements SupportDataSourceContract {
   Future<ApiResult<List<ConversationModel>>> fetchConversations({
     int page = 1,
     int limit = 50,
-  }) {
-    return _client.request<List<ConversationModel>>(
-      path: ApiEndpoints.conversations,
-      method: HttpMethod.get,
-      queryParameters: {'page': page, 'limit': limit},
-      dataKey: 'data',
-      fromJson: (json) => (json['data'] as List? ?? const [])
-          .whereType<Map>()
-          .map((e) => ConversationModel.fromJson(e.cast<String, dynamic>()))
-          .toList(),
-    );
+  }) => _fetchPages<ConversationModel>(
+    path: ApiEndpoints.conversations,
+    page: page,
+    limit: limit,
+    parse: ConversationModel.fromJson,
+    idOf: (conversation) => conversation.id,
+  );
+
+  /// Complete snapshots are needed before merging independently paginated
+  /// sources. A failed or non-progressing page must never look complete.
+  Future<ApiResult<List<T>>> _fetchPages<T>({
+    required String path,
+    required int page,
+    required int limit,
+    required T Function(Map<String, dynamic>) parse,
+    required String Function(T) idOf,
+    Map<String, dynamic> filters = const {},
+  }) async {
+    if (page < 1 || limit < 1) {
+      return const ApiError(message: 'Pagination invalide.');
+    }
+    final items = <String, T>{};
+    var nextPage = page;
+    while (true) {
+      final result = await _client.request<List<T>>(
+        path: path,
+        method: HttpMethod.get,
+        queryParameters: {...filters, 'page': nextPage, 'limit': limit},
+        dataKey: 'data',
+        metadataConfigs: const [MetadataConfig('meta')],
+        fromJson: (json) => (json['data'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => parse(item.cast<String, dynamic>()))
+            .toList(),
+      );
+      if (result is ApiError<List<T>>) return result;
+      final success = result as ApiSuccess<List<T>>;
+      final before = items.length;
+      for (final item in success.data) {
+        final id = idOf(item);
+        if (id.isEmpty) {
+          return const ApiError(message: 'Réponse de pagination invalide.');
+        }
+        items[id] = item;
+      }
+      final meta = success.metadata['meta'];
+      final totalPages = meta is Map
+          ? (meta['totalPages'] as num?)?.toInt()
+          : null;
+      final finished = totalPages != null
+          ? nextPage >= totalPages
+          : success.data.length < limit;
+      if (finished) {
+        return ApiSuccess(
+          data: items.values.toList(),
+          statusCode: success.statusCode,
+        );
+      }
+      if (items.length == before || nextPage - page >= 1000) {
+        return const ApiError(message: 'Chargement incomplet. Réessayez.');
+      }
+      nextPage++;
+    }
   }
 
   @override
@@ -72,9 +117,8 @@ class SupportRemoteDataSource implements SupportDataSourceContract {
     required String agentId,
   }) {
     return _client.request<bool>(
-      path: ApiEndpoints.assignTicket(ticketId),
+      path: ApiEndpoints.claimTicket(ticketId),
       method: HttpMethod.post,
-      data: {'agentId': agentId},
       fromJson: (_) => true,
     );
   }

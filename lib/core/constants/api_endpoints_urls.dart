@@ -27,8 +27,8 @@ class ApiEndpoints {
   //  - `supportQueue` : **tous** les tickets de la plateforme, la file commune
   //    que les admins se répartissent. C'est ce que montre l'onglet
   //    Conversations.
-  //  - `myTickets` : ceux qui vous sont assignés. Vide tant qu'on ne s'est
-  //    saisi de rien — ce qui donne une app vide si on l'utilise pour la liste.
+  //  - `myTickets` : tickets créés par le compte authentifié (vue client),
+  //    et non tickets assignés à un agent.
   static const String supportQueue = 'messaging/support';
   static const String myTickets = 'messaging/support/me';
   static String claimTicket(String id) => 'messaging/support/$id/claim';

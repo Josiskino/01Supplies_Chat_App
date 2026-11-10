@@ -11,6 +11,7 @@ class ConversationEntity {
     required this.id,
     required this.updatedAt,
     this.supportTicketId,
+    this.type = 'direct',
     this.lastMessage,
     this.lastMessageType,
     this.lastSender,
@@ -20,6 +21,9 @@ class ConversationEntity {
   });
 
   final String id;
+  final String type;
+
+  bool get isSupport => type == 'support' || supportTicketId != null;
   final DateTime updatedAt;
 
   /// Ticket dont cette conversation est le fil, s'il y en a un.

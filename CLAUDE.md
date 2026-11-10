@@ -7,9 +7,9 @@ logistique, que Meta bloque régulièrement.
 **Quatre plateformes cibles : Android, iOS, Windows, macOS.** Linux et web restent
 en template `flutter create` et ne sont pas supportés.
 
-État actuel : **socle uniquement**. L'architecture, le thème, le routage, la
-coquille de navigation et les widgets partagés sont en place ; la feature
-messagerie reste à écrire.
+Current implementation: real messaging on mobile and desktop, with a unified
+Support/Direct inbox. Support ownership is exclusive; another agent takes over
+implicitly on an intentional first send, never merely by opening the thread.
 
 ---
 
@@ -23,7 +23,7 @@ Les configurations sont versionnées pour les deux éditeurs :
 
 ⚠️ `.vscode/settings.json` déclare `dart.flutterSdkPath: .fvm/flutter_sdk`. Sans
 ce réglage, l'éditeur analyse avec le Flutter global du poste (3.38.4) alors que
-le projet est piné sur 3.44.2 — d'où des erreurs qui n'apparaissent que dans
+le projet est piné sur 3.44.4 — d'où des erreurs qui n'apparaissent que dans
 l'éditeur, ou l'inverse.
 
 ⚠️ **Les flavors ne sont pas supportés par Flutter sur Windows ni Linux** :
@@ -37,7 +37,7 @@ reste indisponible : le plugin n'est pas enregistré hors iOS.
 
 ## Commandes
 
-FVM est obligatoire (`.fvmrc` pin **Flutter 3.44.2**). Préfixer toutes les
+FVM est obligatoire (`.fvmrc` pin **Flutter 3.44.4**). Préfixer toutes les
 commandes par `fvm`.
 
 ```bash
@@ -310,7 +310,61 @@ Chacun a déjà coûté un bug dans cette famille de projets.
     échoue en 409 alors que tout le reste réussit. Déclaré à
     `public.app-category.business` dans `macos/Runner/Info.plist`.
 
+13. **Icônes Iconsax sur des marques combinantes** — les variantes pleines du
+    pack occupent des codepoints arbitraires, dont certains tombent sur des
+    marques combinantes hébraïques ou arabes (`setting_25` = U+05BC dagesh,
+    `tick_circle5` = U+0610, `tick_square5` = U+0616…). HarfBuzz leur applique
+    alors un positionnement de marque : le glyphe sort décalé d'une demi-largeur
+    vers la droite, sans que rien ne le signale. Les variantes dont le codepoint
+    est une lettre (`message5`, `call5`, `people5`) se rendent normalement.
+    Avant d'adopter une icône pleine, vérifier sa catégorie Unicode :
+    `python3 -c "import unicodedata; print(unicodedata.category(chr(0x5bc)))"` —
+    tout ce qui commence par `M` est à écarter.
+
+14. **`AppBarTheme.titleTextStyle` remplace le style du titre**, il ne le
+    complète pas. N'y déclarer qu'une couleur laisse le titre retomber sur la
+    taille héritée du `DefaultTextStyle`, soit un titre minuscule sur Android et
+    desktop. Taille et graisse doivent être explicites — même piège que le n° 4.
+
 ---
+
+## Signature Android
+
+01 Chat a **sa propre clé d'upload**, distincte de celle des apps client et
+livreur. Ces trois apps ne partagent pas de clé : qui détient la clé partagée
+peut publier une mise à jour sur toutes les apps qu'elle signe, et rien ici ne
+justifie ce cumul.
+
+| | |
+|---|---|
+| Keystore | `android/app/upload-keystore.jks` (non versionné) |
+| Alias | `upload` |
+| Algorithme | RSA 4096, SHA384withRSA |
+| Validité | jusqu'au 13 janvier 2054 |
+| SHA-1 | `DC:9C:12:89:D3:17:48:7C:6C:AA:70:50:FD:3F:06:A8:53:43:9C:9D` |
+| Mots de passe | `android/key.properties` (non versionné) |
+
+⚠️ **Le `.jks` et le `key.properties` n'existent que sur le poste de
+développement.** Les perdre, c'est perdre la possibilité de publier une mise à
+jour : la clé d'upload d'une app déjà publiée ne se remplace qu'au prix d'une
+demande de réinitialisation auprès de Google. Les sauvegarder hors du poste.
+
+Avec Play App Signing, cette clé sert à **authentifier les envois** ; c'est
+Google qui resigne l'app avec sa propre clé avant distribution. Aucun SHA-1
+n'est déclaré dans `google-services.json` — l'app n'utilise ni Google Sign-In ni
+aucun service qui l'exigerait, donc changer de clé n'a aucun effet côté Firebase.
+
+### Release Shorebird
+
+```bash
+shorebird release android --flavor production -t lib/main_production.dart
+```
+
+Shorebird **refuse de republier une version déjà publiée** : pour resigner ou
+reconstruire, il faut incrémenter `version:` dans `pubspec.yaml`. Un second appel
+avec `--artifact apk` construit bien l'APK avant d'échouer à la publication —
+c'est ainsi qu'on obtient l'APK d'appoint, mais l'artefact de référence pour les
+correctifs OTA reste l'AAB publié.
 
 ## Distribution macOS (TestFlight)
 
@@ -371,22 +425,34 @@ l'exécution sans qu'aucun avertissement de build ne le signale.
 
 ---
 
-## À trancher avant la feature messagerie
+## Messaging implementation
 
-1. **Temps réel** — `pusher_channels_flutter`, utilisé par les apps client et
-   management, ne supporte que **Android, iOS et web** : ni Windows ni macOS. Il
-   est donc inutilisable ici. `socket_io_client` (pur Dart, déjà employé par
-   `supplies_apk` via `SOCKET_URL`) fonctionne sur les quatre cibles. À confirmer
-   contre le backend.
-2. **Notifications** — `firebase_messaging` ne supporte pas Windows. Sur desktop,
-   passer par `flutter_local_notifications` alimenté par le canal temps réel.
-3. **Widgets de chat prêts à reprendre** — `supplies_apk` a déjà
-   `ChatBubbleContent`, `ChatDateHeader`, `StickyDateChatList`, `ReactionBar`,
-   `SwipeToReply`, `ChatInputWidget`, `VoiceMessageInputWidget`. Vérifier alors les
-   dépendances desktop (`record`, `audio_waveforms`, `emoji_picker_flutter`).
-
-Absents du socle par choix : Firebase, Crashlytics, Sentry, Shorebird, et toute la
-couche `data`/`domain` de la messagerie.
+- Pusher uses an injectable native Dart WebSocket transport, shared by Android,
+  iOS, Windows and macOS. The obsolete mobile-only Pusher plugin is removed.
+- The realtime coordinator owns session generations, subscription leases,
+  reconnect/resume catch-up, conversation presence and expiring typing state.
+  Thread presence must not be described as account-wide online availability.
+- Inbox entries preserve explicit support linkage/type, embedded latest activity,
+  pagination, stable sorting and newer local activity against older snapshots.
+- `/messaging/support/{id}/claim` is bodyless and uses the authenticated actor.
+  Claim before a deliberate support send when needed; never automatically steal
+  ownership again after a concurrent takeover failure. Read permission does not
+  imply send or channel subscription permission.
+- Generated Riverpod providers own thread data and account-scoped drafts. Widget
+  controllers remain local. Failed outgoing attachments retain upload IDs and
+  files for retry/discard; only owned temporary recordings may be deleted.
+- Audio uses real recorder/player adapters. Private attachment URLs are renewed
+  through authenticated `GET /media/{id}` using retained stable media IDs.
+- Mobile background data pushes use a top-level Firebase handler and native local
+  notifications. Durable session gates and account-bound tap payloads reject
+  stale callbacks; unverifiable recipients receive generic notification text.
+  Revoke the push session before clearing authentication during explicit logout.
+- Desktop shares the functional mobile thread and real inbox state. Do not
+  reintroduce fixture conversations, invented contact details or inert actions.
+- Physical capture/playback and APNs/FCM delivery require device verification;
+  passing widget tests alone does not prove native or OS delivery behavior.
+- Audit and verification evidence: `docs/audits/2026-11-10-messaging-audit.md` and
+  the implementation plan in `docs/superpowers/plans/`.
 
 ---
 

@@ -2,7 +2,7 @@ name: supplies_chat_app
 description: "01Supplies Internal Chat — messagerie interne logistique (Android, iOS, Windows, macOS)"
 publish_to: "none"
 
-version: 1.0.0+2
+version: 1.0.0+3
 
 environment:
   sdk: ^3.10.3
@@ -27,14 +27,7 @@ dependencies:
   fpdart: ^1.2.0
   connectivity_plus: ^7.0.0
 
-  # Temps réel. Le même transport que l'app client, dont les événements de
-  # messagerie transitent déjà par Pusher — s'en écarter ici obligerait le
-  # backend à publier deux fois.
-  #
-  # ⚠️ Android, iOS et web uniquement : le paquet ne supporte ni macOS ni
-  # Windows. Le desktop reste donc sans temps réel jusqu'à ce qu'un second
-  # canal soit tranché (cf. « À trancher » dans ce fichier CLAUDE.md).
-  pusher_channels_flutter: ^2.4.0
+  # Pusher uses the native Dart WebSocket transport on all four platforms.
 
   # Notifications système. Le backend publie déjà des push de messagerie
   # (`type: message.new`, `conversationId`) que l'app cliente route ; il ne
@@ -45,6 +38,7 @@ dependencies:
   # sans notification système.
   firebase_core: ^3.1.0
   firebase_messaging: ^15.0.0
+  flutter_local_notifications: ^19.5.0
 
   # ── Pièces jointes ────────────────────────────────────────────────────────
   # Mêmes paquets que l'app cliente : les deux applications échangent les mêmes

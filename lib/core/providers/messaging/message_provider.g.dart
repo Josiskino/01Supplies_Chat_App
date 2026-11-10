@@ -241,32 +241,10 @@ final class MarkReadUseCaseProvider
 
 String _$markReadUseCaseHash() => r'a8fcf7320583b062a9f3e534392564e29d9495a5';
 
-/// Le fil d'une conversation.
-///
-/// ## L'accès n'est pas acquis
-///
-/// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond « Not a participant in this conversation ». C'est l'état normal d'un
-/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
-
 @ProviderFor(Thread)
 final threadProvider = ThreadFamily._();
 
-/// Le fil d'une conversation.
-///
-/// ## L'accès n'est pas acquis
-///
-/// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond « Not a participant in this conversation ». C'est l'état normal d'un
-/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
 final class ThreadProvider extends $AsyncNotifierProvider<Thread, ThreadState> {
-  /// Le fil d'une conversation.
-  ///
-  /// ## L'accès n'est pas acquis
-  ///
-  /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-  /// répond « Not a participant in this conversation ». C'est l'état normal d'un
-  /// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
   ThreadProvider._({
     required ThreadFamily super.from,
     required String super.argument,
@@ -303,15 +281,7 @@ final class ThreadProvider extends $AsyncNotifierProvider<Thread, ThreadState> {
   }
 }
 
-String _$threadHash() => r'25bfcf036f813968d988021663638fafc232f86d';
-
-/// Le fil d'une conversation.
-///
-/// ## L'accès n'est pas acquis
-///
-/// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond « Not a participant in this conversation ». C'est l'état normal d'un
-/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
+String _$threadHash() => r'8d7bc6b5118a8a56ac9ee8f304a55aa048c0c369';
 
 final class ThreadFamily extends $Family
     with
@@ -331,28 +301,12 @@ final class ThreadFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// Le fil d'une conversation.
-  ///
-  /// ## L'accès n'est pas acquis
-  ///
-  /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-  /// répond « Not a participant in this conversation ». C'est l'état normal d'un
-  /// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
-
   ThreadProvider call(String conversationId) =>
       ThreadProvider._(argument: conversationId, from: this);
 
   @override
   String toString() => r'threadProvider';
 }
-
-/// Le fil d'une conversation.
-///
-/// ## L'accès n'est pas acquis
-///
-/// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
-/// répond « Not a participant in this conversation ». C'est l'état normal d'un
-/// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
 
 abstract class _$Thread extends $AsyncNotifier<ThreadState> {
   late final _$args = ref.$arg as String;

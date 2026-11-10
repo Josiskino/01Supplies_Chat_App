@@ -22,6 +22,7 @@ class ConversationListEntry {
     this.assigneeId,
     this.assigneeName,
     this.isUnclaimed = false,
+    this.isSupport = false,
   });
 
   final String conversationId;
@@ -33,6 +34,10 @@ class ConversationListEntry {
 
   /// Dossier de support correspondant. Nul pour une conversation directe.
   final String? ticketId;
+
+  /// Conversation kind is independent of whether ticket linkage is available.
+  /// Missing linkage must never turn a support conversation into a direct one.
+  final bool isSupport;
 
   final String? assigneeId;
   final String? assigneeName;
@@ -51,6 +56,7 @@ class ConversationListEntry {
         avatarUrl: ticket.author?.avatarUrl,
         unreadCount: ticket.displayUnreadCount,
         ticketId: ticket.id,
+        isSupport: true,
         assigneeId: ticket.assigneeId,
         assigneeName: ticket.assigneeName,
         isUnclaimed: ticket.isUnclaimed && ticket.status.isActive,
@@ -70,7 +76,11 @@ class ConversationListEntry {
 
     return ConversationListEntry(
       conversationId: conversation.id,
-      title: other?.displayName ?? 'Conversation',
+      title: other?.displayName.isNotEmpty == true
+          ? other!.displayName
+          : (conversation.isSupport ? 'Demande de support' : 'Conversation'),
+      ticketId: conversation.supportTicketId,
+      isSupport: conversation.isSupport,
       preview: _previewOf(conversation),
       date: conversation.sortDate,
       avatarUrl: other?.avatarUrl,

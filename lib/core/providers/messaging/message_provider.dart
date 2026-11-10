@@ -9,6 +9,7 @@ import '../../../domain/entity/messaging/message_entity.dart';
 import '../../../domain/repository/messaging/message_repository.dart';
 import '../../../domain/usecases/messaging/message_usecases.dart';
 import '../../abstract/failure.dart';
+import '../../services/audio_recording_service.dart';
 import '../auth/auth_provider.dart';
 import '../../../domain/repository/media/media_repository.dart';
 import '../media/media_provider.dart';
@@ -56,7 +57,8 @@ sealed class ThreadState {
 
 /// Le fil est accessible.
 class ThreadMessages extends ThreadState {
-  const ThreadMessages(this.messages);
+  const ThreadMessages(this.messages, {this.syncError});
+  final String? syncError;
   final List<MessageEntity> messages;
 }
 
@@ -72,188 +74,603 @@ class ThreadLocked extends ThreadState {
 /// Un admin qui n'a pas pris le dossier n'est **pas participant** : l'API
 /// répond « Not a participant in this conversation ». C'est l'état normal d'un
 /// ticket qui attend dans la file, et l'écran doit proposer de s'en saisir.
+class OutgoingAttachment {
+  OutgoingAttachment({
+    required this.id,
+    required this.paths,
+    required this.type,
+    required this.content,
+    this.replyTo,
+  });
+  final String id;
+  final List<String> paths;
+  final MessageType type;
+  final String content;
+  final String? replyTo;
+  final Map<String, String> mediaIds = {};
+}
+
 @riverpod
 class Thread extends _$Thread {
+  final Map<String, OutgoingAttachment> _outgoing = {};
+  bool _sending = false;
+  bool _refreshing = false;
+  Completer<void>? _refreshDone;
+  final Set<String> _deleted = {};
+  final Set<String> _historyIds = {};
+  void Function()? _releaseRetries;
+  bool _refreshAgain = false;
+  bool _reading = false;
+  String? _readFingerprint;
+  String? _owner;
+  int _generation = 0;
+  bool hasMore = true;
+  bool loadingOlder = false;
+
+  bool _current(String? owner, int generation) =>
+      ref.mounted &&
+      _generation == generation &&
+      ref.read(currentUserIdProvider) == owner;
+
+  List<MessageEntity> get _messages => switch (state.value) {
+    ThreadMessages(:final messages) => messages,
+    _ => const <MessageEntity>[],
+  };
+
   @override
   Future<ThreadState> build(String conversationId) async {
-    final result = await ref
-        .read(fetchMessagesUseCaseProvider)
-        .call(FetchMessagesParams(conversationId: conversationId));
-
-    // Le refus d'accès sort par la porte des valeurs, pas par celle des
-    // exceptions : c'est une réponse du serveur, pas une panne. Les autres
-    // échecs restent des exceptions, et le réessai de Riverpod y est utile —
-    // une coupure réseau finit par se rétablir, un droit manquant non.
+    final owner = ref.watch(currentUserIdProvider);
+    final generation = ++_generation;
+    _owner = owner;
+    for (final operation in _outgoing.values) {
+      if (operation.type == MessageType.audio) {
+        for (final path in operation.paths) {
+          unawaited(deleteTemporaryVoiceRecording(path));
+        }
+      }
+    }
+    _outgoing.clear();
+    _deleted.clear();
+    _historyIds.clear();
+    _releaseRetries?.call();
+    _releaseRetries = null;
+    _readFingerprint = null;
+    hasMore = true;
+    final repository = ref.read(messageRepositoryProvider);
+    final result = await repository.fetchMessages(
+      FetchMessagesParams(conversationId: conversationId),
+    );
+    if (!_current(owner, generation)) return const ThreadMessages([]);
     if (result.isLeft()) {
       final failure = result.getLeft().toNullable()!;
       if (failure is ForbiddenFailure) return const ThreadLocked();
       throw Exception(failure.message);
     }
     final messages = result.getRight().toNullable()!;
-
-    // L'abonnement vient **après** le chargement, et seulement s'il a réussi.
-    //
-    // Souscrire d'abord faisait boucler l'écran sur un dossier non pris en
-    // charge : le canal privé refuse la signature à qui n'est pas participant,
-    // le plugin retente, et chaque tentative relançait la construction du
-    // provider — le fil restait en chargement pour toujours, sans jamais
-    // afficher le motif du refus.
+    hasMore = messages.length >= 50;
+    _historyIds.addAll(messages.map((m) => m.id));
     final events = ref.read(messageEventsProvider);
     unawaited(events.watchConversation(conversationId));
     ref.onDispose(() => unawaited(events.unwatchConversation(conversationId)));
-
-    // Un message arrivé par Pusher recharge le fil plutôt que d'y être inséré :
-    // le serveur reste seul maître de l'ordre, des accusés et des réactions.
     final sub = events.threadChanges.listen((id) {
-      if (id == conversationId) ref.invalidateSelf();
+      if (id == conversationId && _current(owner, generation)) {
+        unawaited(refresh());
+      }
     });
     ref.onDispose(sub.cancel);
-
-    return ThreadMessages(messages);
+    final receipts = events.conversationEvents.listen((event) {
+      if (event.conversationId != conversationId ||
+          !_current(owner, generation)) {
+        return;
+      }
+      final delivery = switch (event.eventName) {
+        'message.read' => MessageDelivery.read,
+        'message.delivered' => MessageDelivery.delivered,
+        _ => null,
+      };
+      if (event.eventName == 'message.updated' ||
+          event.eventName == 'message.reaction') {
+        final id = (event.data['messageId'] ?? event.data['id'])?.toString();
+        if (id != null) unawaited(_refreshMessage(id));
+        return;
+      }
+      if (event.eventName == 'message.deleted') {
+        final id = (event.data['messageId'] ?? event.data['id'])?.toString();
+        if (id != null) {
+          _deleted.add(id);
+          state = AsyncData(ThreadMessages(_merge(_messages, const [])));
+        }
+        return;
+      }
+      if (delivery == null || event.data['userId'] == owner) return;
+      final raw = event.data['messageIds'];
+      final ids = raw is List ? raw.whereType<String>().toSet() : <String>{};
+      if (ids.isEmpty) return;
+      state = AsyncData(
+        ThreadMessages(
+          _messages
+              .map(
+                (m) =>
+                    m.senderId == owner &&
+                        ids.contains(m.id) &&
+                        delivery.index > m.delivery.index
+                    ? m.copyWith(delivery: delivery)
+                    : m,
+              )
+              .toList(),
+        ),
+      );
+    });
+    ref.onDispose(receipts.cancel);
+    return ThreadMessages(_merge(const [], messages));
   }
 
-  /// Envoie un message et l'ajoute au fil sans attendre un rechargement.
-  ///
-  /// Le message revient du serveur avec son identifiant définitif : on l'insère
-  /// tel quel plutôt que de deviner localement, faute de quoi une réponse citée
-  /// pointerait sur un identifiant qui n'existe pas encore.
+  List<MessageEntity> _merge(
+    List<MessageEntity> current,
+    List<MessageEntity> incoming,
+  ) {
+    final byId = {
+      for (final message in current)
+        if (!_deleted.contains(message.id)) message.id: message,
+    };
+    for (final message in incoming) {
+      if (_deleted.contains(message.id)) {
+        continue;
+      }
+      final old = byId[message.id];
+      byId[message.id] =
+          old != null && old.delivery.index > message.delivery.index
+          ? message.copyWith(delivery: old.delivery)
+          : message;
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) {
+        final date = a.sentAt.compareTo(b.sentAt);
+        return date == 0 ? a.id.compareTo(b.id) : date;
+      });
+    return merged;
+  }
+
+  Future<bool> _ensureParticipation(String? owner, int generation) async {
+    if (owner == null) return false;
+    final snapshot = ref.read(supportQueueProvider);
+    final queue = snapshot.isLoading
+        ? await ref.read(supportQueueProvider.future)
+        : snapshot.value ?? await ref.read(supportQueueProvider.future);
+    if (!_current(owner, generation)) return false;
+    var entry = queue
+        ?.where((e) => e.conversationId == conversationId)
+        .firstOrNull;
+    if (entry == null) {
+      // A direct conversation may have just been created from the directory.
+      // Reconcile its authoritative type instead of guessing from absence.
+      await ref.read(supportQueueProvider.notifier).refresh();
+      if (!_current(owner, generation)) return false;
+      entry = ref
+          .read(supportQueueProvider)
+          .value
+          ?.where((e) => e.conversationId == conversationId)
+          .firstOrNull;
+    }
+    if (entry == null) return false;
+    if (entry.isSupport && entry.ticketId == null) return false;
+    if (entry.ticketId == null || entry.assigneeId == owner) return true;
+    final claimed = await ref
+        .read(supportQueueProvider.notifier)
+        .join(ticketId: entry.ticketId!, agentId: owner);
+    // A failed send must never trigger an automatic ownership-stealing retry.
+    return claimed && _current(owner, generation);
+  }
+
   Future<bool> send(
     String content, {
     String? replyTo,
     MessageType type = MessageType.text,
     List<String> attachmentMediaIds = const [],
   }) async {
-    final trimmed = content.trim();
-    // Un texte vide reste refusé, sauf s'il accompagne une pièce jointe : une
-    // photo se passe très bien de légende.
-    if (trimmed.isEmpty && attachmentMediaIds.isEmpty) return false;
+    if (_sending || (content.trim().isEmpty && attachmentMediaIds.isEmpty)) {
+      return false;
+    }
+    final owner = _owner;
+    final generation = _generation;
+    final lease = ref.keepAlive();
+    _sending = true;
+    try {
+      if (!await _ensureParticipation(owner, generation)) return false;
+      return await _transmit(
+        content.trim(),
+        replyTo: replyTo,
+        type: type,
+        attachmentMediaIds: attachmentMediaIds,
+        owner: owner,
+        generation: generation,
+      );
+    } catch (_) {
+      return false;
+    } finally {
+      _sending = false;
+      lease.close();
+    }
+  }
 
+  Future<bool> _transmit(
+    String content, {
+    String? replyTo,
+    required MessageType type,
+    required List<String> attachmentMediaIds,
+    required String? owner,
+    required int generation,
+  }) async {
     final result = await ref
         .read(sendMessageUseCaseProvider)
         .call(
           SendMessageParams(
             conversationId: conversationId,
-            content: trimmed,
+            content: content,
             replyTo: replyTo,
             type: type,
             attachmentMediaIds: attachmentMediaIds,
           ),
         );
-
-    return result.match((_) => false, (message) {
-      final current = switch (state.value) {
-        ThreadMessages(:final messages) => messages,
-        _ => const <MessageEntity>[],
-      };
-      state = AsyncValue.data(ThreadMessages([...current, message]));
-
-      // La liste porte le dernier message et sa date : sans ce rechargement,
-      // la conversation où l'on vient d'écrire garde l'aperçu précédent et ne
-      // remonte pas en tête.
+    if (!_current(owner, generation)) return false;
+    if (result.isLeft()) {
       ref.invalidate(supportQueueProvider);
-      return true;
-    });
+      return false;
+    }
+    final message = result.getRight().toNullable()!;
+    state = AsyncData(ThreadMessages(_merge(_messages, [message])));
+    ref.read(supportQueueProvider.notifier).recordActivity(message);
+    ref.invalidate(supportQueueProvider);
+    return true;
   }
 
   Future<void> markRead() async {
-    final result = await ref
-        .read(markReadUseCaseProvider)
-        .call(MarkReadParams(conversationId));
-
-    // La file porte les compteurs : sans ce rechargement, la pastille de
-    // non-lus reste affichée alors que le fil vient d'être lu.
-    if (result.isRight()) ref.invalidate(supportQueueProvider);
+    if (_reading || _messages.isEmpty) return;
+    final owner = _owner;
+    final generation = _generation;
+    final incoming = _messages.where(
+      (m) => m.senderId != owner && !m.isPending && !m.isFailed,
+    );
+    final fingerprint = incoming.map((m) => m.id).join('|');
+    if (fingerprint.isEmpty || fingerprint == _readFingerprint) return;
+    // Reading a support thread is allowed before claiming; acknowledgements are not.
+    final entry = ref
+        .read(supportQueueProvider)
+        .value
+        ?.where((e) => e.conversationId == conversationId)
+        .firstOrNull;
+    if (entry?.ticketId != null && entry?.assigneeId != owner) return;
+    _reading = true;
+    try {
+      final ids = incoming.map((m) => m.id).toList();
+      for (var start = 0; start < ids.length; start += 100) {
+        final end = start + 100 < ids.length ? start + 100 : ids.length;
+        final result = await ref
+            .read(markReadUseCaseProvider)
+            .call(
+              MarkReadParams(
+                conversationId,
+                messageIds: ids.sublist(start, end),
+              ),
+            );
+        if (!_current(owner, generation) || result.isLeft()) return;
+      }
+      if (_current(owner, generation)) {
+        _readFingerprint = fingerprint;
+        ref.invalidate(supportQueueProvider);
+      }
+    } finally {
+      _reading = false;
+    }
   }
 
-  /// Dépose des fichiers puis les envoie dans un seul message.
-  ///
-  /// L'envoi n'a lieu qu'une fois **tous** les dépôts réussis : un message
-  /// partiel afficherait deux photos sur trois sans que rien ne signale la
-  /// troisième.
-  ///
-  /// Une bulle provisoire paraît immédiatement, avec les fichiers **locaux** :
-  /// le téléversement peut durer, et sans elle l'utilisateur ne voit rien
-  /// partir. Elle est remplacée par le message du serveur, ou retirée si
-  /// l'envoi échoue.
   Future<bool> sendAttachments({
     required List<String> filePaths,
     required MessageType type,
     String content = '',
     String? replyTo,
   }) async {
-    if (filePaths.isEmpty) return false;
-
-    final pendingId = 'pending-${DateTime.now().microsecondsSinceEpoch}';
-    _appendPending(pendingId, filePaths, type, content);
-
-    final ids = <String>[];
-    for (final path in filePaths) {
-      final upload = await ref
-          .read(uploadMediaUseCaseProvider)
-          .call(UploadMediaParams(path));
-      final media = upload.getRight().toNullable();
-      // Un identifiant vide signalerait un dépôt mal lu : l'envoyer ferait
-      // refuser le message par le serveur, avec une erreur qui ne dirait rien
-      // du vrai problème.
-      if (media == null || media.id.isEmpty) {
-        _removePending(pendingId);
-        return false;
-      }
-      ids.add(media.id);
-    }
-
-    final sent = await send(
-      content,
-      replyTo: replyTo,
+    if (filePaths.isEmpty || filePaths.length > 10) return false;
+    final operation = OutgoingAttachment(
+      id: 'pending-${DateTime.now().microsecondsSinceEpoch}',
+      paths: List.unmodifiable(filePaths),
       type: type,
-      attachmentMediaIds: ids,
+      content: content,
+      replyTo: replyTo,
     );
-    _removePending(pendingId);
-    return sent;
+    _outgoing[operation.id] = operation;
+    if (_sending) {
+      final failed = MessageEntity(
+        id: operation.id,
+        conversationId: conversationId,
+        senderId: _owner ?? '',
+        sender: ref.read(currentUserProvider),
+        content: content,
+        type: type,
+        delivery: MessageDelivery.sent,
+        sentAt: DateTime.now(),
+        attachments: operation.paths,
+        replyToId: replyTo,
+        isFailed: true,
+      );
+      state = AsyncData(ThreadMessages(_merge(_messages, [failed])));
+      _releaseRetries ??= ref.keepAlive().close;
+      return false;
+    }
+    return _sendAttachment(operation);
   }
 
-  /// Insère la bulle provisoire, avec les chemins locaux comme pièces jointes.
-  void _appendPending(
-    String id,
-    List<String> filePaths,
-    MessageType type,
-    String content,
-  ) {
-    final current = switch (state.value) {
-      ThreadMessages(:final messages) => messages,
-      _ => const <MessageEntity>[],
-    };
-    state = AsyncValue.data(
-      ThreadMessages([
-        ...current,
-        MessageEntity(
-          id: id,
-          conversationId: conversationId,
-          senderId: ref.read(currentUserProvider)?.id ?? '',
-          content: content,
-          type: type,
-          delivery: MessageDelivery.sent,
-          sentAt: DateTime.now(),
-          attachments: filePaths,
-          isPending: true,
-        ),
-      ]),
+  Future<void> discardAttachment(String id) async {
+    if (_sending) return;
+    final operation = _outgoing.remove(id);
+    if (operation == null) return;
+    if (_outgoing.isEmpty) {
+      _releaseRetries?.call();
+      _releaseRetries = null;
+    }
+    state = AsyncData(
+      ThreadMessages(_messages.where((m) => m.id != id).toList()),
     );
+    if (operation.type == MessageType.audio) {
+      for (final path in operation.paths) {
+        await deleteTemporaryVoiceRecording(path);
+      }
+    }
   }
 
-  void _removePending(String id) {
-    final current = switch (state.value) {
-      ThreadMessages(:final messages) => messages,
-      _ => const <MessageEntity>[],
-    };
-    state = AsyncValue.data(
-      ThreadMessages([...current.where((m) => m.id != id)]),
+  Future<bool> retryAttachment(String id) async {
+    final operation = _outgoing[id];
+    return operation != null && !_sending ? _sendAttachment(operation) : false;
+  }
+
+  Future<bool> _sendAttachment(OutgoingAttachment operation) async {
+    final owner = _owner;
+    final generation = _generation;
+    final lease = ref.keepAlive();
+    _sending = true;
+    final pending = MessageEntity(
+      id: operation.id,
+      conversationId: conversationId,
+      senderId: owner ?? '',
+      sender: ref.read(currentUserProvider),
+      content: operation.content,
+      type: operation.type,
+      delivery: MessageDelivery.sent,
+      sentAt: DateTime.now(),
+      attachments: operation.paths,
+      replyToId: operation.replyTo,
+      isPending: true,
     );
+    state = AsyncData(ThreadMessages(_merge(_messages, [pending])));
+    bool sent = false;
+    try {
+      if (!await _ensureParticipation(owner, generation)) return false;
+      for (final path in operation.paths) {
+        if (operation.mediaIds.containsKey(path)) continue;
+        final upload = await ref
+            .read(uploadMediaUseCaseProvider)
+            .call(UploadMediaParams(path));
+        if (!_current(owner, generation)) return false;
+        final media = upload.getRight().toNullable();
+        if (media == null || media.id.isEmpty) return false;
+        operation.mediaIds[path] = media.id;
+      }
+      sent = await _transmit(
+        operation.content,
+        replyTo: operation.replyTo,
+        type: operation.type,
+        attachmentMediaIds: operation.paths
+            .map((p) => operation.mediaIds[p]!)
+            .toList(),
+        owner: owner,
+        generation: generation,
+      );
+      return sent;
+    } catch (_) {
+      return false;
+    } finally {
+      if (_current(owner, generation)) {
+        final retained = _messages.where((m) => m.id != operation.id).toList();
+        if (sent) {
+          _outgoing.remove(operation.id);
+          for (final path in operation.paths) {
+            if (operation.type == MessageType.audio) {
+              unawaited(deleteTemporaryVoiceRecording(path));
+            }
+          }
+        } else {
+          retained.add(pending.copyWith(isPending: false, isFailed: true));
+        }
+        state = AsyncData(ThreadMessages(_merge(const [], retained)));
+      }
+      if (_outgoing.isEmpty) {
+        _releaseRetries?.call();
+        _releaseRetries = null;
+      } else if (_current(owner, generation)) {
+        _releaseRetries ??= ref.keepAlive().close;
+      }
+      _sending = false;
+      lease.close();
+    }
+  }
+
+  Future<String?> refreshVoiceSource(String messageId) async {
+    final owner = _owner;
+    final generation = _generation;
+    final message = _messages.where((m) => m.id == messageId).firstOrNull;
+    final mediaId = message?.attachmentMediaIds.firstOrNull;
+    if (mediaId != null) {
+      final result = await ref.read(mediaRepositoryProvider).getById(mediaId);
+      if (!_current(owner, generation)) return null;
+      return result.getRight().toNullable()?.url;
+    }
+    await _refreshMessage(messageId);
+    if (!_current(owner, generation)) return null;
+    return _messages
+        .where((m) => m.id == messageId)
+        .firstOrNull
+        ?.attachments
+        .firstOrNull;
+  }
+
+  Future<bool> react(String messageId, String emoji) => _mutate(
+    (repository) => repository.react(messageId, emoji),
+    targetId: messageId,
+  );
+
+  Future<bool> edit(String messageId, String content) => _mutate(
+    (repository) => repository.edit(messageId, content),
+    targetId: messageId,
+  );
+
+  Future<bool> delete(String messageId) async {
+    final owner = _owner;
+    final generation = _generation;
+    final result = await ref.read(messageRepositoryProvider).delete(messageId);
+    if (!_current(owner, generation) || result.isLeft()) return false;
+    _deleted.add(messageId);
+    state = AsyncData(ThreadMessages(_merge(_messages, const [])));
+    ref.invalidate(supportQueueProvider);
+    return true;
+  }
+
+  Future<bool> _mutate(
+    Future<dynamic> Function(MessageRepository) action, {
+    String? targetId,
+  }) async {
+    final owner = _owner;
+    final generation = _generation;
+    try {
+      final result = await action(ref.read(messageRepositoryProvider));
+      if (!_current(owner, generation) || !result.isRight()) return false;
+      if (targetId != null) {
+        await _refreshMessage(targetId);
+      } else {
+        await refresh();
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _refreshMessage(String id) async {
+    final message = _messages.where((m) => m.id == id).firstOrNull;
+    if (message == null) return;
+    final owner = _owner;
+    final generation = _generation;
+    final result = await ref
+        .read(fetchMessagesUseCaseProvider)
+        .call(
+          FetchMessagesParams(
+            conversationId: conversationId,
+            limit: 100,
+            before: message.sentAt
+                .toUtc()
+                .add(const Duration(milliseconds: 1))
+                .toIso8601String(),
+          ),
+        );
+    if (!_current(owner, generation)) return;
+    result.match((_) {}, (page) {
+      final target = page.where((m) => m.id == id).toList();
+      if (target.isNotEmpty) {
+        state = AsyncData(ThreadMessages(_merge(_messages, target)));
+      }
+    });
+  }
+
+  Future<void> loadOlder() async {
+    if (loadingOlder || !hasMore || _messages.isEmpty) return;
+    final owner = _owner;
+    final generation = _generation;
+    loadingOlder = true;
+    try {
+      final oldest = _messages
+          .where((m) => !m.isPending && !m.isFailed)
+          .firstOrNull;
+      if (oldest == null) return;
+      final result = await ref
+          .read(fetchMessagesUseCaseProvider)
+          .call(
+            FetchMessagesParams(
+              conversationId: conversationId,
+              before: oldest.sentAt.toUtc().toIso8601String(),
+            ),
+          );
+      if (!_current(owner, generation)) return;
+      result.match((_) {}, (messages) {
+        hasMore = messages.length >= 50;
+        state = AsyncData(ThreadMessages(_merge(_messages, messages)));
+      });
+    } finally {
+      loadingOlder = false;
+    }
   }
 
   Future<void> refresh() async {
-    ref.invalidateSelf();
-    await future;
+    if (_refreshing) {
+      _refreshAgain = true;
+      await _refreshDone?.future;
+      return;
+    }
+    final owner = _owner;
+    final generation = _generation;
+    _refreshing = true;
+    final completion = Completer<void>();
+    _refreshDone = completion;
+    try {
+      do {
+        _refreshAgain = false;
+        final known = Set<String>.of(_historyIds);
+        var collected = <MessageEntity>[];
+        String? cursor;
+        var failed = false;
+        while (true) {
+          final result = await ref
+              .read(fetchMessagesUseCaseProvider)
+              .call(
+                FetchMessagesParams(
+                  conversationId: conversationId,
+                  before: cursor,
+                ),
+              );
+          if (!_current(owner, generation)) return;
+          if (result.isLeft()) {
+            failed = true;
+            break;
+          }
+          final page = result.getRight().toNullable()!;
+          collected = _merge(collected, page);
+          if (page.length < 50 ||
+              known.isEmpty ||
+              page.any((m) => known.contains(m.id))) {
+            break;
+          }
+          final oldest = page.first.sentAt.toUtc();
+          if (cursor != null && !oldest.isBefore(DateTime.parse(cursor))) {
+            failed = true;
+            break;
+          }
+          cursor = oldest.toIso8601String();
+        }
+        if (failed) {
+          state = AsyncData(
+            ThreadMessages(
+              _messages,
+              syncError: 'Actualisation impossible. Réessayez.',
+            ),
+          );
+        } else {
+          _historyIds.addAll(collected.map((m) => m.id));
+          state = AsyncData(ThreadMessages(_merge(_messages, collected)));
+        }
+      } while (_refreshAgain && _current(owner, generation));
+    } finally {
+      _refreshing = false;
+      completion.complete();
+      if (identical(_refreshDone, completion)) _refreshDone = null;
+    }
   }
 }
 
