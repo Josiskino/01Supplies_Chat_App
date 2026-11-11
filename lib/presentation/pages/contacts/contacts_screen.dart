@@ -27,9 +27,21 @@ class ContactsScreen extends ConsumerStatefulWidget {
   ConsumerState<ContactsScreen> createState() => _ContactsScreenState();
 }
 
-class _ContactsScreenState extends ConsumerState<ContactsScreen> {
+class _ContactsScreenState extends ConsumerState<ContactsScreen>
+    with RestorationMixin {
   final TextEditingController _searchController = TextEditingController();
-  String _query = '';
+  final _restoredQuery = RestorableString('');
+  String get _query => _restoredQuery.value;
+  set _query(String value) => _restoredQuery.value = value;
+
+  @override
+  String get restorationId => 'chat-contacts';
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_restoredQuery, 'query');
+    _searchController.text = _restoredQuery.value;
+  }
 
   /// Contact dont la conversation est en cours d'ouverture.
   ///
@@ -41,6 +53,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _restoredQuery.dispose();
     super.dispose();
   }
 
@@ -112,6 +125,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     return PlatformPage(
       title: l10n.contactsTitle,
       body: CustomScrollView(
+        restorationId: 'chat-contacts-scroll',
         slivers: [
           SliverToBoxAdapter(
             child: Padding(

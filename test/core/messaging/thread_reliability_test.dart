@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:supplies_chat_app/core/providers/realtime/push_provider.dart';
+import 'package:supplies_chat_app/core/services/push_notification_service.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,15 @@ import 'package:supplies_chat_app/core/services/message_events_service.dart';
 import 'package:supplies_chat_app/domain/entity/messaging/conversation_list_entry.dart';
 import 'package:supplies_chat_app/domain/entity/messaging/message_entity.dart';
 import 'package:supplies_chat_app/domain/repository/messaging/message_repository.dart';
+
+class FakeReadNotifications implements PushNotificationService {
+  final readIds = <String>[];
+  @override
+  Future<void> markMessagesRead(Iterable<String> ids) async =>
+      readIds.addAll(ids);
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 MessageEntity message(String id) => MessageEntity(
   id: id,
@@ -111,6 +122,7 @@ void main() {
   late FakeMessages messages;
   late FakeEvents events;
   late ProviderContainer container;
+  late FakeReadNotifications notifications;
 
   Future<Thread> setup({
     bool claimAllowed = true,
@@ -119,8 +131,10 @@ void main() {
   }) async {
     messages = FakeMessages();
     events = FakeEvents();
+    notifications = FakeReadNotifications();
     container = ProviderContainer(
       overrides: [
+        pushNotificationsProvider.overrideWithValue(notifications),
         currentUserIdProvider.overrideWithValue('me'),
         messageRepositoryProvider.overrideWithValue(messages),
         messageEventsProvider.overrideWithValue(events),
@@ -205,8 +219,30 @@ void main() {
       await thread.refresh();
       await thread.markRead();
       expect(messages.readBatches.map((ids) => ids?.length), [100, 50]);
+      expect(notifications.readIds, hasLength(150));
       await thread.markRead();
       expect(messages.readBatches.length, 2);
+    },
+  );
+  test(
+    'reading before claiming clears local push without acknowledging as another agent',
+    () async {
+      final thread = await setup(support: true);
+      messages.messages = [
+        MessageEntity(
+          id: 'received',
+          conversationId: 'c1',
+          senderId: 'customer',
+          content: 'Hello',
+          type: MessageType.text,
+          delivery: MessageDelivery.sent,
+          sentAt: DateTime.utc(2026),
+        ),
+      ];
+      await thread.refresh();
+      await thread.markRead();
+      expect(notifications.readIds, ['received']);
+      expect(messages.readBatches, isEmpty);
     },
   );
   test(

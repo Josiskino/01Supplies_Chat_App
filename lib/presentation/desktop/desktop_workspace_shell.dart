@@ -252,9 +252,10 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
                   contact: ContactProfileData(
                     name: active.title,
                     avatarUrl: active.avatarUrl,
-                    role: !active.isSupport
-                        ? 'Conversation directe'
-                        : 'Support',
+                    role: [
+                      active.isSupport ? 'Support' : 'Conversation directe',
+                      if (active.peerRoleLabel != null) active.peerRoleLabel!,
+                    ].join(' · '),
                   ),
                   onClose: () => setState(() => _isProfileOpen = false),
                 ),

@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'push_message.dart';
 import 'push_session_store.dart';
 import 'push_local_notifications.dart';
+import 'push_read_receipts.dart';
 
 /// Registered by bootstrap; no Riverpod, routes or widgets in the isolate.
 @pragma('vm:entry-point')
@@ -38,6 +39,8 @@ Future<bool> displayBackgroundPush(
   if (message.recipientId != null && message.recipientId != account) {
     return false;
   }
+  final messageId = message.data['messageId']?.toString();
+  if (await isReadPushMessage(account, messageId)) return false;
   final type = message.data['type']?.toString();
   if (type != 'message.new' && type != 'support.ticket.updated') {
     return false;
@@ -66,5 +69,10 @@ Future<bool> displayBackgroundPush(
     return false;
   }
   await notifications.show(safe);
+  // A read can race native display in the background isolate.
+  if (await isReadPushMessage(account, messageId)) {
+    await notifications.cancelMessages([messageId!]);
+    return false;
+  }
   return true;
 }

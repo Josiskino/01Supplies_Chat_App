@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'push_message.dart';
+import 'push_read_receipts.dart';
 
 abstract interface class PushLocalNotifications {
   Future<void> initialize();
   Future<void> show(PushMessage message);
   Future<void> cancelAll();
+  Future<void> cancelMessages(Iterable<String> messageIds);
   Stream<PushMessage> get openedMessages;
   Future<PushMessage?> getInitialMessage();
   Future<void> dispose();
@@ -38,6 +40,24 @@ class NativePushLocalNotifications implements PushLocalNotifications {
         }
       },
     );
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    for (final channel in const [
+      AndroidNotificationChannel(
+        '01supplies_default',
+        'Notifications',
+        importance: Importance.high,
+      ),
+      AndroidNotificationChannel(
+        '01chat_messages',
+        'Messages',
+        importance: Importance.high,
+      ),
+    ]) {
+      await android?.createNotificationChannel(channel);
+    }
   }
 
   PushMessage? _decode(String? payload) {
@@ -64,13 +84,10 @@ class NativePushLocalNotifications implements PushLocalNotifications {
   @override
   Future<void> show(PushMessage message) async {
     await initialize();
-    var identifier = 0x811c9dc5;
     final key =
         message.dedupeId ??
         '${message.data['type']}:${message.data['conversationId']}:${message.data['createdAt']}';
-    for (final unit in key.codeUnits) {
-      identifier = ((identifier ^ unit) * 0x01000193) & 0x7fffffff;
-    }
+    final identifier = pushNotificationIdentifier(key);
     await _plugin.show(
       identifier,
       message.title,
@@ -94,6 +111,14 @@ class NativePushLocalNotifications implements PushLocalNotifications {
   Future<void> cancelAll() async {
     await initialize();
     await _plugin.cancelAll();
+  }
+
+  @override
+  Future<void> cancelMessages(Iterable<String> messageIds) async {
+    await initialize();
+    for (final id in messageIds.toSet()) {
+      if (id.isNotEmpty) await _plugin.cancel(pushNotificationIdentifier(id));
+    }
   }
 
   @override

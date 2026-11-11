@@ -17,12 +17,19 @@ import 'package:supplies_chat_app/presentation/shared/fixtures/conversation_fixt
 import 'package:supplies_chat_app/presentation/shared/models/conversation_view_data.dart';
 
 import 'package:supplies_chat_app/core/providers/messaging/message_provider.dart';
+import 'package:supplies_chat_app/core/providers/messaging/support_provider.dart';
+import 'package:supplies_chat_app/domain/entity/messaging/conversation_list_entry.dart';
 import 'package:supplies_chat_app/domain/entity/messaging/message_entity.dart';
 
 import '../../helpers/test_environment.dart';
 
 /// Identifiant du compte connecté dans les tests, pour distinguer ses bulles.
 const _meId = 'me';
+
+class _StubQueue extends SupportQueue {
+  @override
+  Future<List<ConversationListEntry>> build() async => [];
+}
 
 /// Rejoue les fixtures sous forme de messages d'API.
 ///
@@ -90,6 +97,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          supportQueueProvider.overrideWith(_StubQueue.new),
           appPlatformProvider.overrideWithValue(AppPlatform.ios),
           // Le fil vient désormais de l'API : sans injection, l'écran n'a rien
           // à rendre et tous les gestes testés ici deviennent introuvables.

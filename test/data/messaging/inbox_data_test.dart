@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:supplies_chat_app/core/abstract/failure.dart';
 import 'package:supplies_chat_app/core/providers/messaging/support_provider.dart';
+import 'package:supplies_chat_app/core/providers/messaging/message_provider.dart';
+import 'package:supplies_chat_app/domain/repository/messaging/message_repository.dart';
 import 'package:supplies_chat_app/core/providers/auth/auth_provider.dart';
 import 'package:supplies_chat_app/domain/entity/auth/user_entity.dart';
+import 'package:supplies_chat_app/domain/entity/auth/user_role.dart';
 import 'package:supplies_chat_app/domain/entity/messaging/message_entity.dart';
 import 'package:supplies_chat_app/domain/repository/messaging/support_repository.dart';
 import 'package:supplies_chat_app/domain/entity/messaging/conversation_entity.dart';
@@ -54,11 +57,12 @@ class FakeClient extends ApiClientInterface {
 
 class FakeRepository implements SupportRepository {
   bool failConversations = false;
+  List<SupportTicketEntity> tickets = [];
   List<ConversationEntity> conversations = [];
   @override
   Future<Either<Failure, List<SupportTicketEntity>>> fetchQueue(
     FetchQueueParams params,
-  ) async => right([]);
+  ) async => right(tickets);
   @override
   Future<Either<Failure, List<ConversationEntity>>>
   fetchConversations() async => failConversations
@@ -68,7 +72,225 @@ class FakeRepository implements SupportRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class FakeMessages implements MessageRepository {
+  List<MessageEntity> messages = [];
+  int calls = 0;
+  @override
+  Future<Either<Failure, List<MessageEntity>>> fetchMessages(
+    FetchMessagesParams params,
+  ) async {
+    calls++;
+    return right(messages);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
+  test(
+    'large shared inbox bounds history calls across repeated refreshes',
+    () async {
+      final repository = FakeRepository()
+        ..tickets = [
+          for (var i = 0; i < 30; i++)
+            SupportTicketEntity(
+              id: 't$i',
+              conversationId: 'c$i',
+              subject: '',
+              description: '',
+              status: TicketStatus.open,
+              priority: TicketPriority.medium,
+              category: 'general',
+              updatedAt: DateTime.utc(2026, 1, i + 1),
+              lastMessage: 'Hello',
+              lastMessageType: 'text',
+            ),
+        ];
+      final messages = FakeMessages();
+      final container = ProviderContainer(
+        overrides: [
+          supportRepositoryProvider.overrideWith((ref) => repository),
+          messageRepositoryProvider.overrideWith((ref) => messages),
+        ],
+      );
+      addTearDown(container.dispose);
+      final subscription = container.listen(supportQueueProvider, (_, _) {});
+      addTearDown(subscription.close);
+      expect(await container.read(supportQueueProvider.future), hasLength(30));
+      container.invalidate(supportQueueProvider);
+      await container.read(supportQueueProvider.future);
+      expect(messages.calls, 4);
+    },
+  );
+  test(
+    'shared queue counts customer unread before an admin claims it',
+    () async {
+      final repository = FakeRepository()
+        ..tickets = [
+          SupportTicketEntity(
+            id: 'ticket',
+            conversationId: 'c',
+            subject: '',
+            description: '',
+            status: TicketStatus.open,
+            priority: TicketPriority.medium,
+            category: 'general',
+            updatedAt: DateTime.utc(2026),
+            lastMessage: 'Hello',
+            lastMessageType: 'text',
+            author: const UserEntity(
+              id: 'peer',
+              email: '',
+              firstName: '',
+              lastName: '',
+              role: null,
+            ),
+          ),
+        ];
+      final messages = FakeMessages()
+        ..messages = [
+          for (var i = 0; i < 2; i++)
+            MessageEntity(
+              id: 'm$i',
+              conversationId: 'c',
+              senderId: 'peer',
+              content: 'Hello',
+              type: MessageType.text,
+              delivery: MessageDelivery.sent,
+              sentAt: DateTime.utc(2026),
+            ),
+          MessageEntity(
+            id: 'admin-message',
+            conversationId: 'c',
+            senderId: 'another-admin',
+            content: 'Hello',
+            type: MessageType.text,
+            delivery: MessageDelivery.sent,
+            sentAt: DateTime.utc(2026),
+          ),
+        ];
+      final container = ProviderContainer(
+        overrides: [
+          supportRepositoryProvider.overrideWith((ref) => repository),
+          messageRepositoryProvider.overrideWith((ref) => messages),
+        ],
+      );
+      addTearDown(container.dispose);
+      final subscription = container.listen(supportQueueProvider, (_, _) {});
+      addTearDown(subscription.close);
+      expect(
+        (await container.read(supportQueueProvider.future)).single.unreadCount,
+        2,
+      );
+      container.read(supportQueueProvider.notifier).markConversationRead('c');
+      container.invalidate(supportQueueProvider);
+      expect(
+        (await container.read(supportQueueProvider.future)).single.unreadCount,
+        0,
+      );
+    },
+  );
+  test(
+    'hides empty rows and retains real history before a system message',
+    () async {
+      final repository = FakeRepository()
+        ..conversations = [
+          ConversationEntity(id: 'empty', updatedAt: DateTime.utc(2026)),
+          ConversationEntity(
+            id: 'real',
+            updatedAt: DateTime.utc(2026),
+            lastMessage: 'Assigned',
+            lastMessageType: 'system',
+          ),
+        ];
+      final messages = FakeMessages()
+        ..messages = [
+          MessageEntity(
+            id: 'm',
+            conversationId: 'real',
+            senderId: 'peer',
+            content: 'Hello',
+            type: MessageType.text,
+            delivery: MessageDelivery.sent,
+            sentAt: DateTime.utc(2026),
+          ),
+        ];
+      final container = ProviderContainer(
+        overrides: [
+          supportRepositoryProvider.overrideWith((ref) => repository),
+          messageRepositoryProvider.overrideWith((ref) => messages),
+        ],
+      );
+      addTearDown(container.dispose);
+      expect(
+        (await container.read(
+          supportQueueProvider.future,
+        )).map((e) => e.conversationId),
+        ['real'],
+      );
+    },
+  );
+
+  test(
+    'incoming unread increments once, survives stale REST and clears on read',
+    () async {
+      final repository = FakeRepository()
+        ..conversations = [
+          ConversationEntity(
+            id: 'c',
+            updatedAt: DateTime.utc(2026),
+            lastMessage: 'old',
+          ),
+        ];
+      final container = ProviderContainer(
+        overrides: [
+          supportRepositoryProvider.overrideWith((ref) => repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      container
+          .read(currentUserProvider.notifier)
+          .set(
+            const UserEntity(
+              id: 'admin',
+              email: '',
+              firstName: '',
+              lastName: '',
+              role: null,
+            ),
+          );
+      final subscription = container.listen(supportQueueProvider, (_, _) {});
+      addTearDown(subscription.close);
+      await container.read(supportQueueProvider.future);
+      final notifier = container.read(supportQueueProvider.notifier);
+      final message = MessageEntity(
+        id: 'incoming',
+        conversationId: 'c',
+        senderId: 'peer',
+        content: 'Hello',
+        type: MessageType.text,
+        delivery: MessageDelivery.sent,
+        sentAt: DateTime.utc(2026, 2),
+      );
+      notifier.recordActivity(message, received: true);
+      notifier.recordActivity(message, received: true);
+      expect(
+        container.read(supportQueueProvider).requireValue.single.unreadCount,
+        1,
+      );
+      container.invalidate(supportQueueProvider);
+      expect(
+        (await container.read(supportQueueProvider.future)).single.unreadCount,
+        1,
+      );
+      notifier.markConversationRead('c');
+      expect(
+        container.read(supportQueueProvider).requireValue.single.unreadCount,
+        0,
+      );
+    },
+  );
   test(
     'support conversation outside ticket snapshot retains ticket identity',
     () async {
@@ -79,6 +301,7 @@ void main() {
             'type': 'support',
             'updatedAt': '2026-01-01T00:00:00Z',
             'metadata': {'supportTicketId': 't'},
+            'lastMessage': {'content': 'Bonjour', 'type': 'text'},
           }).toEntity(),
         ];
       final container = ProviderContainer(
@@ -104,7 +327,11 @@ void main() {
             updatedAt: DateTime.utc(2026, 1),
             lastMessage: 'stale',
           ),
-          ConversationEntity(id: 'other', updatedAt: DateTime.utc(2026, 2)),
+          ConversationEntity(
+            id: 'other',
+            updatedAt: DateTime.utc(2026, 2),
+            lastMessage: 'Hello',
+          ),
         ];
       final container = ProviderContainer(
         retry: (_, _) => null,
@@ -141,11 +368,11 @@ void main() {
       );
       final immediate = container.read(supportQueueProvider).requireValue;
       expect(immediate.first.conversationId, 'older');
-      expect(immediate.first.preview, '📷 Photo');
+      expect(immediate.first.preview, 'Vous : 📷 Photo');
       container.invalidate(supportQueueProvider);
       final refreshed = await container.read(supportQueueProvider.future);
       expect(refreshed.first.conversationId, 'older');
-      expect(refreshed.first.preview, '📷 Photo');
+      expect(refreshed.first.preview, 'Vous : 📷 Photo');
       expect(refreshed.first.date, DateTime.utc(2026, 3));
       notifier.recordActivity(
         MessageEntity(
@@ -160,7 +387,7 @@ void main() {
       );
       expect(
         container.read(supportQueueProvider).requireValue.first.preview,
-        '📷 Photo',
+        'Vous : 📷 Photo',
       );
       notifier.recordActivity(
         MessageEntity(
@@ -181,7 +408,11 @@ void main() {
           updatedAt: DateTime.utc(2026, 4),
           lastMessage: 'newer REST',
         ),
-        ConversationEntity(id: 'other', updatedAt: DateTime.utc(2026, 2)),
+        ConversationEntity(
+          id: 'other',
+          updatedAt: DateTime.utc(2026, 2),
+          lastMessage: 'Hello',
+        ),
       ];
       container.invalidate(supportQueueProvider);
       expect(
@@ -205,13 +436,108 @@ void main() {
           updatedAt: DateTime.utc(2026, 1),
           lastMessage: 'different session',
         ),
-        ConversationEntity(id: 'other', updatedAt: DateTime.utc(2026, 2)),
+        ConversationEntity(
+          id: 'other',
+          updatedAt: DateTime.utc(2026, 2),
+          lastMessage: 'Hello',
+        ),
       ];
       final switched = await container.read(supportQueueProvider.future);
       expect(switched.first.conversationId, 'other');
       expect(switched.last.preview, 'different session');
     },
   );
+  test(
+    'confirmed multiline reply survives stale equal-timestamp REST',
+    () async {
+      final date = DateTime.utc(2026, 3);
+      final repository = FakeRepository()
+        ..conversations = [
+          ConversationEntity(
+            id: 'thread',
+            updatedAt: date,
+            lastMessage: 'Client ancien',
+          ),
+        ];
+      final container = ProviderContainer(
+        retry: (_, _) => null,
+        overrides: [
+          supportRepositoryProvider.overrideWith((ref) => repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      container
+          .read(currentUserProvider.notifier)
+          .set(
+            const UserEntity(
+              id: 'admin',
+              email: '',
+              firstName: '',
+              lastName: '',
+              role: null,
+            ),
+          );
+      final subscription = container.listen(supportQueueProvider, (_, _) {});
+      addTearDown(subscription.close);
+      await container.read(supportQueueProvider.future);
+      container
+          .read(supportQueueProvider.notifier)
+          .recordActivity(
+            MessageEntity(
+              id: 'reply',
+              conversationId: 'thread',
+              senderId: 'admin',
+              content: 'Bonsoir.\n\nVotre commande est prête.',
+              type: MessageType.text,
+              delivery: MessageDelivery.sent,
+              sentAt: date,
+            ),
+          );
+      expect(
+        container.read(supportQueueProvider).requireValue.single.preview,
+        'Vous : Bonsoir. Votre commande est prête.',
+      );
+      container.invalidate(supportQueueProvider);
+      expect(
+        (await container.read(supportQueueProvider.future)).single.preview,
+        'Vous : Bonsoir. Votre commande est prête.',
+      );
+    },
+  );
+
+  test(
+    'REST previews identify the replying admin and normalize paragraphs',
+    () {
+      const sender = UserEntity(
+        id: 'agent',
+        email: '',
+        firstName: 'Kofi',
+        lastName: '',
+        role: UserRole.admin,
+      );
+      final conversation = ConversationEntity(
+        id: 'thread',
+        updatedAt: DateTime.utc(2026),
+        lastMessage: 'Bonsoir.\nLa commande est prête.',
+        lastSender: sender,
+      );
+      expect(
+        ConversationListEntry.fromConversation(
+          conversation,
+          me: 'other',
+        ).preview,
+        'Kofi : Bonsoir. La commande est prête.',
+      );
+      expect(
+        ConversationListEntry.fromConversation(
+          conversation,
+          me: 'agent',
+        ).preview,
+        'Vous : Bonsoir. La commande est prête.',
+      );
+    },
+  );
+
   test('support type without ticket linkage keeps its identity', () {
     final conversation = ConversationModel.fromJson({
       'id': 'unlinked-support',
@@ -236,7 +562,11 @@ void main() {
     () async {
       final repository = FakeRepository()
         ..conversations = [
-          ConversationEntity(id: 'c', updatedAt: DateTime.utc(2026)),
+          ConversationEntity(
+            id: 'c',
+            updatedAt: DateTime.utc(2026),
+            lastMessage: 'Hello',
+          ),
         ];
       final container = ProviderContainer(
         retry: (_, _) => null,

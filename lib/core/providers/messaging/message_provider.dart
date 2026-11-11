@@ -14,6 +14,7 @@ import '../auth/auth_provider.dart';
 import '../../../domain/repository/media/media_repository.dart';
 import '../media/media_provider.dart';
 import '../realtime/realtime_provider.dart';
+import '../realtime/push_provider.dart';
 import 'support_provider.dart';
 import '../request/api_provider.dart';
 
@@ -326,6 +327,9 @@ class Thread extends _$Thread {
 
   Future<void> markRead() async {
     if (_reading || _messages.isEmpty) return;
+    ref
+        .read(supportQueueProvider.notifier)
+        .markConversationRead(conversationId);
     final owner = _owner;
     final generation = _generation;
     final incoming = _messages.where(
@@ -333,15 +337,19 @@ class Thread extends _$Thread {
     );
     final fingerprint = incoming.map((m) => m.id).join('|');
     if (fingerprint.isEmpty || fingerprint == _readFingerprint) return;
-    // Reading a support thread is allowed before claiming; acknowledgements are not.
-    final entry = ref
-        .read(supportQueueProvider)
-        .value
-        ?.where((e) => e.conversationId == conversationId)
-        .firstOrNull;
-    if (entry?.ticketId != null && entry?.assigneeId != owner) return;
     _reading = true;
     try {
+      await ref
+          .read(pushNotificationsProvider)
+          .markMessagesRead(incoming.map((m) => m.id));
+      if (!_current(owner, generation)) return;
+      // Reading a support thread is allowed before claiming; acknowledgements are not.
+      final entry = ref
+          .read(supportQueueProvider)
+          .value
+          ?.where((e) => e.conversationId == conversationId)
+          .firstOrNull;
+      if (entry?.ticketId != null && entry?.assigneeId != owner) return;
       final ids = incoming.map((m) => m.id).toList();
       for (var start = 0; start < ids.length; start += 100) {
         final end = start + 100 < ids.length ? start + 100 : ids.length;

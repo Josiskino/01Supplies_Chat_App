@@ -42,7 +42,8 @@ final routerNotifierProvider = Provider<RouterNotifier>((ref) {
 final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = ref.watch(routerNotifierProvider);
 
-  return GoRouter(
+  final router = GoRouter(
+    restorationScopeId: '01chat-router',
     initialLocation: AppUiRoute.splash,
     refreshListenable: notifier,
     debugLogDiagnostics: kDebugMode,
@@ -86,7 +87,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppUiRoute.main,
         pageBuilder: (context, state) => AppPageTransitions.session(
           key: state.pageKey,
-          child: const MainPage(),
+          child: const _ProtectedContent(child: MainPage()),
         ),
         routes: [
           // Sous-routes d'onglet : elles n'ont pas d'écran propre, elles ne
@@ -110,13 +111,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppUiRoute.call,
         pageBuilder: (context, state) => AppPageTransitions.fadeUp(
           key: state.pageKey,
-          child: CallScreen(title: state.extra as String?),
+          child: _ProtectedContent(
+            child: CallScreen(title: state.extra as String?),
+          ),
         ),
       ),
 
       GoRoute(
         path: AppUiRoute.settings,
-        builder: (context, state) => const SettingsScreen(),
+        builder: (context, state) =>
+            const _ProtectedContent(child: SettingsScreen()),
       ),
 
       // Fil de discussion. Poussé sur la pile plutôt que placé dans la coquille :
@@ -126,9 +130,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppUiRoute.conversationDetail,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
-          return ConversationDetailScreen(
-            conversationId: state.pathParameters['id'] ?? '',
-            contactName: extra?['contactName'] as String?,
+          return _ProtectedContent(
+            child: ConversationDetailScreen(
+              conversationId: state.pathParameters['id'] ?? '',
+              contactName: extra?['contactName'] as String?,
+            ),
           );
         },
       ),
@@ -144,17 +150,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>? ?? const {};
           return CustomTransitionPage<void>(
             key: state.pageKey,
+            restorationId: state.pageKey.value,
             opaque: false,
             barrierColor: Colors.black,
             transitionDuration: const Duration(milliseconds: 280),
             reverseTransitionDuration: const Duration(milliseconds: 220),
-            child: ImageViewerWidget(
-              // Accepte indifféremment des URL distantes et des chemins de
-              // fichiers locaux — utile dès qu'on affichera une pièce jointe
-              // avant son envoi.
-              imagePaths:
-                  (extra['images'] as List?)?.cast<String>() ?? const [],
-              initialIndex: extra['initialIndex'] as int? ?? 0,
+            child: _ProtectedContent(
+              child: ImageViewerWidget(
+                // Accepte indifféremment des URL distantes et des chemins de
+                // fichiers locaux — utile dès qu'on affichera une pièce jointe
+                // avant son envoi.
+                imagePaths:
+                    (extra['images'] as List?)?.cast<String>() ?? const [],
+                initialIndex: extra['initialIndex'] as int? ?? 0,
+              ),
             ),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) =>
@@ -164,7 +173,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 });
+
+/// Keep the page and its restoration bucket mounted while account identity is
+/// restored, without starting private screens against an empty session.
+class _ProtectedContent extends ConsumerWidget {
+  const _ProtectedContent({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(authStatusProvider) != AuthGateStatus.authenticated) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return child;
+  }
+}
 
 /// Transitions réutilisables.
 ///
@@ -181,6 +207,7 @@ abstract final class AppPageTransitions {
   }) {
     return CustomTransitionPage<T>(
       key: key,
+      restorationId: key is ValueKey<String> ? key.value : key.toString(),
       child: child,
       transitionDuration: const Duration(milliseconds: 320),
       reverseTransitionDuration: const Duration(milliseconds: 260),
@@ -223,6 +250,7 @@ abstract final class AppPageTransitions {
   }) {
     return CustomTransitionPage<T>(
       key: key,
+      restorationId: key is ValueKey<String> ? key.value : key.toString(),
       child: child,
       transitionDuration: const Duration(milliseconds: 420),
       reverseTransitionDuration: const Duration(milliseconds: 320),
@@ -250,6 +278,7 @@ abstract final class AppPageTransitions {
   }) {
     return CustomTransitionPage<T>(
       key: key,
+      restorationId: key is ValueKey<String> ? key.value : key.toString(),
       child: child,
       transitionDuration: const Duration(milliseconds: 260),
       reverseTransitionDuration: const Duration(milliseconds: 200),

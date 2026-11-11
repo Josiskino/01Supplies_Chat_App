@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:iconsax/iconsax.dart';
 
 import '../../core/platform/platform_ui.dart';
+import '../../core/platform/app_platform.dart';
 import '../../core/utils/localization_helper.dart';
 
 /// Déclaration d'une destination, indépendante du système de design.
@@ -140,6 +141,11 @@ abstract final class NavDestinations {
       label: _search,
       isSearch: true,
     ),
+  ];
+
+  static List<NavDestinationSpec> forPlatform(AppPlatform platform) => [
+    for (final spec in all)
+      if (platform != AppPlatform.android || !spec.isSearch) spec,
   ];
 
   static int get length => all.length;

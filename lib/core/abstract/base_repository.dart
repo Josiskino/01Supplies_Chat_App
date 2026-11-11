@@ -37,6 +37,7 @@ abstract class BaseRepository {
           message: final message,
           statusCode: final statusCode,
           error: final error,
+          rawData: final rawData,
         ):
           _logger.error(
             'Repository action failed',
@@ -44,7 +45,7 @@ abstract class BaseRepository {
             data: {'message': message, 'statusCode': statusCode},
             error: error,
           );
-          return Left(_mapErrorToFailure(message, statusCode, error));
+          return Left(_mapErrorToFailure(message, statusCode, error, rawData));
       }
     } on TimeoutException {
       _logger.error(
@@ -121,11 +122,22 @@ abstract class BaseRepository {
     return Right(entities);
   }
 
-  Failure _mapErrorToFailure(String message, int? statusCode, Object? error) {
+  Failure _mapErrorToFailure(
+    String message,
+    int? statusCode,
+    Object? error,
+    Object? rawData,
+  ) {
     return switch (statusCode) {
       401 => AuthFailure(message),
       403 => ForbiddenFailure(message),
       404 => NotFoundFailure(message),
+      429 => RateLimitFailure(
+        message,
+        retryAfterSeconds:
+            int.tryParse('${rawData is Map ? rawData['retryAfter'] : null}') ??
+            60,
+      ),
       _ => BusinessFailure(
         message,
         error,

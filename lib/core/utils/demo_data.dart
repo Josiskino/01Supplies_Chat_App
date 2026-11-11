@@ -72,6 +72,8 @@ abstract final class DemoData {
           unreadCount: e.unreadCount,
           ticketId: e.ticketId,
           isSupport: e.isSupport,
+          peerRole: e.peerRole,
+          peerId: e.peerId,
           assigneeId: e.assigneeId,
           assigneeName: e.assigneeName,
           isUnclaimed: e.isUnclaimed,

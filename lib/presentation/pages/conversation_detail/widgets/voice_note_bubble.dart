@@ -183,12 +183,15 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
         ? 'Mettre en pause'
         : 'Lire la note vocale';
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
         Tooltip(
           message: label,
           child: IconButton(
             tooltip: null,
+            constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
             onPressed: unavailable || _loading ? null : _toggle,
             icon: _loading
                 ? SizedBox(
@@ -211,9 +214,10 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
           ),
         ),
         const SizedBox(width: DesignTokens.spaceS),
-        Flexible(
+        Expanded(
           child: CustomPaint(
-            size: const Size(150, 26),
+            key: const ValueKey('voice-waveform'),
+            size: const Size(double.infinity, 26),
             painter: _WaveformPainter(
               amplitudes: widget.voice.waveform,
               progress: playbackProgress,
@@ -258,7 +262,8 @@ class _WaveformPainter extends CustomPainter {
     const barWidth = 3.0;
     const gap = 2.0;
     const step = barWidth + gap;
-    final count = (size.width / step).floor().clamp(1, amplitudes.length);
+    final count = (size.width / step).floor().clamp(1, 1000);
+    final spacing = count > 1 ? (size.width - barWidth) / (count - 1) : 0.0;
 
     void drawBars(Paint paint) {
       for (var i = 0; i < count; i++) {
@@ -270,7 +275,7 @@ class _WaveformPainter extends CustomPainter {
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromLTWH(
-              i * step,
+              i * spacing,
               (size.height - height) / 2,
               barWidth,
               height,
@@ -300,5 +305,6 @@ class _WaveformPainter extends CustomPainter {
   bool shouldRepaint(_WaveformPainter old) =>
       old.progress != progress ||
       old.played != played ||
-      old.pending != pending;
+      old.pending != pending ||
+      old.amplitudes != amplitudes;
 }

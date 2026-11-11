@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme/app_colors.dart';
 import '../../core/platform/platform_ui.dart';
+import '../../core/platform/app_platform.dart';
 import '../../core/platform/platform_ui_provider.dart';
 import '../../core/providers/navigation/main_tab_provider.dart';
 import '../../core/utils/localization_helper.dart';
@@ -31,7 +32,28 @@ class MainPage extends ConsumerStatefulWidget {
   ConsumerState<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends ConsumerState<MainPage> {
+class _MainPageState extends ConsumerState<MainPage> with RestorationMixin {
+  final _restoredTab = RestorableInt(0);
+
+  @override
+  String get restorationId => '01chat-main';
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_restoredTab, 'selected-tab');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(mainTabProvider.notifier).select(_restoredTab.value);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _restoredTab.dispose();
+    super.dispose();
+  }
+
   /// Construites une seule fois : recréer la liste à chaque build remplacerait
   /// les widgets et réinitialiserait l'état préservé par l'`IndexedStack`.
   static const List<Widget> _screens = [
@@ -44,17 +66,21 @@ class _MainPageState extends ConsumerState<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(mainTabProvider, (_, next) => _restoredTab.value = next);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final l10n = LocalizationHelper.of(context);
-    final selectedIndex = ref.watch(mainTabProvider);
+    final requestedIndex = ref.watch(mainTabProvider);
     final platformUi = ref.watch(platformUiProvider);
+    final isAndroid = platformUi.platform == AppPlatform.android;
+    final screens = isAndroid ? _screens.take(4).toList() : _screens;
+    final selectedIndex = requestedIndex >= screens.length ? 0 : requestedIndex;
 
     // Le compteur de non-lus viendra de la feature messagerie ; en attendant
     // aucun badge n'est affiché.
     const unreadByTab = <int, int>{};
 
     final destinations = [
-      for (final spec in NavDestinations.all)
+      for (final spec in NavDestinations.forPlatform(platformUi.platform))
         spec.toPlatformDestination(
           l10n,
           badgeCount: unreadByTab[spec.index] ?? 0,
@@ -72,7 +98,7 @@ class _MainPageState extends ConsumerState<MainPage> {
 
         return platformUi.shell.buildShell(
           layout: layout,
-          body: IndexedStack(index: selectedIndex, children: _screens),
+          body: IndexedStack(index: selectedIndex, children: screens),
           destinations: destinations,
           selectedIndex: selectedIndex,
           onSelected: (index) =>

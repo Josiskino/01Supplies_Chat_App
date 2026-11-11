@@ -104,11 +104,10 @@ Future<void> bootstrap(Flavor flavor) async {
     });
   }
 
-  // Garde en mémoire davantage d'images décodées : revenir sur une conversation
-  // touche le cache au lieu de redécoder depuis le disque.
-  // (défauts : 1000 entrées / 100 Mio)
-  PaintingBinding.instance.imageCache.maximumSize = 2000;
-  PaintingBinding.instance.imageCache.maximumSizeBytes = 250 << 20; // 250 Mio
+  // Cache original files on disk, but keep decoded mobile images bounded.
+  PaintingBinding.instance.imageCache.maximumSize = _isMobile ? 500 : 2000;
+  PaintingBinding.instance.imageCache.maximumSizeBytes =
+      (_isMobile ? 64 : 250) << 20;
 
   await dotenv.load(fileName: FlavorConfig.envFile);
 

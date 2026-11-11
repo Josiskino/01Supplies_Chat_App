@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/platform/app_platform.dart';
+import '../../widgets/search/custom_search_bar.dart';
+import 'widgets/inbox_kind_tabs.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
 
@@ -34,8 +37,34 @@ class ConversationsScreen extends ConsumerStatefulWidget {
       _ConversationsScreenState();
 }
 
-class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
+class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
+    with RestorationMixin {
   bool _isEditing = false;
+  final _support = RestorableBool(true);
+  final _search = RestorableString('');
+  final _searchController = TextEditingController();
+  bool get _supportSelected => _support.value;
+  set _supportSelected(bool value) => _support.value = value;
+  String get _query => _search.value;
+  set _query(String value) => _search.value = value;
+
+  @override
+  String get restorationId => 'chat-inbox';
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_support, 'support-tab');
+    registerForRestoration(_search, 'query');
+    _searchController.text = _search.value;
+  }
+
+  @override
+  void dispose() {
+    _support.dispose();
+    _search.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
 
   /// Conversations mises en avant, présentées en pastilles au-dessus de la liste.
   ///
@@ -63,6 +92,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
     final l10n = LocalizationHelper.of(context);
     final platformUi = ref.watch(platformUiProvider);
     final isApple = platformUi.platform.isApple;
+    final isAndroid = platformUi.platform == AppPlatform.android;
     final async = ref.watch(supportQueueProvider);
 
     // La file est la seule source : tant qu'elle n'a pas répondu, l'écran ne
@@ -88,12 +118,18 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 
     final conversations = [
       for (final entry in async.value ?? const [])
-        ConversationListItemData.fromEntry(
-          entry,
-          // La date du dernier message, non celle du ticket : ce dernier ne
-          // bouge pas au fil des échanges et figeait l'heure affichée.
-          timeLabel: ChatDateFormatter.listLabel(entry.date),
-        ),
+        if (!isAndroid ||
+            ((entry.isSupport || entry.ticketId != null) == _supportSelected &&
+                '${entry.title} ${entry.preview} ${entry.peerRoleLabel ?? ""}'
+                    .toLowerCase()
+                    .contains(_query.toLowerCase().trim())))
+          ConversationListItemData.fromEntry(
+            entry,
+            // La date du dernier message, non celle du ticket : ce dernier ne
+            // bouge pas au fil des échanges et figeait l'heure affichée.
+            timeLabel: ChatDateFormatter.listLabel(entry.date),
+            showPeerRole: isAndroid,
+          ),
     ];
 
     // Les épinglées coiffent la liste, les plus récentes en tête à l'intérieur
@@ -116,7 +152,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
 
     final pinned = _pinnedStrip(conversations, pinnedIds);
 
-    if (conversations.isEmpty) {
+    if (conversations.isEmpty && !isAndroid) {
       return PlatformPage(
         title: l10n.conversationsTitle,
         body: EmptyStateWidget(
@@ -141,7 +177,46 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen> {
       // accrochée en haut tout en se repliant, ce qu'un simple premier élément
       // de liste ne sait pas faire — il défile et disparaît.
       body: CustomScrollView(
+        restorationId: 'chat-inbox-scroll',
         slivers: [
+          if (isAndroid)
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  InboxKindTabs(
+                    supportSelected: _supportSelected,
+                    supportUnread: (async.value ?? const []).any(
+                      (e) =>
+                          (e.isSupport || e.ticketId != null) &&
+                          e.unreadCount > 0,
+                    ),
+                    directUnread: (async.value ?? const []).any(
+                      (e) =>
+                          !e.isSupport &&
+                          e.ticketId == null &&
+                          e.unreadCount > 0,
+                    ),
+                    onChanged: (value) =>
+                        setState(() => _supportSelected = value),
+                  ),
+                  CustomSearchBar(
+                    controller: _searchController,
+                    hintText: 'Rechercher une conversation',
+                    onChanged: (value) => setState(() => _query = value),
+                  ),
+                  const SizedBox(height: DesignTokens.spaceM),
+                ],
+              ),
+            ),
+          if (isAndroid && conversations.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyStateWidget(
+                icon: Iconsax.message,
+                title: l10n.conversationsEmptyTitle,
+                message: l10n.conversationsEmptyMessage,
+              ),
+            ),
           if (pinned.isNotEmpty)
             SliverPersistentHeader(
               pinned: true,

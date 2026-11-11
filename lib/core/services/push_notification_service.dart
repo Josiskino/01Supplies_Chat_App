@@ -8,6 +8,8 @@ import '../utils/app_logger.dart';
 import 'push_message.dart';
 import 'push_session_store.dart';
 import 'push_local_notifications.dart';
+import 'push_device_identity.dart';
+import 'push_read_receipts.dart';
 
 /// SDK boundary: tests never initialize Firebase or invoke native channels.
 abstract interface class PushMessaging {
@@ -55,9 +57,12 @@ class PushNotificationService {
     PushLocalNotifications? localNotifications,
     bool? supported,
     String? platform,
+    PushDeviceIdentity? deviceIdentity,
+    this.registrationRetryDelay = const Duration(seconds: 30),
   }) : _messaging = messaging ?? FirebasePushMessaging(),
        _store = sessionStore ?? SharedPreferencesPushSessionStore(),
        _local = localNotifications ?? NativePushLocalNotifications(),
+       _deviceIdentity = deviceIdentity ?? PushDeviceIdentity(),
        isSupported = supported ?? (Platform.isAndroid || Platform.isIOS),
        _platform = platform ?? (Platform.isIOS ? 'ios' : 'android') {
     _opened = StreamController<PushMessage>.broadcast(
@@ -68,6 +73,7 @@ class PushNotificationService {
   final PushMessaging _messaging;
   final PushSessionStore _store;
   final PushLocalNotifications _local;
+  final PushDeviceIdentity _deviceIdentity;
   final bool isSupported;
   final String _platform;
   final _logger = AppLogger();
@@ -76,6 +82,8 @@ class PushNotificationService {
   final _pendingOpened = <PushMessage>[];
   final _foregroundSeen = <String>{};
   final _openedSeen = <String>{};
+  final _clearedMessageIds = <String>{};
+  Future<void> _readCleanup = Future.value();
   final _subscriptions = <StreamSubscription<dynamic>>[];
   Future<void> _work = Future.value();
   Future<void> _persistence = Future.value();
@@ -85,6 +93,8 @@ class PushNotificationService {
   String? _observedToken;
   int _generation = 0;
   bool _disposed = false;
+  final Duration registrationRetryDelay;
+  Timer? _registrationRetry;
   Stream<PushMessage> get foregroundMessages => _foreground.stream;
   Stream<PushMessage> get openedMessages => _opened.stream;
   String? get accountId => _account;
@@ -105,6 +115,8 @@ class PushNotificationService {
       }
       return _work;
     }
+    _registrationRetry?.cancel();
+    _registrationRetry = null;
     final previous = _account;
     final oldToken = _observedToken ?? _registeredToken;
     _account = account;
@@ -118,6 +130,7 @@ class PushNotificationService {
     _observedToken = null;
     _foregroundSeen.clear();
     _openedSeen.clear();
+    _clearedMessageIds.clear();
     _pendingOpened.clear();
     // Durable background privacy gate must not wait for a slow network revoke.
     _persistence = _persistence
@@ -199,7 +212,7 @@ class PushNotificationService {
         _work = _work
             .then((_) async {
               if (_current(generation)) {
-                await _sendToken(token, generation);
+                await _registerToken(generation);
               }
             })
             .catchError((Object _) {});
@@ -231,11 +244,42 @@ class PushNotificationService {
     }
     // Never await a cold-start SDK future in the registration serialization.
     unawaited(_initialMessages(generation, opened));
-    final token = await _untilCancelled(_messaging.getToken(), generation);
-    if (token != null && token.isNotEmpty && _current(generation)) {
-      _observedToken = token;
-      await _sendToken(token, generation);
+    await _registerToken(generation);
+  }
+
+  Future<void> _registerToken(int generation) async {
+    if (!_current(generation)) return;
+    try {
+      final token =
+          _observedToken ??
+          await _untilCancelled<String?>(_messaging.getToken(), generation);
+      if (token == null || token.isEmpty) {
+        _retryRegistration(generation);
+        return;
+      }
+      if (_current(generation)) {
+        _observedToken = token;
+        await _sendToken(token, generation);
+      }
+    } catch (error, stack) {
+      _logger.error(
+        'Push device registration unavailable',
+        feature: 'Push',
+        error: error,
+        stackTrace: stack,
+      );
+      _retryRegistration(generation);
     }
+  }
+
+  void _retryRegistration(int generation) {
+    if (!_current(generation) || _registrationRetry?.isActive == true) return;
+    _registrationRetry = Timer(registrationRetryDelay, () {
+      _registrationRetry = null;
+      _work = _work
+          .catchError((Object _) {})
+          .then((_) => _registerToken(generation));
+    });
   }
 
   bool _accept(PushMessage message, int generation, Set<String> seen) {
@@ -292,16 +336,71 @@ class PushNotificationService {
     if (!_current(generation) || token.isEmpty || token == _registeredToken) {
       return;
     }
+    final deviceId = await _deviceIdentity.getDeviceId();
+    if (!_current(generation)) return;
     final result = await _client
         .request<bool>(
           path: ApiEndpoints.devices,
           method: HttpMethod.post,
-          data: {'fcmToken': token, 'platform': _platform},
+          data: {
+            'fcmToken': token,
+            'platform': _platform,
+            'deviceId': deviceId,
+          },
           fromJson: (_) => true,
         )
         .timeout(const Duration(seconds: 10));
     if (_current(generation) && result is ApiSuccess<bool>) {
       _registeredToken = token;
+      _logger.info('FCM device registration confirmed', feature: 'Push');
+      _registrationRetry?.cancel();
+      _registrationRetry = null;
+      await _verifyActiveDevice(deviceId, generation);
+    } else if (_current(generation)) {
+      final status = result is ApiError<bool> ? result.statusCode : null;
+      _logger.warning(
+        'Push device registration rejected (HTTP $status)',
+        feature: 'Push',
+      );
+      _retryRegistration(generation);
+    }
+  }
+
+  Future<void> _verifyActiveDevice(String deviceId, int generation) async {
+    try {
+      final result = await _client
+          .request<bool>(
+            path: ApiEndpoints.devices,
+            method: HttpMethod.get,
+            fromJson: (json) {
+              final data = json['data'] is Map ? json['data'] as Map : json;
+              return (data['devices'] as List? ?? const [])
+                  .whereType<Map>()
+                  .any(
+                    (device) =>
+                        device['deviceId'] == deviceId &&
+                        device['platform'] == _platform,
+                  );
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+      if (!_current(generation)) return;
+      if (result is ApiSuccess<bool> && result.data) {
+        _logger.info(
+          'FCM active device verified by GET users/me/devices',
+          feature: 'Push',
+        );
+      } else {
+        _logger.warning(
+          'FCM registration accepted; active device verification unavailable',
+          feature: 'Push',
+        );
+      }
+    } catch (_) {
+      _logger.warning(
+        'FCM active device verification unavailable',
+        feature: 'Push',
+      );
     }
   }
 
@@ -323,11 +422,41 @@ class PushNotificationService {
     }
   }
 
+  Future<void> markMessagesRead(Iterable<String> messageIds) {
+    final owner = _account;
+    final generation = _generation;
+    if (!isSupported || owner == null || _disposed) return Future.value();
+    final ids = messageIds.where((id) => id.isNotEmpty).toSet();
+    _readCleanup = _readCleanup
+        .catchError((Object _) {})
+        .then((_) async {
+          if (!_current(generation)) return;
+          final pending = ids.difference(_clearedMessageIds);
+          if (pending.isEmpty) return;
+          await rememberReadPushMessages(owner, pending);
+          if (!_current(generation)) return;
+          await _local.cancelMessages(pending);
+          if (!_current(generation)) return;
+          _clearedMessageIds.addAll(pending);
+          while (_clearedMessageIds.length > 1000) {
+            _clearedMessageIds.remove(_clearedMessageIds.first);
+          }
+        })
+        .catchError((Object _) {
+          _logger.warning(
+            'Read notification cleanup unavailable',
+            feature: 'Push',
+          );
+        });
+    return _readCleanup;
+  }
+
   Future<void> dispose() async {
     if (_disposed) {
       return;
     }
     _disposed = true;
+    _registrationRetry?.cancel();
     ++_generation;
     if (!_cancel.isCompleted) {
       _cancel.complete();

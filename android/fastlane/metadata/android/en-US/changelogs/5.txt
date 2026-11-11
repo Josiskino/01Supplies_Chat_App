@@ -1,0 +1,1 @@
+More reliable message notifications, correct conversation opening from notifications, and automatic notification clearing after reading. Improved unread badges, online presence, voice messages, message previews, search, and conversation layout. Better restoration when returning to the app.

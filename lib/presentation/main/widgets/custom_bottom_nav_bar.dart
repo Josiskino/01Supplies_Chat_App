@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../config/theme/app_colors.dart';
@@ -91,15 +93,18 @@ class CustomBottomAppBar extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              child: Icon(
-                                isSelected ? item.selectedIcon : item.icon,
-                                color: isSelected
-                                    ? theme.colorScheme.primary
-                                    : DesignTokens.getTextColorWithOpacity(
-                                        context,
-                                        DesignTokens.opacityMedium,
-                                      ),
-                                size: DesignTokens.iconM,
+                              child: _ActivationBounce(
+                                selected: isSelected,
+                                child: Icon(
+                                  isSelected ? item.selectedIcon : item.icon,
+                                  color: isSelected
+                                      ? theme.colorScheme.primary
+                                      : DesignTokens.getTextColorWithOpacity(
+                                          context,
+                                          DesignTokens.opacityMedium,
+                                        ),
+                                  size: DesignTokens.iconM,
+                                ),
                               ),
                             ),
                           ),
@@ -139,4 +144,63 @@ class CustomBottomAppBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A single playful lift when an Android destination becomes active.
+class _ActivationBounce extends StatefulWidget {
+  const _ActivationBounce({required this.selected, required this.child});
+
+  final bool selected;
+  final Widget child;
+
+  @override
+  State<_ActivationBounce> createState() => _ActivationBounceState();
+}
+
+class _ActivationBounceState extends State<_ActivationBounce>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: DesignTokens.durationSlow,
+    value: 1,
+  );
+
+  bool get _canAnimate =>
+      Theme.of(context).platform == TargetPlatform.android &&
+      !MediaQuery.disableAnimationsOf(context);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_canAnimate) _controller.value = 1;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActivationBounce oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected && !oldWidget.selected && _canAnimate) {
+      _controller.forward(from: 0);
+    } else if (!widget.selected || !_canAnimate) {
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _controller,
+    child: widget.child,
+    builder: (context, child) {
+      final lift = math.sin(_controller.value * math.pi);
+      return Transform.translate(
+        offset: Offset(0, -3 * lift),
+        child: Transform.scale(scale: 1 + 0.16 * lift, child: child),
+      );
+    },
+  );
 }

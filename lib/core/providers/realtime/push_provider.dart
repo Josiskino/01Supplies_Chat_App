@@ -7,6 +7,7 @@ import '../auth/auth_provider.dart';
 import '../auth/auth_status_provider.dart';
 import '../messaging/support_provider.dart';
 import '../request/api_provider.dart';
+import 'realtime_provider.dart';
 
 part 'push_provider.g.dart';
 
@@ -43,8 +44,9 @@ void pushRegistration(Ref ref) {
         message.recipientId != ref.read(currentUserProvider)?.id) {
       return;
     }
-    // Pusher remains responsible for foreground message banners. FCM catches
-    // up the queue without displaying a second copy of the same notification.
+    // The shared dispatcher deduplicates FCM and Pusher, including observers
+    // who do not yet have access to the private conversation channel.
+    ref.read(messageEventsProvider).handleNotification(message.data);
     ref.invalidate(supportQueueProvider);
   });
   ref.onDispose(() => unawaited(subscription.cancel()));

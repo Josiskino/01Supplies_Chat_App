@@ -26,7 +26,7 @@ class TAppBarTheme {
     ),
     iconTheme: IconThemeData(color: AppColors.primaryColorLight),
     titleTextStyle: TextStyle(
-      color: AppColors.primaryColorLight,
+      color: Colors.black,
       fontSize: _titleSize,
       fontWeight: FontWeight.w600,
     ),
@@ -44,7 +44,7 @@ class TAppBarTheme {
     ),
     iconTheme: IconThemeData(color: AppColors.primaryColorDark),
     titleTextStyle: TextStyle(
-      color: AppColors.primaryColorDark,
+      color: Colors.white,
       fontSize: _titleSize,
       fontWeight: FontWeight.w600,
     ),

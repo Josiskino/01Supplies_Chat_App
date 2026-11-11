@@ -52,10 +52,14 @@ class MyApp extends ConsumerWidget {
       // signaler. Rattaché à un écran, il ne verrait rien le reste du temps.
       builder: (context, child) =>
           MessagingApplicationLayer(child: child ?? const SizedBox.shrink()),
-      material: (context, platform) =>
-          const MaterialAppData(debugShowCheckedModeBanner: false),
-      cupertino: (context, platform) =>
-          const CupertinoAppData(debugShowCheckedModeBanner: false),
+      material: (context, platform) => const MaterialAppData(
+        debugShowCheckedModeBanner: false,
+        restorationScopeId: '01chat-app',
+      ),
+      cupertino: (context, platform) => const CupertinoAppData(
+        debugShowCheckedModeBanner: false,
+        restorationScopeId: '01chat-app',
+      ),
     );
   }
 }

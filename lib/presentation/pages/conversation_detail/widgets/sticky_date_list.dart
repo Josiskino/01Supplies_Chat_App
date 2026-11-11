@@ -39,6 +39,7 @@ class StickyDateList extends StatefulWidget {
     required this.now,
     this.controller,
     this.padding = EdgeInsets.zero,
+    this.restorationId,
   });
 
   /// Messages en ordre **chronologique croissant**, le plus ancien d'abord.
@@ -50,6 +51,7 @@ class StickyDateList extends StatefulWidget {
 
   final ScrollController? controller;
   final EdgeInsets padding;
+  final String? restorationId;
 
   @override
   State<StickyDateList> createState() => _StickyDateListState();
@@ -151,6 +153,7 @@ class _StickyDateListState extends State<StickyDateList> {
             return false;
           },
           child: ListView(
+            restorationId: widget.restorationId,
             controller: widget.controller,
             reverse: true,
             padding: widget.padding,

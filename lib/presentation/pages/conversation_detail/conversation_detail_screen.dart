@@ -25,6 +25,7 @@ import '../../desktop/widgets/presence_avatar.dart';
 import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
 import 'widgets/chat_bubble.dart';
+import 'widgets/conversation_online_status.dart';
 import '../../widgets/common/context_actions_panel.dart';
 import 'widgets/message_composer.dart';
 import 'widgets/sticky_date_list.dart';
@@ -185,6 +186,8 @@ class _ConversationDetailScreenState
       text: m.text,
       timeLabel: m.timeLabel,
       isMine: m.isMine,
+      isOutgoing: m.isOutgoing,
+      senderId: m.senderId,
       sentAt: m.sentAt,
       senderName: senderName ?? m.senderName,
       avatarUrl: m.avatarUrl,
@@ -443,9 +446,19 @@ class _ConversationDetailScreenState
   /// Le fil projeté pour l'affichage, réactions locales appliquées.
   List<ChatMessageData> _visibleMessages(List<MessageEntity> source) {
     final me = ref.read(currentUserIdProvider);
+    final entry = ref
+        .watch(supportQueueProvider)
+        .value
+        ?.where((e) => e.conversationId == widget.conversationId)
+        .firstOrNull;
+    final isSupport = entry?.isSupport == true || entry?.ticketId != null;
     return [
       for (final message in source)
-        ChatMessageData.fromMessage(message, currentUserId: me),
+        ChatMessageData.fromMessage(
+          message,
+          currentUserId: me,
+          isSupport: isSupport,
+        ),
     ];
   }
 
@@ -457,6 +470,12 @@ class _ConversationDetailScreenState
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final conversation = _conversation;
+    final entry = ref
+        .watch(supportQueueProvider)
+        .value
+        ?.where((e) => e.conversationId == widget.conversationId)
+        .firstOrNull;
+    final peerRole = entry?.peerRoleLabel;
     final async = ref.watch(threadProvider(widget.conversationId));
     final thread = async.value;
     final locked = thread is ThreadLocked;
@@ -472,7 +491,12 @@ class _ConversationDetailScreenState
         ref.watch(conversationPresenceProvider(widget.conversationId)).value ??
         const <String, Map<String, dynamic>>{};
     final me = ref.watch(currentUserIdProvider);
-    final peerPresent = present.keys.any((id) => id != me);
+    final peerPresent = isConversationPeerPresent(
+      peerId: entry?.peerId,
+      currentUserId: me,
+      isSupport: entry?.isSupport == true || entry?.ticketId != null,
+      members: present,
+    );
 
     // En-tête construit dans le corps, sans barre de navigation.
     //
@@ -490,6 +514,8 @@ class _ConversationDetailScreenState
         children: [
           _ConversationHeader(
             conversation: conversation,
+            peerRole: peerRole,
+            peerOnline: peerPresent,
             onBack: widget.embedded ? widget.onBack : () => context.pop(),
             onMore: () => _openCallOptions(context, conversation.name),
             isApple: isApple,
@@ -542,6 +568,8 @@ class _ConversationDetailScreenState
                       return false;
                     },
                     child: StickyDateList(
+                      restorationId:
+                          'messages-${me ?? 'pending'}-${widget.conversationId}',
                       controller: _scroll,
                       now: DateTime.now(),
                       padding: const EdgeInsets.symmetric(
@@ -569,7 +597,6 @@ class _ConversationDetailScreenState
             const Text(
               'Actualisation impossible. Les messages affichés sont conservés.',
             ),
-          if (peerPresent) const Text('Présent dans cette discussion'),
           if (typing.isNotEmpty) Text('${typing.values.join(', ')} écrit…'),
           if (ref.read(threadProvider(widget.conversationId).notifier).hasMore)
             TextButton(
@@ -613,6 +640,11 @@ class _ConversationDetailScreenState
             )
           else
             MessageComposer(
+              key: ValueKey(
+                'composer-${me ?? 'pending'}-${widget.conversationId}',
+              ),
+              restorationId:
+                  'composer-${me ?? 'pending'}-${widget.conversationId}',
               onSend: _send,
               initialText: draft,
               onDraftChanged: (text) => ref
@@ -732,7 +764,7 @@ class _ConversationDetailScreenState
             isLastOfGroup: position.isLast,
             showAuthorAlways: true,
           ),
-          alignEnd: message.isMine,
+          alignEnd: message.isOutgoing,
           selectedReaction: message.reaction,
           actions: _messageActions(context, message),
           onReact: (emoji) => _react(message, emoji),
@@ -776,7 +808,10 @@ class _ConversationDetailScreenState
     bool sameGroup(int other) {
       if (other < 0 || other >= messages.length) return false;
       final m = messages[other];
-      if (m.isMine != current.isMine) return false;
+      if (m.isOutgoing != current.isOutgoing ||
+          m.senderId != current.senderId) {
+        return false;
+      }
       if (m.sentAt == null || current.sentAt == null) return true;
       return ChatDateFormatter.dayKey(m.sentAt!) ==
           ChatDateFormatter.dayKey(current.sentAt!);
@@ -796,12 +831,16 @@ class _ConversationHeader extends StatelessWidget {
     required this.onBack,
     required this.onMore,
     required this.isApple,
+    this.peerRole,
+    this.peerOnline = false,
   });
 
   final ConversationListItemData conversation;
   final VoidCallback? onBack;
   final VoidCallback onMore;
   final bool isApple;
+  final String? peerRole;
+  final bool peerOnline;
 
   @override
   Widget build(BuildContext context) {
@@ -818,7 +857,9 @@ class _ConversationHeader extends StatelessWidget {
       decoration: BoxDecoration(
         // Aplat opaque : le fil défile juste en dessous, et un en-tête
         // translucide laisserait les bulles le traverser.
-        color: theme.scaffoldBackgroundColor,
+        color: !isApple && !isDark
+            ? Colors.white
+            : theme.scaffoldBackgroundColor,
         border: Border(
           bottom: BorderSide(
             color: DesignTokens.getBorderColor(isDark, opacity: 0.12),
@@ -841,14 +882,18 @@ class _ConversationHeader extends StatelessWidget {
                 child: Icon(
                   CupertinoIcons.chevron_back,
                   size: 24,
-                  color: theme.colorScheme.primary,
+                  color: isApple
+                      ? theme.colorScheme.primary
+                      : (isDark ? theme.colorScheme.onSurface : Colors.black),
                 ),
               ),
             ),
           PresenceAvatar(
             name: conversation.name,
             avatarUrl: conversation.avatarUrl,
-            presence: conversation.presence,
+            presence: peerOnline
+                ? PresenceStatus.online
+                : PresenceStatus.offline,
             // 38 et non 30 : en dessous, la pastille ne tient plus son rang face
             // au nom en `headline` (17 pt gras) et l'en-tête paraît déséquilibré.
             // C'est aussi l'ordre de grandeur retenu par Messages et WhatsApp.
@@ -863,13 +908,28 @@ class _ConversationHeader extends StatelessWidget {
               // Le nom mène à la fiche du contact, comme sur iOS.
               onTap: () {},
               behavior: HitTestBehavior.opaque,
-              child: Text(
-                conversation.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium
-                    ?.merge(AppleType.headline)
-                    .copyWith(fontWeight: FontWeight.w600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    conversation.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium
+                        ?.merge(AppleType.headline)
+                        .copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  if (peerRole != null || peerOnline)
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (peerRole != null)
+                          Text(peerRole!, style: theme.textTheme.bodySmall),
+                        ConversationOnlineStatus(online: peerOnline),
+                      ],
+                    ),
+                ],
               ),
             ),
           ),

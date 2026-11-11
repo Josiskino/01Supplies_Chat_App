@@ -185,6 +185,31 @@ void main() {
     service.dispose();
     container.dispose();
   });
+  test(
+    'account channel alerts observers and deduplicates FCM and conversation events',
+    () async {
+      await setup();
+      final received = <IncomingMessage>[];
+      final sub = service.incomingMessages.listen(received.add);
+      final data = <String, dynamic>{
+        'type': 'message.new',
+        'conversationId': 'unclaimed',
+        'messageId': 'm-observer',
+        'senderId': 'client',
+        'senderName': 'Private client',
+        'visibility': 'observer',
+        'preview': 'private text',
+      };
+      pusher.emit('private-user-me', 'notification', {'data': data});
+      service.handleNotification(data); // Same delivery through FCM.
+      await Future<void>.delayed(Duration.zero);
+      expect(received, hasLength(1));
+      expect(received.single.author, 'Nouveau message support');
+      expect(received.single.preview, isNot(contains('private text')));
+      expect(received.single.conversationId, 'unclaimed');
+      await sub.cancel();
+    },
+  );
   test('closing foreground preserves background message delivery', () async {
     await setup();
     final received = <String>[];

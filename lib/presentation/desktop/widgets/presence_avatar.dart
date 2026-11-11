@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../config/theme/design_tokens.dart';
@@ -52,6 +53,17 @@ class PresenceAvatar extends StatelessWidget {
 
   Color _avatarColor(BuildContext context) => colorForName(name);
 
+  Widget _buildInitials(bool isDark, Color color) => Center(
+    child: Text(
+      _initials,
+      style: TextStyle(
+        color: isDark ? Colors.white : color,
+        fontSize: size * 0.36,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -70,24 +82,28 @@ class PresenceAvatar extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: color.withValues(alpha: isDark ? 0.28 : 0.16),
-              image: avatarUrl != null && avatarUrl!.isNotEmpty
-                  ? DecorationImage(
-                      image: NetworkImage(avatarUrl!),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
             ),
             alignment: Alignment.center,
             child: avatarUrl != null && avatarUrl!.isNotEmpty
-                ? null
-                : Text(
-                    _initials,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : color,
-                      fontSize: size * 0.36,
-                      fontWeight: FontWeight.w600,
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: avatarUrl!,
+                      memCacheWidth:
+                          (size * MediaQuery.devicePixelRatioOf(context))
+                              .ceil()
+                              .clamp(1, 512),
+                      memCacheHeight:
+                          (size * MediaQuery.devicePixelRatioOf(context))
+                              .ceil()
+                              .clamp(1, 512),
+                      width: size,
+                      height: size,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) => _buildInitials(isDark, color),
+                      errorWidget: (_, _, _) => _buildInitials(isDark, color),
                     ),
-                  ),
+                  )
+                : _buildInitials(isDark, color),
           ),
           if (presence.isVisible)
             Positioned(

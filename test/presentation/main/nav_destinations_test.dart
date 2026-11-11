@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:supplies_chat_app/core/platform/app_platform.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations.dart';
 import 'package:supplies_chat_app/presentation/main/nav_destinations.dart';
@@ -10,6 +11,26 @@ import 'package:supplies_chat_app/presentation/main/nav_destinations.dart';
 /// Symbol inexistant ne casse rien à la compilation, il donne une case vide dans
 /// la barre iOS. D'où ces vérifications au niveau de la déclaration.
 void main() {
+  test('Android omits search while other platforms keep all nav indices', () {
+    expect(
+      NavDestinations.forPlatform(AppPlatform.android).map((d) => d.index),
+      [0, 1, 2, 3],
+    );
+    for (final platform in [
+      AppPlatform.ios,
+      AppPlatform.macos,
+      AppPlatform.windows,
+    ]) {
+      expect(NavDestinations.forPlatform(platform).map((d) => d.index), [
+        0,
+        1,
+        2,
+        3,
+        4,
+      ]);
+      expect(NavDestinations.forPlatform(platform).last.isSearch, isTrue);
+    }
+  });
   late AppLocalizations fr;
   late AppLocalizations en;
 

@@ -94,7 +94,7 @@ class MaterialShell implements PlatformShell {
         actions: [
           for (final action in actions)
             IconButton(
-              icon: Icon(action.icon),
+              icon: Icon(action.icon, color: Colors.grey),
               tooltip: action.label,
               onPressed: action.onPressed,
             ),

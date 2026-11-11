@@ -36,7 +36,7 @@ class MessageModel {
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     final rawSender = (json['sender'] as Map?)?.cast<String, dynamic>();
     return MessageModel(
-      id: (json['id'] ?? json['_id'] ?? '').toString(),
+      id: (json['id'] ?? json['_id'] ?? json['messageId'] ?? '').toString(),
       conversationId: (json['conversationId'] ?? '').toString(),
       // `senderId` peut arriver à plat ou n'exister que dans l'objet `sender`.
       senderId: (json['senderId'] ?? rawSender?['id'] ?? '').toString(),

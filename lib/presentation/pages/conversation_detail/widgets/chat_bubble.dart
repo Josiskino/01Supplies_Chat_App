@@ -67,7 +67,7 @@ class ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isMine = message.isMine;
+    final isOutgoing = message.isOutgoing;
 
     // Un message qui n'est **que** des photos n'a pas de bulle : le fond coloré
     // s'y réduirait à un liseré autour de l'aperçu.
@@ -78,10 +78,10 @@ class ChatBubble extends StatelessWidget {
         message.isTyping ||
         message.replyTo != null;
 
-    final background = isMine
+    final background = isOutgoing
         ? theme.colorScheme.primary
         : (isDark ? const Color(0xFF2C2C34) : const Color(0xFFE9E9EB));
-    final foreground = isMine
+    final foreground = isOutgoing
         ? theme.colorScheme.onPrimary
         : theme.colorScheme.onSurface;
 
@@ -92,8 +92,8 @@ class ChatBubble extends StatelessWidget {
     final radius = BorderRadius.only(
       topLeft: round,
       topRight: round,
-      bottomLeft: !isMine && isLastOfGroup ? tight : round,
-      bottomRight: isMine && isLastOfGroup ? tight : round,
+      bottomLeft: !isOutgoing && isLastOfGroup ? tight : round,
+      bottomRight: isOutgoing && isLastOfGroup ? tight : round,
     );
 
     return Padding(
@@ -104,15 +104,15 @@ class ChatBubble extends StatelessWidget {
         bottom: 2,
       ),
       child: Column(
-        crossAxisAlignment: isMine
+        crossAxisAlignment: isOutgoing
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
           if (message.senderName != null &&
-              (showAuthorAlways || (!isMine && isFirstOfGroup)))
+              (showAuthorAlways || (!isOutgoing && isFirstOfGroup)))
             Padding(
               padding: EdgeInsets.only(
-                left: isMine ? 0 : _avatarGutter + DesignTokens.spaceM,
+                left: isOutgoing ? 0 : _avatarGutter + DesignTokens.spaceM,
                 bottom: 3,
               ),
               child: Text(
@@ -126,7 +126,9 @@ class ChatBubble extends StatelessWidget {
             ),
           Stack(
             clipBehavior: Clip.none,
-            alignment: isMine ? Alignment.bottomRight : Alignment.bottomLeft,
+            alignment: isOutgoing
+                ? Alignment.bottomRight
+                : Alignment.bottomLeft,
             children: [
               Padding(
                 // Place réservée sous la bulle pour la moitié basse de la
@@ -136,12 +138,12 @@ class ChatBubble extends StatelessWidget {
                   bottom: message.reaction != null ? _reactionOverhang : 0,
                 ),
                 child: Row(
-                  mainAxisAlignment: isMine
+                  mainAxisAlignment: isOutgoing
                       ? MainAxisAlignment.end
                       : MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (!isMine)
+                    if (!isOutgoing)
                       SizedBox(
                         width: _avatarGutter,
                         // La gouttière est réservée même sans avatar : sans elle, les
@@ -162,7 +164,7 @@ class ChatBubble extends StatelessWidget {
                           maxWidth: MediaQuery.sizeOf(context).width * 0.72,
                         ),
                         child: Column(
-                          crossAxisAlignment: isMine
+                          crossAxisAlignment: isOutgoing
                               ? CrossAxisAlignment.end
                               : CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
@@ -194,9 +196,11 @@ class ChatBubble extends StatelessWidget {
                               ),
                             if (hasBubble)
                               Container(
-                                padding: const EdgeInsets.symmetric(
+                                padding: EdgeInsets.symmetric(
                                   horizontal: DesignTokens.spaceM + 2,
-                                  vertical: DesignTokens.spaceS + 2,
+                                  vertical: message.isVoice
+                                      ? 6
+                                      : DesignTokens.spaceS + 2,
                                 ),
                                 decoration: BoxDecoration(
                                   color: background,
@@ -214,7 +218,7 @@ class ChatBubble extends StatelessWidget {
                                         child: _QuotedMessage(
                                           reply: message.replyTo!,
                                           foreground: foreground,
-                                          isMine: isMine,
+                                          isMine: isOutgoing,
                                           onTap: onTapQuote,
                                         ),
                                       ),
@@ -228,7 +232,7 @@ class ChatBubble extends StatelessWidget {
                                         // Sur une bulle émise, l'accent de marque se
                                         // confondrait avec son fond : la partie lue est donc
                                         // peinte dans la couleur du texte.
-                                        accent: isMine
+                                        accent: isOutgoing
                                             ? foreground
                                             : theme.colorScheme.primary,
                                       )
@@ -266,8 +270,8 @@ class ChatBubble extends StatelessWidget {
               if (message.reaction != null)
                 Positioned(
                   bottom: 0,
-                  right: isMine ? DesignTokens.spaceM : null,
-                  left: isMine ? null : _avatarGutter + DesignTokens.spaceM,
+                  right: isOutgoing ? DesignTokens.spaceM : null,
+                  left: isOutgoing ? null : _avatarGutter + DesignTokens.spaceM,
                   child: _ReactionChip(
                     // La clé porte l'emoji : en changer remonte le widget, et
                     // l'animation rejoue. Sans elle, remplacer 👍 par ❤️
@@ -279,7 +283,8 @@ class ChatBubble extends StatelessWidget {
                 ),
             ],
           ),
-          if (isMine && (showStatus || message.status == MessageStatus.failed))
+          if (message.isMine &&
+              (showStatus || message.status == MessageStatus.failed))
             Padding(
               padding: const EdgeInsets.only(
                 right: DesignTokens.spaceXs,

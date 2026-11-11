@@ -18,6 +18,11 @@ class NetworkFailure extends Failure {
   NetworkFailure(super.message);
 }
 
+class RateLimitFailure extends Failure {
+  RateLimitFailure(super.message, {this.retryAfterSeconds = 60});
+  final int retryAfterSeconds;
+}
+
 /// Règle métier rejetée par le serveur (4xx/5xx non spécifiques).
 class BusinessFailure extends Failure {
   final Object? error;

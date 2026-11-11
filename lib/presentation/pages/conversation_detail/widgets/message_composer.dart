@@ -26,12 +26,14 @@ class MessageComposer extends ConsumerStatefulWidget {
     this.onTyping,
     this.initialText = '',
     this.onDraftChanged,
+    this.restorationId,
   });
 
   final Future<bool> Function(String)? onSend;
   final ValueChanged<bool>? onTyping;
   final String initialText;
   final ValueChanged<String>? onDraftChanged;
+  final String? restorationId;
   final String? placeholder;
 
   /// Message cité au-dessus du champ, quand une réponse est en cours.
@@ -56,8 +58,11 @@ class MessageComposer extends ConsumerStatefulWidget {
 /// optiques que l'œil remarque.
 const double _controlHeight = 38;
 
-class _MessageComposerState extends ConsumerState<MessageComposer> {
+class _MessageComposerState extends ConsumerState<MessageComposer>
+    with RestorationMixin {
   final _controller = TextEditingController();
+  late final RestorableString _restoredDraft;
+  bool _draftRegistered = false;
   final _focusNode = FocusNode();
   bool _hasText = false;
   bool _sending = false;
@@ -65,6 +70,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   @override
   void initState() {
     super.initState();
+    _restoredDraft = RestorableString(widget.initialText);
     // Écouter le contrôleur plutôt que `onChanged` : la bascule micro/envoi doit
     // aussi suivre un collage ou un effacement programmatique.
     _controller.text = widget.initialText;
@@ -73,11 +79,33 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
   }
 
   void _onTextChanged() {
+    if (_draftRegistered) _restoredDraft.value = _controller.text;
     final hasText = _controller.text.trim().isNotEmpty;
     widget.onTyping?.call(hasText);
     widget.onDraftChanged?.call(_controller.text);
     if (hasText != _hasText) {
       setState(() => _hasText = hasText);
+    }
+  }
+
+  @override
+  String? get restorationId => widget.restorationId;
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_restoredDraft, 'draft');
+    _draftRegistered = true;
+    _controller.removeListener(_onTextChanged);
+    _controller.text = _restoredDraft.value;
+    _hasText = _controller.text.trim().isNotEmpty;
+    _controller.addListener(_onTextChanged);
+    final restoredText = _controller.text;
+    if (restoredText != widget.initialText) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _controller.text == restoredText) {
+          widget.onDraftChanged?.call(restoredText);
+        }
+      });
     }
   }
 
@@ -94,6 +122,9 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
         selection: TextSelection.collapsed(offset: widget.initialText.length),
       );
       _hasText = widget.initialText.trim().isNotEmpty;
+      if (_draftRegistered) {
+        _restoredDraft.value = widget.initialText;
+      }
       _controller.addListener(_onTextChanged);
     }
   }
@@ -103,6 +134,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
     widget.onTyping?.call(false);
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
+    _restoredDraft.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -217,7 +249,7 @@ class _MessageComposerState extends ConsumerState<MessageComposer> {
                         minHeight: _controlHeight,
                       ),
                       decoration: BoxDecoration(
-                        borderRadius: DesignTokens.borderRadiusPill,
+                        borderRadius: BorderRadius.circular(_controlHeight / 2),
                         border: Border.all(
                           color: DesignTokens.getBorderColor(
                             isDark,

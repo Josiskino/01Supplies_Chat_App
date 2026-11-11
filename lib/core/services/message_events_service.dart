@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../data/models/messaging/message_model.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../abstract/api_client_interface.dart';
@@ -96,6 +97,7 @@ class MessageEventsService with WidgetsBindingObserver {
   final _events = StreamController<ConversationRealtimeEvent>.broadcast();
   final _presence = StreamController<ConversationPresence>.broadcast();
   final _incoming = StreamController<IncomingMessage>.broadcast();
+  final _incomingSeen = <String>{};
   final _catchUp = StreamController<String>.broadcast();
   final _typingChanges = StreamController<ConversationTyping>.broadcast();
   final Map<String, Map<String, String>> _typers = {};
@@ -191,8 +193,9 @@ class MessageEventsService with WidgetsBindingObserver {
             await _pusher.bindEvent(
               channelName: 'private-user-$next',
               eventName: event,
-              handler: (_) {
+              handler: (payload) {
                 if (_current(generation)) {
+                  if (event == 'notification') handleNotification(payload);
                   _ref.invalidate(supportQueueProvider);
                 }
               },
@@ -368,6 +371,16 @@ class MessageEventsService with WidgetsBindingObserver {
     if (name == 'message.new') {
       _removeTyper(id, event.data['senderId']?.toString());
       _queueDelivered(id, event.data);
+      _ref
+          .read(supportQueueProvider.notifier)
+          .recordActivity(
+            MessageModel.fromJson({
+              ...event.data,
+              'conversationId': id,
+            }).toEntity(),
+            received:
+                !(isForeground && id == _ref.read(visibleConversationProvider)),
+          );
     }
     _threadEvents.add(id);
     _ref.invalidate(supportQueueProvider);
@@ -387,7 +400,8 @@ class MessageEventsService with WidgetsBindingObserver {
         ? '${sender['firstName'] ?? ''} ${sender['lastName'] ?? ''}'.trim()
         : '';
     final content = data['content']?.toString() ?? '';
-    _incoming.add(
+    _emitIncoming(
+      data['messageId']?.toString() ?? data['id']?.toString(),
       IncomingMessage(
         conversationId: id,
         author: author.isEmpty ? 'Nouveau message' : author,
@@ -401,6 +415,48 @@ class MessageEventsService with WidgetsBindingObserver {
               },
       ),
     );
+  }
+
+  /// Account notifications also reach support observers who cannot subscribe
+  /// to the private conversation until they claim it. Share deduplication with
+  /// conversation events and FCM so a single message produces one banner.
+  void handleNotification(Map<String, dynamic> payload) {
+    if (_disposed || _account == null || !isForeground) return;
+    final data = ConversationRealtimeEvent.normalize(payload);
+    if (data['type'] != 'message.new') return;
+    final id = data['conversationId']?.toString();
+    if (id == null ||
+        id.isEmpty ||
+        data['senderId'] == _account ||
+        id == _ref.read(visibleConversationProvider)) {
+      return;
+    }
+    final observer = data['visibility'] == 'observer';
+    final name = data['senderName']?.toString().trim() ?? '';
+    _emitIncoming(
+      data['messageId']?.toString(),
+      IncomingMessage(
+        conversationId: id,
+        author: observer
+            ? 'Nouveau message support'
+            : (name.isEmpty ? 'Nouveau message' : name),
+        preview: observer
+            ? 'Un client a envoyé un nouveau message au support.'
+            : (data['preview'] ??
+                      data['body'] ??
+                      data['content'] ??
+                      'Vous avez reçu un nouveau message.')
+                  .toString(),
+      ),
+    );
+  }
+
+  void _emitIncoming(String? messageId, IncomingMessage message) {
+    if (messageId != null && messageId.isNotEmpty) {
+      if (!_incomingSeen.add(messageId)) return;
+      if (_incomingSeen.length > 256) _incomingSeen.remove(_incomingSeen.first);
+    }
+    _incoming.add(message);
   }
 
   void _queueDelivered(String conversationId, Map<String, dynamic> data) {
@@ -712,6 +768,7 @@ class MessageEventsService with WidgetsBindingObserver {
   }
 
   void _clearLocal() {
+    _incomingSeen.clear();
     _queueRefreshTimer?.cancel();
     _deliveryTimer?.cancel();
     _pendingDelivered.clear();

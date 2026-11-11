@@ -175,6 +175,7 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
+                onTapOutside: (_) => _focusNode.unfocus(),
                 readOnly: widget.readOnly,
                 onTap: widget.onTap,
                 style: TextStyle(

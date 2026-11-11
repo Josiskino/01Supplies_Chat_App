@@ -1,3 +1,5 @@
+import '../auth/user_role.dart';
+import '../auth/user_entity.dart';
 import 'conversation_entity.dart';
 import 'support_ticket_entity.dart';
 
@@ -17,6 +19,8 @@ class ConversationListEntry {
     required this.preview,
     required this.date,
     this.avatarUrl,
+    this.peerRole,
+    this.peerId,
     this.unreadCount = 0,
     this.ticketId,
     this.assigneeId,
@@ -30,6 +34,15 @@ class ConversationListEntry {
   final String preview;
   final DateTime date;
   final String? avatarUrl;
+  final UserRole? peerRole;
+  final String? peerId;
+
+  String? get peerRoleLabel => switch (peerRole) {
+    UserRole.client => 'Client',
+    UserRole.delivery => 'Livreur',
+    UserRole.vendor => 'Vendeur',
+    _ => null,
+  };
   final int unreadCount;
 
   /// Dossier de support correspondant. Nul pour une conversation directe.
@@ -47,20 +60,25 @@ class ConversationListEntry {
   final bool isUnclaimed;
 
   /// Construit une ligne à partir d'une demande de support.
-  factory ConversationListEntry.fromTicket(SupportTicketEntity ticket) =>
-      ConversationListEntry(
-        conversationId: ticket.conversationId,
-        title: ticket.authorName,
-        preview: ticket.preview,
-        date: ticket.displayDate,
-        avatarUrl: ticket.author?.avatarUrl,
-        unreadCount: ticket.displayUnreadCount,
-        ticketId: ticket.id,
-        isSupport: true,
-        assigneeId: ticket.assigneeId,
-        assigneeName: ticket.assigneeName,
-        isUnclaimed: ticket.isUnclaimed && ticket.status.isActive,
-      );
+  factory ConversationListEntry.fromTicket(
+    SupportTicketEntity ticket, {
+    String? me,
+    UserEntity? lastSender,
+  }) => ConversationListEntry(
+    conversationId: ticket.conversationId,
+    title: ticket.authorName,
+    preview: formatPreview(ticket.preview, me: me, sender: lastSender),
+    date: ticket.displayDate,
+    avatarUrl: ticket.author?.avatarUrl,
+    peerRole: ticket.author?.role,
+    peerId: ticket.author?.id,
+    unreadCount: ticket.displayUnreadCount,
+    ticketId: ticket.id,
+    isSupport: true,
+    assigneeId: ticket.assigneeId,
+    assigneeName: ticket.assigneeName,
+    isUnclaimed: ticket.isUnclaimed && ticket.status.isActive,
+  );
 
   /// Construit une ligne à partir d'une conversation sans dossier.
   ///
@@ -81,11 +99,38 @@ class ConversationListEntry {
           : (conversation.isSupport ? 'Demande de support' : 'Conversation'),
       ticketId: conversation.supportTicketId,
       isSupport: conversation.isSupport,
-      preview: _previewOf(conversation),
+      preview: formatPreview(
+        _previewOf(conversation),
+        me: me,
+        sender: conversation.lastSender,
+      ),
       date: conversation.sortDate,
       avatarUrl: other?.avatarUrl,
+      peerRole: other?.role,
+      peerId: other?.id,
       unreadCount: conversation.unreadCount,
     );
+  }
+
+  /// Collapse message paragraphs before the row truncates its single line.
+  static String formatPreview(
+    String content, {
+    String? me,
+    UserEntity? sender,
+    String? senderId,
+  }) {
+    final text = content.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (me != null && (senderId ?? sender?.id) == me) return 'Vous : $text';
+    if (sender != null &&
+        const {
+          UserRole.admin,
+          UserRole.support,
+          UserRole.superAdmin,
+        }.contains(sender.role)) {
+      final name = sender.displayName.trim();
+      if (name.isNotEmpty) return '$name : $text';
+    }
+    return text;
   }
 
   static String _previewOf(ConversationEntity conversation) {

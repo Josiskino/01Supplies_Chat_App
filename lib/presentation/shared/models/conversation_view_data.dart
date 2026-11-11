@@ -2,6 +2,7 @@ import '../../../core/utils/demo_data.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../../domain/entity/auth/user_entity.dart';
+import '../../../domain/entity/auth/user_role.dart';
 import '../../../core/utils/chat_date_formatter.dart';
 import '../../../domain/entity/messaging/message_entity.dart';
 import '../../../domain/entity/messaging/conversation_list_entry.dart';
@@ -65,14 +66,18 @@ class ConversationListItemData {
   factory ConversationListItemData.fromEntry(
     ConversationListEntry entry, {
     required String timeLabel,
+    bool showPeerRole = false,
   }) {
     return ConversationListItemData(
       // L'identifiant de **conversation**, pas celui du ticket : c'est lui qui
       // ouvre le fil et sert de canal temps réel.
       id: entry.conversationId,
-      kindLabel: entry.isSupport || entry.ticketId != null
-          ? 'Support'
-          : 'Direct',
+      kindLabel: showPeerRole
+          ? entry.peerRoleLabel
+          : [
+              entry.isSupport || entry.ticketId != null ? 'Support' : 'Direct',
+              if (entry.peerRoleLabel != null) entry.peerRoleLabel!,
+            ].join(' · '),
       name: entry.title,
       preview: entry.preview,
       timeLabel: timeLabel,
@@ -117,6 +122,8 @@ class ChatMessageData {
     required this.text,
     required this.timeLabel,
     required this.isMine,
+    bool? isOutgoing,
+    this.senderId,
     this.sentAt,
     this.senderName,
     this.avatarUrl,
@@ -126,15 +133,18 @@ class ChatMessageData {
     this.attachments = const [],
     this.status = MessageStatus.read,
     this.isTyping = false,
-  });
+  }) : isOutgoing = isOutgoing ?? isMine;
 
   final String id;
   final String text;
   final String timeLabel;
 
-  /// `true` pour un message émis par l'utilisateur courant : la bulle passe à
-  /// droite et prend la couleur d'accent.
+  /// Propriété du compte connecté, utilisée pour les actions et les statuts.
   final bool isMine;
+
+  /// Côté visuel : toute l’équipe de support répond à droite.
+  final bool isOutgoing;
+  final String? senderId;
 
   /// Nom de l'auteur, affiché au-dessus de la première bulle d'une série.
   ///
@@ -178,7 +188,7 @@ class ChatMessageData {
 
   /// Projette un message de l'API dans le modèle de vue du fil.
   ///
-  /// [currentUserId] décide du côté de la bulle. Comparé à l'identifiant et non
+  /// [currentUserId] décide de la propriété du message. Comparé à l'identifiant et non
   /// au nom : plusieurs admins répondent dans le même fil, et deux homonymes
   /// enverraient leurs messages du mauvais côté.
   /// [peerName] n'est lu qu'en mode captures : voir [DemoData]. Il porte le nom
@@ -186,6 +196,7 @@ class ChatMessageData {
   factory ChatMessageData.fromMessage(
     MessageEntity message, {
     required String? currentUserId,
+    bool isSupport = false,
     String? peerName,
   }) {
     // Les clients envoient leurs images avec le nom du fichier pour contenu :
@@ -205,6 +216,15 @@ class ChatMessageData {
       text: looksLikeFileName ? '' : message.content,
       timeLabel: ChatDateFormatter.timeLabel(message.sentAt),
       isMine: isMine,
+      isOutgoing:
+          isMine ||
+          (isSupport &&
+              const {
+                UserRole.admin,
+                UserRole.support,
+                UserRole.superAdmin,
+              }.contains(message.sender?.role)),
+      senderId: message.senderId,
       sentAt: message.sentAt,
       senderName: DemoData.enabled
           ? (isMine ? null : peerName)

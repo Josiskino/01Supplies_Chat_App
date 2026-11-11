@@ -50,6 +50,19 @@ void main() {
       expect(result.getLeft().toNullable(), isA<NotFoundFailure>());
     });
 
+    test('429 preserves the server retry delay', () async {
+      final result = await repository.execute<String>(
+        () async => const ApiError(
+          message: 'Too many requests',
+          statusCode: 429,
+          rawData: {'retryAfter': 450},
+        ),
+      );
+      final failure = result.getLeft().toNullable();
+      expect(failure, isA<RateLimitFailure>());
+      expect((failure as RateLimitFailure).retryAfterSeconds, 450);
+    });
+
     test('tout autre code → BusinessFailure', () async {
       for (final status in [400, 409, 422, 500, 503]) {
         final result = await repository.execute<String>(

@@ -32,12 +32,23 @@ class UserModel {
       email: (json['email'] ?? '').toString(),
       firstName: (json['firstName'] ?? '').toString(),
       lastName: (json['lastName'] ?? '').toString(),
-      role: json['role']?.toString(),
+      role: _parseRole(json['role']),
       phones: _parsePhones(json['phone']),
       // `avatar` peut être une URL directe ou un objet média selon l'endpoint.
       avatar: _parseAvatar(json),
       isVerified: json['isVerified'] == true,
     );
+  }
+
+  /// Messaging profiles expose either one role or an ordered role array.
+  /// Keep the primary role, including unknown values, so parsing never grants
+  /// access by skipping an unrecognized primary role for a later known one.
+  static String? _parseRole(Object? raw) {
+    if (raw is String) return raw;
+    if (raw is List && raw.isNotEmpty && raw.first is String) {
+      return raw.first as String;
+    }
+    return null;
   }
 
   /// Le champ `phone` est un tableau côté API, mais son contenu varie : chaînes

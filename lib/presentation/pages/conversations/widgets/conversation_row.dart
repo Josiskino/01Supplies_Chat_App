@@ -273,7 +273,7 @@ class _MaterialConversationRow extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: DesignTokens.spaceL,
-            vertical: DesignTokens.spaceM,
+            vertical: 9,
           ),
           child: Row(
             children: [
@@ -286,6 +286,7 @@ class _MaterialConversationRow extends StatelessWidget {
               const SizedBox(width: DesignTokens.spaceL),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -327,11 +328,36 @@ class _MaterialConversationRow extends StatelessWidget {
                               color: theme.colorScheme.error,
                             ),
                           ),
+                        if (data.kindLabel != null) ...[
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 100),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.10,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                data.kindLabel!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         Expanded(
                           child: Text(
-                            data.kindLabel == null
-                                ? data.preview
-                                : '${data.kindLabel} · ${data.preview}',
+                            data.preview,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
@@ -344,16 +370,6 @@ class _MaterialConversationRow extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (data.hasUnread)
-                          Container(
-                            margin: const EdgeInsets.only(left: 6),
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
                         if (data.isStarred)
                           Padding(
                             padding: const EdgeInsets.only(left: 6),
@@ -363,6 +379,19 @@ class _MaterialConversationRow extends StatelessWidget {
                               color: DesignTokens.getTextColorWithOpacity(
                                 context,
                                 0.35,
+                              ),
+                            ),
+                          ),
+                        if (data.unreadCount > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: SizedBox(
+                              width: MediaQuery.textScalerOf(context).scale(40),
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: IntrinsicWidth(
+                                  child: _UnreadBadge(count: data.unreadCount),
+                                ),
                               ),
                             ),
                           ),
@@ -392,7 +421,7 @@ class _UnreadBadge extends StatelessWidget {
 
   final int count;
 
-  static const double _height = 20;
+  static const double _height = 24;
 
   @override
   Widget build(BuildContext context) {
@@ -413,7 +442,7 @@ class _UnreadBadge extends StatelessWidget {
         count > 99 ? '99+' : '$count',
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onPrimary,
-          fontSize: 12,
+          fontSize: 13,
           height: 1,
           fontWeight: FontWeight.w600,
         ),
