@@ -35,6 +35,7 @@ class ConversationListItemData {
     required this.timeLabel,
     this.avatarUrl,
     this.kindLabel,
+    this.peerRole,
     this.presence = PresenceStatus.offline,
     this.hasUnread = false,
     this.unreadCount = 0,
@@ -53,6 +54,7 @@ class ConversationListItemData {
 
   final String? avatarUrl;
   final String? kindLabel;
+  final UserRole? peerRole;
   final PresenceStatus presence;
   final bool hasUnread;
   final int unreadCount;
@@ -72,6 +74,7 @@ class ConversationListItemData {
       // L'identifiant de **conversation**, pas celui du ticket : c'est lui qui
       // ouvre le fil et sert de canal temps réel.
       id: entry.conversationId,
+      peerRole: entry.peerRole,
       kindLabel: showPeerRole
           ? entry.peerRoleLabel
           : [

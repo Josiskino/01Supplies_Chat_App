@@ -5,6 +5,7 @@ import 'package:iconsax/iconsax.dart';
 
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
+import '../../../../domain/entity/auth/user_role.dart';
 import '../../../widgets/common/context_actions_panel.dart';
 import '../../../../core/platform/platform_ui.dart';
 import '../../../../core/platform/platform_ui_provider.dart';
@@ -261,6 +262,13 @@ class _MaterialConversationRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final roleColor = switch (data.peerRole) {
+      UserRole.delivery =>
+        isDark ? Colors.orange.shade300 : Colors.orange.shade900,
+      UserRole.vendor => isDark ? Colors.green.shade300 : Colors.green.shade800,
+      _ => theme.colorScheme.primary,
+    };
 
     // `Material` explicite : `InkWell` exige un ancêtre Material pour dessiner son
     // onde. Compter sur le `Scaffold` de l'écran rend le widget dépendant de son
@@ -337,9 +345,7 @@ class _MaterialConversationRow extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.10,
-                                ),
+                                color: roleColor.withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -347,7 +353,7 @@ class _MaterialConversationRow extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.primary,
+                                  color: roleColor,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),

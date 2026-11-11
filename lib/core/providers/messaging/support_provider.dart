@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../abstract/failure.dart';
 
@@ -66,6 +68,9 @@ class SupportQueue extends _$SupportQueue {
   final _queueUnreadCache = <String, ({DateTime revision, int count})>{};
   final _localReadThrough = <String, DateTime>{};
   final _historyChecks = <String, ({DateTime revision, bool hasExchange})>{};
+  final _unreadScans = <String, ({DateTime revision, int page, int count})>{};
+  final _systemHistoryPages = <String, ({DateTime revision, int page})>{};
+  Timer? _historyContinuation;
   DateTime _historyWindow = DateTime.fromMillisecondsSinceEpoch(0);
   int _historyReads = 0;
   DateTime? _historyRetryAt;
@@ -77,23 +82,60 @@ class SupportQueue extends _$SupportQueue {
     _historyRetryAt = DateTime.now().add(
       Duration(seconds: seconds.clamp(1, 3600)),
     );
+    _scheduleHistoryContinuation();
+  }
+
+  void _scheduleHistoryContinuation() {
+    final now = DateTime.now();
+    var resumeAt = _historyWindow.add(const Duration(seconds: 30));
+    if (_historyRetryAt != null && _historyRetryAt!.isAfter(resumeAt)) {
+      resumeAt = _historyRetryAt!;
+    }
+    final delay = resumeAt.isAfter(now)
+        ? resumeAt.difference(now)
+        : const Duration(seconds: 30);
+    final owner = _activityOwner;
+    _historyContinuation?.cancel();
+    _historyContinuation = Timer(delay, () {
+      _historyContinuation = null;
+      if (!ref.mounted ||
+          _activityOwner != owner ||
+          ref.read(currentUserProvider)?.id != owner) {
+        return;
+      }
+      // The elapsed timer opens the next bounded window. Retain completed
+      // counts and page cursors so a refresh continues rather than restarts.
+      _historyWindow = DateTime.now();
+      _historyReads = 0;
+      _historyRetryAt = null;
+      ref.invalidateSelf();
+    });
   }
 
   bool _takeHistoryRead() {
     final now = DateTime.now();
-    if (_historyRetryAt?.isAfter(now) == true) return false;
+    if (_historyRetryAt?.isAfter(now) == true) {
+      _scheduleHistoryContinuation();
+      return false;
+    }
     if (now.difference(_historyWindow) >= const Duration(seconds: 30)) {
       _historyWindow = now;
       _historyReads = 0;
       _historyRetryAt = null;
     }
-    if (_historyReads >= 4) return false;
+    if (_historyReads >= 4) {
+      _scheduleHistoryContinuation();
+      return false;
+    }
     _historyReads++;
     return true;
   }
 
   @override
   Future<List<ConversationListEntry>> build() async {
+    _historyContinuation?.cancel();
+    _historyContinuation = null;
+    ref.onDispose(() => _historyContinuation?.cancel());
     // Account changes rebuild this snapshot and discard all activity retained
     // for the previous session. Profile refreshes for the same account do not.
     final me = ref.watch(currentUserProvider)?.id;
@@ -108,7 +150,11 @@ class SupportQueue extends _$SupportQueue {
       _queueUnreadCache.clear();
       _localReadThrough.clear();
       _historyChecks.clear();
+      _unreadScans.clear();
+      _systemHistoryPages.clear();
       _historyReads = 0;
+      _historyRetryAt = null;
+      _historyWindow = DateTime.fromMillisecondsSinceEpoch(0);
     }
     final queue = await ref
         .read(fetchQueueUseCaseProvider)
@@ -162,12 +208,18 @@ class SupportQueue extends _$SupportQueue {
         }
         if (checkedSystemHistory) {
           visibleIds.add(c.id);
+          _scheduleHistoryContinuation();
           continue;
         }
         checkedSystemHistory = true;
         // Reassignment is a system message; inspect history before hiding a
         // genuine exchange whose latest entry happens to be administrative.
-        for (var page = 1; ; page++) {
+        final cursor = _systemHistoryPages[c.id];
+        for (
+          var page = cursor?.revision == c.sortDate ? cursor!.page : 1;
+          ;
+          page++
+        ) {
           if (!_takeHistoryRead()) {
             visibleIds.add(c.id);
             break;
@@ -193,13 +245,16 @@ class SupportQueue extends _$SupportQueue {
           if (messages.any((m) => m.type != MessageType.system)) {
             _confirmedExchanges.add(c.id);
             _historyChecks[c.id] = (revision: c.sortDate, hasExchange: true);
+            _systemHistoryPages.remove(c.id);
             visibleIds.add(c.id);
             break;
           }
           if (messages.length < 100) {
             _historyChecks[c.id] = (revision: c.sortDate, hasExchange: false);
+            _systemHistoryPages.remove(c.id);
             break;
           }
+          _systemHistoryPages[c.id] = (revision: c.sortDate, page: page + 1);
         }
       }
     }
@@ -260,8 +315,14 @@ class SupportQueue extends _$SupportQueue {
         count = cached.count;
       } else {
         final messageRepository = ref.read(messageRepositoryProvider);
-        var unread = 0;
-        for (var page = 1; ; page++) {
+        final previous = _unreadScans[entry.conversationId];
+        final scan = previous?.revision == entry.date
+            ? previous!
+            : (revision: entry.date, page: 1, count: 0);
+        _unreadScans[entry.conversationId] = scan;
+        var unread = scan.count;
+        var readThrough = _localReadThrough[entry.conversationId];
+        for (var page = scan.page; ; page++) {
           if (!_takeHistoryRead()) break;
           final result = await messageRepository.fetchMessages(
             FetchMessagesParams(
@@ -278,7 +339,11 @@ class SupportQueue extends _$SupportQueue {
             break;
           }
           final messages = result.getRight().toNullable()!;
-          final readThrough = _localReadThrough[entry.conversationId];
+          final latestReadThrough = _localReadThrough[entry.conversationId];
+          if (latestReadThrough != readThrough) {
+            unread = 0;
+            readThrough = latestReadThrough;
+          }
           unread += messages
               .where(
                 (message) =>
@@ -295,8 +360,14 @@ class SupportQueue extends _$SupportQueue {
               revision: entry.date,
               count: unread,
             );
+            _unreadScans.remove(entry.conversationId);
             break;
           }
+          _unreadScans[entry.conversationId] = (
+            revision: entry.date,
+            page: page + 1,
+            count: unread,
+          );
         }
       }
       if (count != null) entries[index] = _withUnread(entry, count);
@@ -321,6 +392,7 @@ class SupportQueue extends _$SupportQueue {
 
   void markConversationRead(String id) {
     _unreadFloors.remove(id);
+    _unreadScans.remove(id);
     _localReadThrough[id] = DateTime.now();
     final cached = _queueUnreadCache[id];
     if (cached != null) {
@@ -328,6 +400,12 @@ class SupportQueue extends _$SupportQueue {
     }
     final entries = state.value;
     if (entries == null) return;
+    final entry = entries
+        .where((entry) => entry.conversationId == id)
+        .firstOrNull;
+    if (entry != null) {
+      _queueUnreadCache[id] = (revision: entry.date, count: 0);
+    }
     state = AsyncData([
       for (final entry in entries)
         if (entry.conversationId == id) _withUnread(entry, 0) else entry,
