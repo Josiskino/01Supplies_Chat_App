@@ -17,9 +17,12 @@ import 'package:supplies_calls/livekit.dart';
 import '../providers/auth/auth_provider.dart';
 export 'package:supplies_calls/support.dart';
 
-const _enabled =
-    bool.fromEnvironment('SUPPORT_CALLS_ENABLED') && appFlavor == 'development';
 const _url = String.fromEnvironment('SUPPORT_CALLS_URL');
+final _enabled = supportCallsConfigured(
+  enabled: const bool.fromEnvironment('SUPPORT_CALLS_ENABLED'),
+  flavor: appFlavor,
+  url: _url,
+);
 const _host = 'chat';
 const _nativeChannel = MethodChannel('01calls/native');
 
