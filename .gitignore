@@ -74,3 +74,6 @@ ios/ExportOptions.plist
 ios/Runner/GoogleService-Info.plist
 ios/config/**/GoogleService-Info.plist
 android/app/google-services.json
+
+# Generated store screenshot exports remain local.
+goldie/out/

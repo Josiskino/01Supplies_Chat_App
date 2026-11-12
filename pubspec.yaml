@@ -8,6 +8,14 @@ environment:
   sdk: ^3.10.3
 
 dependencies:
+  supplies_calls:
+    path: ../supplies_calls_lab/calls_lab/supplies_calls
+  calls_domain:
+    path: ../supplies_calls_lab/calls_lab/calls_domain
+  flutter_secure_storage: ^9.2.4
+  flutter_callkit_incoming:
+    path: ../supplies_calls_lab/third_party/flutter_callkit_incoming
+  uuid: ^4.5.1
   flutter:
     sdk: flutter
 

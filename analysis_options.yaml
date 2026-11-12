@@ -11,6 +11,12 @@ analyzer:
     - "**/*.freezed.dart"
     - "**/*.mocks.dart"
     - lib/core/l10n/generated/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   rules:

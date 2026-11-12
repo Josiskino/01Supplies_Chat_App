@@ -98,7 +98,16 @@ class _MainPageState extends ConsumerState<MainPage> with RestorationMixin {
 
         return platformUi.shell.buildShell(
           layout: layout,
-          body: IndexedStack(index: selectedIndex, children: screens),
+          body: IndexedStack(
+            index: selectedIndex,
+            children: [
+              for (var i = 0; i < screens.length; i++)
+                if (i == 1)
+                  CallsScreen(isVisible: selectedIndex == 1)
+                else
+                  screens[i],
+            ],
+          ),
           destinations: destinations,
           selectedIndex: selectedIndex,
           onSelected: (index) =>

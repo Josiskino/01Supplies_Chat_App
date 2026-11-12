@@ -1,3 +1,4 @@
+import '../calls/support_call_host.dart' show supportCallBackgroundPush;
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -16,6 +17,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
     }
+    await supportCallBackgroundPush(message.data);
     await displayBackgroundPush(
       PushMessage.fromRemote(message),
       sessionStore: SharedPreferencesPushSessionStore(),

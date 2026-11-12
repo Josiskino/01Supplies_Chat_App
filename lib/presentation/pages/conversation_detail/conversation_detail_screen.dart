@@ -1,3 +1,4 @@
+import '../call/widgets/support_callback_button.dart';
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -514,6 +515,12 @@ class _ConversationDetailScreenState
         children: [
           _ConversationHeader(
             conversation: conversation,
+            callAction: SupportCallbackButton(
+              conversationId: widget.conversationId,
+              eligible:
+                  (entry?.isSupport == true || entry?.ticketId != null) &&
+                  peerRole == 'Client',
+            ),
             peerRole: peerRole,
             peerOnline: peerPresent,
             onBack: widget.embedded ? widget.onBack : () => context.pop(),
@@ -831,6 +838,7 @@ class _ConversationHeader extends StatelessWidget {
     required this.onBack,
     required this.onMore,
     required this.isApple,
+    this.callAction,
     this.peerRole,
     this.peerOnline = false,
   });
@@ -839,6 +847,7 @@ class _ConversationHeader extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback onMore;
   final bool isApple;
+  final Widget? callAction;
   final String? peerRole;
   final bool peerOnline;
 
@@ -933,6 +942,7 @@ class _ConversationHeader extends StatelessWidget {
               ),
             ),
           ),
+          ?callAction,
           // Les trois points ouvrent le choix du type d'appel.
           GestureDetector(
             onTap: onMore,

@@ -1,3 +1,4 @@
+import 'core/calls/support_call_host.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,7 +52,7 @@ class MyApp extends ConsumerWidget {
       // pendant qu'on consulte les réglages, et c'est là qu'il faut le
       // signaler. Rattaché à un écran, il ne verrait rien le reste du temps.
       builder: (context, child) =>
-          MessagingApplicationLayer(child: child ?? const SizedBox.shrink()),
+          SupportCallHost(router: router, child: MessagingApplicationLayer(child: child ?? const SizedBox.shrink())),
       material: (context, platform) => const MaterialAppData(
         debugShowCheckedModeBanner: false,
         restorationScopeId: '01chat-app',

@@ -1,102 +1,228 @@
-import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:calls_domain/calls_domain.dart';
 import 'package:flutter/material.dart';
-import 'package:supplies_chat_app/config/theme/app_icons.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supplies_calls/support.dart'
+    hide SupportCall, SupportCallActor, SupportCallContext, SupportCallStatus;
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations.dart';
-import 'package:supplies_chat_app/core/platform/app_platform.dart';
-import 'package:supplies_chat_app/core/platform/platform_ui_provider.dart';
 import 'package:supplies_chat_app/presentation/pages/calls/calls_screen.dart';
-import 'package:supplies_chat_app/presentation/pages/calls/widgets/call_log_row.dart';
-import 'package:supplies_chat_app/presentation/shared/fixtures/call_fixtures.dart';
 
-/// Couvre l'historique des appels.
-void main() {
-  Future<void> pump(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(402, 1200);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+SupportCall historyCall({
+  SupportCallStatus status = SupportCallStatus.ended,
+  bool answered = true,
+}) {
+  final now = DateTime.utc(2026, 11, 12, 10);
+  return SupportCall(
+    id: 'call-1',
+    caller: const SupportCallActor(
+      id: 'client',
+      name: 'Ama Test',
+      role: 'client',
+    ),
+    context: const SupportCallContext(
+      conversationId: 'real-conversation',
+      reference: '01DEL-123',
+      kind: 'delivery',
+    ),
+    status: status,
+    createdAt: now,
+    expiresAt: now.add(const Duration(seconds: 45)),
+    acceptedAt: answered ? now.add(const Duration(seconds: 4)) : null,
+    connectedAt: answered ? now.add(const Duration(seconds: 8)) : null,
+    endedAt: now.add(const Duration(seconds: 73)),
+    agentId: answered ? 'colleague' : null,
+    agentName: answered ? 'Afi' : null,
+  );
+}
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [appPlatformProvider.overrideWithValue(AppPlatform.ios)],
-        child: const MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('fr'),
-          home: CallsScreen(),
-        ),
-      ),
-    );
-    await tester.pump();
+class HistoryController extends SupportCallController {
+  HistoryController(this.calls, {this.loaded = true});
+  final bool loaded;
+  int viewed = 0;
+  final List<SupportCall> calls;
+  @override
+  SupportCallState build() =>
+      SupportCallState(history: calls, historyLoaded: loaded);
+  void loadedHistory() {
+    state = state.copy(history: calls, historyLoaded: true);
   }
 
-  testWidgets('l’écran annonce que les appels ne sont pas disponibles', (
-    tester,
-  ) async {
-    await pump(tester);
+  @override
+  Future<void> markHistoryViewed() async {
+    viewed++;
+  }
 
-    // Aucune ligne : afficher un faux historique laisserait croire à une
-    // fonctionnalité qui n'existe pas, et ferait chercher pourquoi rappeler
-    // ne marche pas.
-    expect(find.byType(CallLogRow), findsNothing);
-    expect(find.text('Appels indisponibles'), findsOneWidget);
-  });
+  @override
+  Future<void> refreshHistory() async {}
+}
 
-  testWidgets('la ligne d’appel reste rendue correctement', (tester) async {
-    // La présentation est prête et doit le rester : elle servira le jour où
-    // l'appel existera. On la monte donc directement, sans passer par l'écran.
-    final missed = CallFixtures.history.firstWhere((e) => e.isMissed);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: CallLogRow(
-            entry: missed,
-            isApple: true,
-            onTap: () {},
-            onInfo: () {},
+void main() {
+  testWidgets(
+    'marks loaded history only when its tab is visible, once per visit',
+    (tester) async {
+      final controller = HistoryController([], loaded: false);
+      final selected = ValueNotifier<int>(0);
+      addTearDown(selected.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            supportCallsEnabledProvider.overrideWithValue(true),
+            supportCallControllerProvider.overrideWith(() => controller),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('fr'),
+            home: ValueListenableBuilder<int>(
+              valueListenable: selected,
+              builder: (_, index, _) => IndexedStack(
+                index: index,
+                children: [
+                  const SizedBox(),
+                  CallsScreen(isVisible: index == 1),
+                ],
+              ),
+            ),
           ),
         ),
+      );
+      await tester.pump();
+      expect(controller.viewed, 0);
+      selected.value = 1;
+      await tester.pump();
+      expect(
+        controller.viewed,
+        0,
+        reason: 'initial empty state is not loaded history',
+      );
+      selected.value = 0;
+      await tester.pump();
+      controller.loadedHistory();
+      await tester.pump();
+      expect(
+        controller.viewed,
+        0,
+        reason: 'background refresh must not clear missed calls',
+      );
+      selected.value = 1;
+      await tester.pump();
+      await tester.pump();
+      expect(
+        controller.viewed,
+        1,
+        reason: 'visible loaded empty history clears the aggregate',
+      );
+      controller.loadedHistory();
+      await tester.pump();
+      expect(controller.viewed, 1);
+      selected.value = 0;
+      await tester.pump();
+      selected.value = 1;
+      await tester.pump();
+      await tester.pump();
+      expect(controller.viewed, 2);
+    },
+  );
+
+  testWidgets(
+    'each occurrence stays separate and missed filter excludes colleague answers',
+    (tester) async {
+      final missed = historyCall(
+        status: SupportCallStatus.expired,
+        answered: false,
+      );
+      final answered = historyCall();
+      // Different IDs, same caller: each server occurrence must remain a row.
+      final second = SupportCall(
+        id: 'call-2',
+        caller: answered.caller,
+        context: answered.context,
+        status: answered.status,
+        createdAt: answered.createdAt,
+        expiresAt: answered.expiresAt,
+        connectedAt: answered.connectedAt,
+        endedAt: answered.endedAt,
+        agentId: answered.agentId,
+        agentName: answered.agentName,
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            supportCallsEnabledProvider.overrideWithValue(true),
+            supportCallControllerProvider.overrideWith(
+              () => HistoryController([missed, second]),
+            ),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('fr'),
+            home: CallsScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(SupportCallHistoryRow), findsNWidgets(2));
+      await tester.tap(find.text('Manqués'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SupportCallHistoryRow), findsOneWidget);
+      expect(find.text('Répondu par Afi'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'real history shows caller context answering agent and actual audio duration',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: SupportCallHistoryRow(call: historyCall())),
+        ),
+      );
+      expect(find.text('Ama Test'), findsOneWidget);
+      expect(find.text('Client · 01DEL-123'), findsOneWidget);
+      expect(find.text('Répondu par Afi'), findsOneWidget);
+      expect(find.text('1 min 5 s'), findsOneWidget);
+      expect(find.text('Rappeler'), findsNothing);
+    },
+  );
+
+  test('colleague answers never appear in missed filter', () {
+    expect(supportCallIsMissed(historyCall()), isFalse);
+    expect(
+      supportCallIsMissed(
+        historyCall(status: SupportCallStatus.expired, answered: false),
       ),
-    );
-
-    // Le nom porte la couleur d'erreur : c'est ce qui permet de parcourir la
-    // liste du regard sans lire chaque ligne.
-    final name = tester.widget<Text>(find.text(missed.name));
-    expect(name.style?.color, isNotNull);
-  });
-
-  test('un manqué n’a pas de durée', () {
-    // Un appel manqué n'a pas eu lieu : lui prêter une durée serait un
-    // contresens, et le modèle l'interdit par construction.
-    for (final entry in CallFixtures.history.where((e) => e.isMissed)) {
-      expect(entry.duration, isNull);
-      expect(entry.durationLabel, isNull);
-    }
-  });
-
-  test('les tentatives répétées sont regroupées', () {
-    // Cinq lignes identiques n'apprendraient rien de plus qu'un compteur.
-    expect(
-      CallFixtures.history.any((e) => e.repeatCount > 1),
       isTrue,
-      reason: 'les fixtures doivent exercer le regroupement',
+    );
+    expect(
+      supportCallIsMissed(
+        historyCall(status: SupportCallStatus.cancelled, answered: false),
+      ),
+      isFalse,
     );
   });
 
-  test('un manqué porte le combiné raccroché sur les deux plateformes', () {
-    // macOS partage le langage d'iOS : c'est le même dessin qu'en liste de
-    // conversations, et il dit que l'appel a échoué — une flèche ne dirait que
-    // d'où il venait.
-    expect(
-      AppIcons.of(AppIcons.missedCall, isApple: true),
-      CupertinoIcons.phone_down_fill,
-    );
-    // Chaque rôle a bien deux dessins, jamais un seul par défaut.
-    expect(
-      AppIcons.of(AppIcons.missedCall, isApple: false),
-      isNot(CupertinoIcons.phone_down_fill),
-    );
-  });
+  testWidgets(
+    'cancelled unavailable and missed calls keep distinct labels and no duration',
+    (tester) async {
+      for (final entry in {
+        SupportCallStatus.cancelled: 'Annulé',
+        SupportCallStatus.unavailable: 'Support indisponible',
+        SupportCallStatus.expired: 'Manqué',
+      }.entries) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SupportCallHistoryRow(
+                call: historyCall(status: entry.key, answered: false),
+              ),
+            ),
+          ),
+        );
+        expect(find.text(entry.value), findsOneWidget);
+        expect(find.text('1 min 5 s'), findsNothing);
+        expect(find.text('Répondu par Afi'), findsNothing);
+      }
+    },
+  );
 }

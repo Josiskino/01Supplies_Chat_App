@@ -1,3 +1,4 @@
+import 'core/calls/support_call_host.dart';
 import 'dart:io' show Platform;
 import 'dart:ui' show PlatformDispatcher;
 
@@ -142,8 +143,9 @@ Future<void> bootstrap(Flavor flavor) async {
   // l'initialisation d'un provider alors qu'un autre est déjà en cours de build,
   // ce qui casse une assertion du framework. Précharger ici évite ce piège — et
   // permet au routeur de connaître l'état d'auth dès le premier frame.
-  final container = ProviderContainer();
+  final container = ProviderContainer(overrides: supportCallHostOverrides);
   container.read(authStatusProvider);
 
+  restoreSupportCallsHeadless(container);
   runApp(UncontrolledProviderScope(container: container, child: const MyApp()));
 }

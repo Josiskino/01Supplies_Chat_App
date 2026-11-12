@@ -2,131 +2,265 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:supplies_calls/support.dart';
 
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
-import '../../../core/platform/platform_ui.dart';
-import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/utils/localization_helper.dart';
-import '../../shared/models/call_view_data.dart';
+import '../../desktop/widgets/presence_avatar.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
-import 'widgets/call_log_row.dart';
 
-/// Historique des appels.
-///
-/// ## Écran volontairement vide
-///
-/// L'appel n'est pas implémenté : ni signalisation, ni transport audio, ni
-/// endpoint d'historique côté API. La présentation — lignes, filtre, icônes —
-/// est prête et testée, mais afficher un faux historique laisserait croire à
-/// une fonctionnalité qui n'existe pas, et ferait chercher pourquoi rappeler ne
-/// marche pas.
-///
-/// Les fixtures restent dans `CallFixtures` pour les tests de présentation.
 class CallsScreen extends ConsumerStatefulWidget {
-  const CallsScreen({super.key});
-
+  const CallsScreen({super.key, this.isVisible = true});
+  final bool isVisible;
   @override
   ConsumerState<CallsScreen> createState() => _CallsScreenState();
 }
 
-class _CallsScreenState extends ConsumerState<CallsScreen> {
-  /// Filtre « manqués » du sélecteur segmenté.
+class _CallsScreenState extends ConsumerState<CallsScreen>
+    with WidgetsBindingObserver {
+  bool _markedViewed = false;
+  bool _markScheduled = false;
+  String? _viewedIdentity;
+
+  bool get _visible =>
+      widget.isVisible &&
+      (ModalRoute.isCurrentOf(context) ?? true) &&
+      (WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed);
+
+  @override
+  void didUpdateWidget(covariant CallsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.isVisible) _markedViewed = false;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  void _markVisibleHistory(SupportCallState state) {
+    if (_viewedIdentity != state.identity) {
+      _viewedIdentity = state.identity;
+      _markedViewed = false;
+    }
+    if (!_visible) {
+      _markedViewed = false;
+      return;
+    }
+    if (_markedViewed || _markScheduled || !state.historyLoaded) return;
+    _markScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _markScheduled = false;
+      if (!mounted ||
+          !_visible ||
+          _markedViewed ||
+          !ref.read(supportCallControllerProvider).historyLoaded) {
+        return;
+      }
+      _markedViewed = true;
+      ref.read(supportCallControllerProvider.notifier).markHistoryViewed();
+    });
+  }
+
   bool _missedOnly = false;
 
-  /// Vide tant que la fonctionnalité d'appel n'existe pas.
-  List<CallLogEntry> get _entries => const [];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    Future.microtask(() {
+      if (mounted && ref.read(supportCallsEnabledProvider)) {
+        ref.read(supportCallControllerProvider.notifier).refreshHistory();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = LocalizationHelper.of(context);
-    final platformUi = ref.watch(platformUiProvider);
-
+    final enabled = ref.watch(supportCallsEnabledProvider);
+    final state = ref.watch(supportCallControllerProvider);
+    if (enabled) _markVisibleHistory(state);
+    final entries =
+        state.history
+            .where((call) => !_missedOnly || supportCallIsMissed(call))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return PlatformPage(
-      title: l10n.callsTitle,
-      // Aucun bouton « Nouvel appel » : il ouvrirait un écran d'appel qui ne
-      // compose rien.
+      title: LocalizationHelper.of(context).callsTitle,
       actions: const [],
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              DesignTokens.spaceL,
-              DesignTokens.spaceS,
-              DesignTokens.spaceL,
-              DesignTokens.spaceM,
-            ),
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
             child: _MissedFilter(
               missedOnly: _missedOnly,
               onChanged: (value) => setState(() => _missedOnly = value),
             ),
           ),
+          if (state.error != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    state.error == 'microphone_permission'
+                        ? 'Autorisez le microphone pour passer et recevoir des appels.'
+                        : state.error!,
+                  ),
+                  if (state.error == 'microphone_permission')
+                    TextButton.icon(
+                      onPressed: () => ref
+                          .read(supportCallControllerProvider.notifier)
+                          .prepareMicrophone(),
+                      icon: const Icon(Icons.mic),
+                      label: const Text('Autoriser le microphone'),
+                    ),
+                ],
+              ),
+            ),
           Expanded(
-            child: _entries.isEmpty
+            child: !enabled
                 ? const EmptyStateWidget(
                     icon: Iconsax.call,
                     title: 'Appels indisponibles',
-                    message:
-                        'Les appels audio et vidéo ne sont pas encore '
-                        'disponibles dans 01 Chat.',
+                    message: 'Les appels au support ne sont pas activés.',
                   )
-                : ListView.separated(
-                    padding: EdgeInsets.only(
-                      // Marge annoncée par la coquille : sur iOS, la barre
-                      // d'onglets est en verre et le contenu défile dessous.
-                      bottom:
-                          MediaQuery.paddingOf(context).bottom +
-                          DesignTokens.spaceM,
-                    ),
-                    itemCount: _entries.length,
-                    separatorBuilder: (context, index) => Divider(
-                      height: DesignTokens.borderWidthThin,
-                      thickness: DesignTokens.borderWidthThin,
-                      // Aligné sur le texte, comme dans les listes iOS.
-                      indent: 72,
-                      color: DesignTokens.getBorderColor(
-                        Theme.of(context).brightness == Brightness.dark,
-                        opacity: 0.10,
-                      ),
-                    ),
-                    itemBuilder: (context, index) {
-                      final entry = _entries[index];
-                      return CallLogRow(
-                        entry: entry,
-                        isApple: platformUi.platform.isApple,
-                        // Toucher la ligne rappelle : c'est le geste attendu
-                        // dans un historique, et il évite un menu pour l'action
-                        // que tout le monde vient chercher.
-                        onTap: () =>
-                            context.push(AppUiRoute.call, extra: entry.name),
-                        onInfo: () => _showInfo(context, platformUi, entry),
-                      );
-                    },
+                : RefreshIndicator(
+                    onRefresh: () => ref
+                        .read(supportCallControllerProvider.notifier)
+                        .refreshHistory(),
+                    child: entries.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              EmptyStateWidget(
+                                icon: Iconsax.call,
+                                title: _missedOnly
+                                    ? 'Aucun appel manqué'
+                                    : 'Aucun appel',
+                                message:
+                                    'Vos appels au support apparaîtront ici.',
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: entries.length,
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1, indent: 72),
+                            itemBuilder: (context, index) =>
+                                SupportCallHistoryRow(
+                                  key: ValueKey(entries[index].id),
+                                  call: entries[index],
+                                  onOpenConversation: () => context.push(
+                                    AppUiRoute.conversationDetailPath(
+                                      entries[index].context.conversationId,
+                                    ),
+                                  ),
+                                ),
+                          ),
                   ),
           ),
         ],
       ),
     );
   }
+}
 
-  Future<void> _showInfo(
-    BuildContext context,
-    PlatformUi platformUi,
-    CallLogEntry entry,
-  ) async {
-    final choice = await platformUi.overlays.pickOption(
-      context: context,
-      title: entry.name,
-      labels: const ['Appel vocal', 'Appel vidéo', 'Ouvrir la conversation'],
+/// An answered team call is never a missed call for the other agents.
+bool supportCallIsMissed(SupportCall call) =>
+    call.agentId == null && call.status == SupportCallStatus.expired;
+
+String supportCallStatusLabel(SupportCall call) => switch (call.status) {
+  SupportCallStatus.ringing =>
+    call.isCallback ? 'Sonnerie' : 'Entrant · sonnerie',
+  SupportCallStatus.accepted =>
+    call.isCallback ? 'En cours' : 'Entrant · en cours',
+  SupportCallStatus.rejected => 'Refusé',
+  SupportCallStatus.cancelled => 'Annulé',
+  SupportCallStatus.expired =>
+    call.isCallback
+        ? 'Sans réponse'
+        : call.agentId == null
+        ? 'Manqué'
+        : 'Répondu',
+  SupportCallStatus.unavailable => 'Support indisponible',
+  SupportCallStatus.ended =>
+    call.connectedAt == null || call.isCallback
+        ? 'Terminé'
+        : 'Entrant · terminé',
+};
+
+String supportCallDuration(Duration duration) {
+  final seconds = duration.inSeconds;
+  final minutes = seconds ~/ 60;
+  return minutes == 0 ? '$seconds s' : '$minutes min ${seconds % 60} s';
+}
+
+class SupportCallHistoryRow extends StatelessWidget {
+  const SupportCallHistoryRow({
+    super.key,
+    required this.call,
+    this.onOpenConversation,
+  });
+  final SupportCall call;
+  final VoidCallback? onOpenConversation;
+
+  @override
+  Widget build(BuildContext context) {
+    final created = call.createdAt.toLocal();
+    final time =
+        '${created.day.toString().padLeft(2, '0')}/${created.month.toString().padLeft(2, '0')} '
+        '${created.hour.toString().padLeft(2, '0')}:${created.minute.toString().padLeft(2, '0')}';
+    final role = switch (call.caller.role.toString().split('.').last) {
+      'client' || 'customer' => 'Client',
+      'driver' => 'Livreur',
+      'vendor' => 'Vendeur',
+      _ => call.caller.role.toString().split('.').last,
+    };
+    return ListTile(
+      onTap: onOpenConversation,
+      leading: PresenceAvatar(
+        name: call.caller.name,
+        avatarUrl: call.caller.avatarUrl,
+        size: 44,
+      ),
+      title: Text(
+        call.caller.name,
+        style: TextStyle(
+          color: supportCallIsMissed(call)
+              ? Theme.of(context).colorScheme.error
+              : null,
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$role · ${call.context.reference}'),
+          Text(
+            '${call.isCallback ? 'Sortant · ' : ''}${supportCallStatusLabel(call)}',
+          ),
+          if (call.connectedAt != null && call.endedAt != null)
+            Text(supportCallDuration(call.durationAt(call.endedAt!))),
+          if (call.agentName != null)
+            Text(
+              '${call.isCallback ? 'Lancé par' : 'Répondu par'} ${call.agentName}',
+            ),
+        ],
+      ),
+      trailing: Text(time, style: Theme.of(context).textTheme.bodySmall),
+      isThreeLine: true,
     );
-    if (choice == null || !context.mounted) return;
-    if (choice == 2) {
-      context.push(AppUiRoute.conversationDetailPath('c1'));
-    } else {
-      context.push(AppUiRoute.call, extra: entry.name);
-    }
   }
 }
 
