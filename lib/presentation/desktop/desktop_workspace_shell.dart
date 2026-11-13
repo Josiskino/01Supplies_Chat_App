@@ -233,7 +233,11 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
                             ),
                           ],
                         ),
-                      if (queue.isLoading) const LinearProgressIndicator(),
+                      // Only the first load shows progress: realtime events
+                      // and the periodic refresh reload the queue silently
+                      // while the previous list stays on screen.
+                      if (queue.isLoading && !queue.hasValue)
+                        const LinearProgressIndicator(),
                       Expanded(
                         child: ConversationListPanel(
                           conversations: [
