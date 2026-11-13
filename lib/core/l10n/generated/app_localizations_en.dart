@@ -307,7 +307,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get callEndReasonHangup => 'Hung up';
+  String get callEndReasonEndedByYou => 'You hung up';
+
+  @override
+  String get callEndReasonEndedByPeer => 'The other party hung up';
 
   @override
   String get callEndReasonPeerLeft => 'Other party left';

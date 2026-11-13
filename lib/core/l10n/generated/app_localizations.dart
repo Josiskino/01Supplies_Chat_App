@@ -608,11 +608,17 @@ abstract class AppLocalizations {
   /// **'Lancé par {name}'**
   String callStartedBy(String name);
 
-  /// No description provided for @callEndReasonHangup.
+  /// No description provided for @callEndReasonEndedByYou.
   ///
   /// In fr, this message translates to:
-  /// **'Raccroché'**
-  String get callEndReasonHangup;
+  /// **'Vous avez raccroché'**
+  String get callEndReasonEndedByYou;
+
+  /// No description provided for @callEndReasonEndedByPeer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Raccroché par l\'interlocuteur'**
+  String get callEndReasonEndedByPeer;
 
   /// No description provided for @callEndReasonPeerLeft.
   ///

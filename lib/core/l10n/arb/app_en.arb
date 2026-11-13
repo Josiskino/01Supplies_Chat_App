@@ -151,7 +151,8 @@
       }
     }
   },
-  "callEndReasonHangup": "Hung up",
+  "callEndReasonEndedByYou": "You hung up",
+  "callEndReasonEndedByPeer": "The other party hung up",
   "callEndReasonPeerLeft": "Other party left",
   "callEndReasonAudioFailed": "Audio connection failed",
   "callEndReasonNetwork": "Network lost",

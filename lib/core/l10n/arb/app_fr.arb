@@ -167,7 +167,8 @@
       }
     }
   },
-  "callEndReasonHangup": "Raccroché",
+  "callEndReasonEndedByYou": "Vous avez raccroché",
+  "callEndReasonEndedByPeer": "Raccroché par l'interlocuteur",
   "callEndReasonPeerLeft": "Interlocuteur déconnecté",
   "callEndReasonAudioFailed": "Échec de la connexion audio",
   "callEndReasonNetwork": "Coupure réseau",

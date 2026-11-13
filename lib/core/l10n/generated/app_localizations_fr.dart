@@ -312,7 +312,10 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get callEndReasonHangup => 'Raccroché';
+  String get callEndReasonEndedByYou => 'Vous avez raccroché';
+
+  @override
+  String get callEndReasonEndedByPeer => 'Raccroché par l\'interlocuteur';
 
   @override
   String get callEndReasonPeerLeft => 'Interlocuteur déconnecté';
