@@ -22,15 +22,33 @@ import '../utils/app_logger.dart';
 import 'agent_calls.dart';
 import 'calls_sign_out.dart';
 import 'desktop_call_alerts.dart';
+import '../../flavors.dart';
 export 'package:supplies_calls/support.dart';
 
 // Production and development default to their own calls service, so a
 // Shorebird patch built without dart-defines cannot silently disable calls.
 final _config = resolveSupportCallsBuildConfig(
-  flavor: appFlavor,
+  flavor: _hostFlavor(),
   enabledDefine: const String.fromEnvironment('SUPPORT_CALLS_ENABLED'),
   urlDefine: const String.fromEnvironment('SUPPORT_CALLS_URL'),
 );
+/// Flavor used to pick the calls service.
+///
+/// `appFlavor` only exists where the platform has native flavors (Android,
+/// iOS). Desktop builds get their flavor from the entry point through
+/// [FlavorConfig]; without this fallback calls were silently disabled on
+/// macOS and Windows. Background isolates (Android FCM) never run
+/// `bootstrap`, so `appFlavor` is tried first there.
+String? _hostFlavor() {
+  const native = appFlavor;
+  if (native != null && native.isNotEmpty) return native;
+  try {
+    return FlavorConfig.flavor.name;
+  } on Error {
+    return null;
+  }
+}
+
 final _url = _config.url;
 final _enabled = _config.enabled;
 const _host = 'chat';
