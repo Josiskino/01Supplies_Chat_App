@@ -14,15 +14,25 @@ import 'package:uuid/uuid.dart';
 import 'package:supplies_calls/support.dart';
 import 'package:supplies_calls/serverpod.dart';
 import 'package:supplies_calls/livekit.dart';
+import '../../presentation/pages/calls/widgets/agent_call_widgets.dart';
+import '../constants/app_ui_route.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../providers/auth/auth_provider.dart';
+import '../utils/app_logger.dart';
+import 'agent_calls.dart';
+import 'calls_sign_out.dart';
+import 'desktop_call_alerts.dart';
 export 'package:supplies_calls/support.dart';
 
-const _url = String.fromEnvironment('SUPPORT_CALLS_URL');
-final _enabled = supportCallsConfigured(
-  enabled: const bool.fromEnvironment('SUPPORT_CALLS_ENABLED'),
+// Production and development default to their own calls service, so a
+// Shorebird patch built without dart-defines cannot silently disable calls.
+final _config = resolveSupportCallsBuildConfig(
   flavor: appFlavor,
-  url: _url,
+  enabledDefine: const String.fromEnvironment('SUPPORT_CALLS_ENABLED'),
+  urlDefine: const String.fromEnvironment('SUPPORT_CALLS_URL'),
 );
+final _url = _config.url;
+final _enabled = _config.enabled;
 const _host = 'chat';
 const _nativeChannel = MethodChannel('01calls/native');
 
@@ -119,48 +129,36 @@ Future<void> _markHistoryViewed() async {
 }
 
 /// Fan out from the host's existing FCM handler; messaging remains registered.
+///
+/// The package helper rings from the payload first and validates afterwards,
+/// so a slow network never delays the incoming UI; stale offers are dismissed.
 Future<void> supportCallBackgroundPush(Map<String, dynamic> data) async {
-  if (!_enabled || _url.isEmpty || !(Platform.isAndroid || Platform.isIOS)) {
-    return;
-  }
-  final type = data['type'];
-  if (type != 'support.call.invited' &&
-      type != 'support.call.cancelled' &&
-      type != 'support.call.missed') {
-    return;
-  }
+  if (!_enabled || _url.isEmpty || !Platform.isAndroid) return;
+  if (!supportCallPushTypes.contains(data['type'])) return;
   final session = await HostCallSessionStorage().read();
-  final recipient = data['recipient'] ?? data['agentId'] ?? data['recipientId'];
-  if (session == null || recipient != session.identity) return;
-  final id = data['callId'];
-  if (id is! String) return;
+  if (session == null) return;
   final source = _backgroundSource(session);
   try {
-    final call = await ServerpodSupportCallRepository(source).get(id);
-    if (type == 'support.call.invited' &&
-        call.offeredTo(session.identity) &&
-        call.expiresAt.isAfter(DateTime.now().toUtc())) {
-      if (!(await FlutterCallkitIncoming.activeCalls()).any(
-        (v) => v.id == id,
-      )) {
-        await FlutterCallkitIncoming.showCallkitIncoming(
-          supportCallKitParams(call),
-        );
-      }
-    } else {
-      await FlutterCallkitIncoming.endCall(id);
-      if (type == 'support.call.missed' || type == 'support.call.cancelled') {
-        await _updateMissedCalls(
-          await ServerpodSupportCallRepository(source).history(),
-          session.identity,
-        );
-      }
-    }
+    await handleSupportCallPush(
+      data: data,
+      identity: session.identity,
+      repository: ServerpodSupportCallRepository(source),
+      onMissed: _updateMissedCalls,
+      diagnostics: _logDiagnostic,
+    );
   } catch (_) {
     /* Push cannot grant access or change authoritative state. */
   } finally {
     source.client.close();
   }
+}
+
+void _logDiagnostic(String event, {String? callId, String? detail}) {
+  AppLogger().warning(
+    'Support call diagnostic: $event',
+    feature: 'Calls',
+    data: {'callId': ?callId, 'detail': ?detail},
+  );
 }
 
 @pragma('vm:entry-point')
@@ -228,16 +226,11 @@ class _HostDependencies {
         final token = preferences.getString('token') ?? '';
         return token.isEmpty ? null : token;
       },
+      // Availability is the agent's own choice, persisted server-side; a
+      // token refresh only re-registers the push device.
       onRefreshed: () async {
         final session = await HostCallSessionStorage().read();
-        if (session != null) {
-          await register(session.identity);
-          if (_host == 'chat') {
-            await source.client.supportCalls.availability(
-              await microphone.isGranted(),
-            );
-          }
-        }
+        if (session != null) await register(session.identity);
       },
     );
   }
@@ -347,7 +340,40 @@ final supportCallHostOverrides = [
   supportCallNativeProvider.overrideWith(
     (ref) => ref.watch(_dependencies).native,
   ),
+  supportCallDiagnosticsProvider.overrideWithValue(_logDiagnostic),
+  if (_enabled && _url.isNotEmpty) ...[
+    callsSignOutProvider.overrideWith(_HostCallsSignOut.new),
+    missedCallsSeenStoreProvider.overrideWithValue(
+      _SecureMissedCallsSeenStore(),
+    ),
+  ],
 ];
+
+class _HostCallsSignOut implements CallsSignOut {
+  _HostCallsSignOut(this._ref);
+  final Ref _ref;
+
+  /// Ends the call, unregisters the device, reports the agent offline and
+  /// closes the calls session, then forgets the stored calls session.
+  @override
+  Future<void> run() async {
+    try {
+      await _ref.read(supportCallControllerProvider.notifier).logout();
+    } finally {
+      await HostCallSessionStorage().clear();
+    }
+  }
+}
+
+class _SecureMissedCallsSeenStore implements MissedCallsSeenStore {
+  @override
+  Future<DateTime?> read(String identity) async => DateTime.tryParse(
+    await HostCallSessionStorage.storage.read(
+          key: 'support_missed_seen:$identity',
+        ) ??
+        '',
+  );
+}
 
 /// Runs before runApp so accepting on the lock screen needs no Flutter view.
 void restoreSupportCallsHeadless(ProviderContainer container) {
@@ -388,7 +414,20 @@ class _SupportCallLifecycle extends ConsumerStatefulWidget {
 
 class _SupportCallLifecycleState extends ConsumerState<_SupportCallLifecycle>
     with WidgetsBindingObserver {
-  String? _microphonePromptedForUser;
+  late final _offersEntry = OverlayEntry(
+    builder: (context) => SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: IncomingCallsPanel(elevated: true, router: widget.router),
+          ),
+        ),
+      ),
+    ),
+  );
   @override
   void initState() {
     super.initState();
@@ -402,34 +441,30 @@ class _SupportCallLifecycleState extends ConsumerState<_SupportCallLifecycle>
     if (oldWidget.userId != widget.userId) {
       Future.microtask(() async {
         if (oldWidget.userId != null) {
-          await HostCallSessionStorage().clear();
+          // Explicit sign-out already ran this before clearing the main
+          // session; this covers expired sessions and account switches.
+          // Logout needs the stored calls session, so clear it afterwards.
           await ref.read(supportCallControllerProvider.notifier).logout();
+          await HostCallSessionStorage().clear();
         }
         await _sync();
       });
     }
   }
 
+  /// The microphone is requested on the first availability switch or the
+  /// first call, with an explanation, never right after login.
   Future<void> _sync() async {
     if (mounted && widget.userId != null) {
-      final controller = ref.read(supportCallControllerProvider.notifier);
-      await controller.ensureReady();
-      if (mounted &&
-          _host == 'chat' &&
-          _microphonePromptedForUser != widget.userId &&
-          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
-          ref.read(supportCallControllerProvider).active?.isActive != true) {
-        _microphonePromptedForUser = widget.userId;
-        await controller.prepareMicrophone();
-      }
+      await ref.read(supportCallControllerProvider.notifier).ensureReady();
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      if (_host == 'chat') unawaited(_sync());
-      unawaited(ref.read(supportCallControllerProvider.notifier).reconcile());
+    if (state == AppLifecycleState.resumed && widget.userId != null) {
+      final controller = ref.read(supportCallControllerProvider.notifier);
+      unawaited(controller.ensureReady().then((_) => controller.reconcile()));
     }
   }
 
@@ -441,49 +476,73 @@ class _SupportCallLifecycleState extends ConsumerState<_SupportCallLifecycle>
 
   @override
   Widget build(BuildContext context) {
-    final call = ref.watch(supportCallControllerProvider).active;
+    final calls = ref.watch(agentCallsProvider);
+    final call = calls.active;
     final router = widget.router;
-    return ListenableBuilder(
-      listenable: router.routerDelegate,
-      builder: (context, _) {
-        final visible =
-            call != null &&
-            call.isActive &&
-            router.routerDelegate.currentConfiguration.last.matchedLocation !=
-                '/call';
-        return Stack(
-          children: [
-            widget.child,
-            if (visible)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  child: Material(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    elevation: 4,
-                    child: ListTile(
-                      leading: const Icon(Icons.call),
-                      title: Text(
-                        call.caller.id ==
-                                ref.read(supportCallControllerProvider).identity
-                            ? call.agentName ?? 'Assistance 01Supplies'
-                            : call.caller.name,
-                      ),
-                      subtitle: Text(call.context.reference),
-                      onTap: () => router.push('/call'),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.open_in_full),
-                        onPressed: () => router.push('/call'),
+    return DesktopIncomingCallAlerter(
+      describe: (context, offer) {
+        final l10n = lookupAppLocalizations(Localizations.localeOf(context));
+        return (
+          l10n.callNotificationTitle(offer.caller.name),
+          offer.context.reference,
+        );
+      },
+      child: ListenableBuilder(
+        listenable: router.routerDelegate,
+        builder: (context, _) {
+          final onCallScreen =
+              router.routerDelegate.currentConfiguration.isNotEmpty &&
+              router.routerDelegate.currentConfiguration.last.matchedLocation ==
+                  AppUiRoute.call;
+          final showOffers = calls.incoming.isNotEmpty && !onCallScreen;
+          final showBanner =
+              call != null && call.isActive && !onCallScreen && !showOffers;
+          return Stack(
+            children: [
+              widget.child,
+              if (showOffers)
+                // Own Overlay: this layer sits above the router's Navigator,
+                // where tooltips would otherwise find none.
+                Positioned.fill(child: Overlay(initialEntries: [_offersEntry])),
+              if (showBanner)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    child: Material(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      elevation: 4,
+                      child: ListTile(
+                        leading: const Icon(Icons.call),
+                        title: Text(call.caller.name),
+                        subtitle: Text(call.context.reference),
+                        onTap: () => router.push(AppUiRoute.call),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (calls.inCall) const CallsWaitingIndicator(),
+                            // No tooltip: this layer has no Overlay.
+                            Semantics(
+                              label: lookupAppLocalizations(
+                                Localizations.localeOf(context),
+                              ).callOpen,
+                              button: true,
+                              child: IconButton(
+                                icon: const Icon(Icons.open_in_full),
+                                onPressed: () => router.push(AppUiRoute.call),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
 }
