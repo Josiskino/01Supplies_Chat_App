@@ -327,9 +327,13 @@ class Thread extends _$Thread {
 
   Future<void> markRead() async {
     if (_reading || _messages.isEmpty) return;
+    final confirmed = _messages.where((m) => !m.isPending && !m.isFailed);
     ref
         .read(supportQueueProvider.notifier)
-        .markConversationRead(conversationId);
+        .markConversationRead(
+          conversationId,
+          through: confirmed.isEmpty ? null : confirmed.last.sentAt,
+        );
     final owner = _owner;
     final generation = _generation;
     final incoming = _messages.where(

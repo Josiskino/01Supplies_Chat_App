@@ -16,6 +16,7 @@ import '../../../domain/repository/messaging/support_repository.dart';
 import '../../../domain/usecases/messaging/support_usecases.dart';
 import '../request/api_provider.dart';
 import 'message_provider.dart';
+import 'read_watermark_store.dart';
 import '../../../domain/repository/messaging/message_repository.dart';
 
 part 'support_provider.g.dart';
@@ -67,6 +68,7 @@ class SupportQueue extends _$SupportQueue {
   final _confirmedExchanges = <String>{};
   final _queueUnreadCache = <String, ({DateTime revision, int count})>{};
   final _localReadThrough = <String, DateTime>{};
+  String? _watermarksOwner;
   final _historyChecks = <String, ({DateTime revision, bool hasExchange})>{};
   final _unreadScans = <String, ({DateTime revision, int page, int count})>{};
   final _systemHistoryPages = <String, ({DateTime revision, int page})>{};
@@ -149,12 +151,23 @@ class SupportQueue extends _$SupportQueue {
       _confirmedExchanges.clear();
       _queueUnreadCache.clear();
       _localReadThrough.clear();
+      _watermarksOwner = null;
       _historyChecks.clear();
       _unreadScans.clear();
       _systemHistoryPages.clear();
       _historyReads = 0;
       _historyRetryAt = null;
       _historyWindow = DateTime.fromMillisecondsSinceEpoch(0);
+    }
+    if (me != null && _watermarksOwner != me) {
+      // Reads that the API refused to record (agent not assigned) survive a
+      // restart only through this device's store.
+      final stored = await ref.read(readWatermarkStoreProvider).load(me);
+      if (!ref.mounted || ref.read(currentUserProvider)?.id != me) {
+        return const [];
+      }
+      _mergeReadThrough(stored);
+      _watermarksOwner = me;
     }
     final queue = await ref
         .read(fetchQueueUseCaseProvider)
@@ -390,10 +403,23 @@ class SupportQueue extends _$SupportQueue {
       ((content?.trim().isNotEmpty ?? false) ||
           const ['audio', 'image', 'file'].contains(type));
 
-  void markConversationRead(String id) {
+  /// Clears the conversation's badge and remembers the read on this device.
+  ///
+  /// [through] is the server time of the newest message seen. It is preferred
+  /// over the device clock, which may run ahead of the server and would then
+  /// hide a message that arrives just after the read.
+  void markConversationRead(String id, {DateTime? through}) {
     _unreadFloors.remove(id);
     _unreadScans.remove(id);
-    _localReadThrough[id] = DateTime.now();
+    _mergeReadThrough({id: through ?? DateTime.now()});
+    final owner = ref.read(currentUserProvider)?.id;
+    if (owner != null && owner == _activityOwner) {
+      unawaited(
+        ref
+            .read(readWatermarkStoreProvider)
+            .save(owner, Map.of(_localReadThrough)),
+      );
+    }
     final cached = _queueUnreadCache[id];
     if (cached != null) {
       _queueUnreadCache[id] = (revision: cached.revision, count: 0);
@@ -410,6 +436,16 @@ class SupportQueue extends _$SupportQueue {
       for (final entry in entries)
         if (entry.conversationId == id) _withUnread(entry, 0) else entry,
     ]);
+  }
+
+  /// Read-through timestamps only move forward.
+  void _mergeReadThrough(Map<String, DateTime> marks) {
+    for (final mark in marks.entries) {
+      final current = _localReadThrough[mark.key];
+      if (current == null || mark.value.isAfter(current)) {
+        _localReadThrough[mark.key] = mark.value;
+      }
+    }
   }
 
   void recordActivity(MessageEntity message, {bool received = false}) {

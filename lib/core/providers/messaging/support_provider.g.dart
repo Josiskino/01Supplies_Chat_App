@@ -339,7 +339,7 @@ final class SupportQueueProvider
   SupportQueue create() => SupportQueue();
 }
 
-String _$supportQueueHash() => r'768ca73cd747eaaccc1dd04ad4c6261a58150886';
+String _$supportQueueHash() => r'14e7a1ba76b44bd9a44f911681e342fba06f302e';
 
 /// La file d'attente commune, telle que l'onglet Conversations l'affiche.
 ///
