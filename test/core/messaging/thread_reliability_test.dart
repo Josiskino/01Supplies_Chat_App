@@ -201,7 +201,7 @@ void main() {
     },
   );
   test(
-    'read acknowledgements batch only received messages in groups of at most 100',
+    'reading acknowledges the whole conversation once, beyond the loaded page',
     () async {
       final thread = await setup(support: false);
       messages.messages = List.generate(
@@ -218,10 +218,12 @@ void main() {
       );
       await thread.refresh();
       await thread.markRead();
-      expect(messages.readBatches.map((ids) => ids?.length), [100, 50]);
+      // A bodyless acknowledgement lets the server mark every pending
+      // message, including history older than the loaded window.
+      expect(messages.readBatches, [null]);
       expect(notifications.readIds, hasLength(150));
       await thread.markRead();
-      expect(messages.readBatches.length, 2);
+      expect(messages.readBatches.length, 1);
     },
   );
   test(

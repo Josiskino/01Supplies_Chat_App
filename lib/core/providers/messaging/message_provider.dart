@@ -350,19 +350,15 @@ class Thread extends _$Thread {
           ?.where((e) => e.conversationId == conversationId)
           .firstOrNull;
       if (entry?.ticketId != null && entry?.assigneeId != owner) return;
-      final ids = incoming.map((m) => m.id).toList();
-      for (var start = 0; start < ids.length; start += 100) {
-        final end = start + 100 < ids.length ? start + 100 : ids.length;
-        final result = await ref
-            .read(markReadUseCaseProvider)
-            .call(
-              MarkReadParams(
-                conversationId,
-                messageIds: ids.sublist(start, end),
-              ),
-            );
-        if (!_current(owner, generation) || result.isLeft()) return;
-      }
+      // Acknowledge the whole conversation, not only the loaded window. The
+      // server's unread count covers every message without this user's read
+      // receipt, including history older than the first page and messages
+      // posted before a claim: listing only loaded ids left those unread
+      // forever, and the badge came back on every restart.
+      final result = await ref
+          .read(markReadUseCaseProvider)
+          .call(MarkReadParams(conversationId));
+      if (!_current(owner, generation) || result.isLeft()) return;
       if (_current(owner, generation)) {
         _readFingerprint = fingerprint;
         ref.invalidate(supportQueueProvider);
