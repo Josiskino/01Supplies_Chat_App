@@ -4,6 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supplies_calls/support.dart';
 
+import '../../../../core/calls/agent_calls.dart';
+import '../../../../core/constants/app_ui_route.dart';
+import '../../../../core/utils/localization_helper.dart';
+import '../../calls/widgets/agent_call_widgets.dart';
+
 class SupportCallbackButton extends ConsumerWidget {
   const SupportCallbackButton({
     required this.conversationId,
@@ -14,22 +19,24 @@ class SupportCallbackButton extends ConsumerWidget {
   final bool eligible;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!eligible || !ref.watch(supportCallsEnabledProvider)) {
+    if (!eligible ||
+        !ref.watch(supportCallsEnabledProvider) ||
+        !ref.watch(agentCallsProvider.select((s) => s.callsEnabled))) {
       return const SizedBox.shrink();
     }
     return IconButton(
-      tooltip: 'Appeler le client',
+      tooltip: LocalizationHelper.of(context).callCallbackTooltip,
       icon: const Icon(Icons.phone_outlined),
-      onPressed: () {
-        final state = ref.read(supportCallControllerProvider);
-        if (state.active?.isActive != true) {
+      onPressed: () async {
+        final calls = ref.read(agentCallsProvider);
+        final router = GoRouter.of(context);
+        if (calls.active?.isActive != true) {
+          if (!await prepareCallMicrophone(context, ref)) return;
           unawaited(
-            ref
-                .read(supportCallControllerProvider.notifier)
-                .start(conversationId),
+            ref.read(agentCallActionsProvider).callback(conversationId),
           );
         }
-        context.push('/call');
+        unawaited(router.push(AppUiRoute.call));
       },
     );
   }

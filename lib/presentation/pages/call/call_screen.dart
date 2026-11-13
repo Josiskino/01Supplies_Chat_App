@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supplies_calls/support.dart';
 
+import '../../../core/calls/agent_calls.dart';
+import '../../../core/constants/app_ui_route.dart';
+import '../../../core/utils/localization_helper.dart';
 import '../../desktop/widgets/presence_avatar.dart';
-import '../calls/calls_screen.dart'
-    show supportCallDuration, supportCallStatusLabel;
+import '../calls/call_copy.dart';
+import '../calls/widgets/agent_call_widgets.dart';
 import 'widgets/call_backdrop.dart';
 
 /// Audio support session. Navigation never starts or ends a call.
@@ -40,22 +43,25 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = LocalizationHelper.of(context);
     final state = ref.watch(supportCallControllerProvider);
-    final call = state.active;
-    final controller = ref.read(supportCallControllerProvider.notifier);
-    final incoming =
-        state.isAgent &&
-        call?.isCallback != true &&
-        call?.status == SupportCallStatus.ringing;
+    final calls = ref.watch(agentCallsProvider);
+    final actions = ref.read(agentCallActionsProvider);
+    // An offer opened from the banner or a notification is not active yet.
+    final incoming = calls.active == null && calls.incoming.isNotEmpty;
+    final call = calls.active ?? calls.incoming.firstOrNull;
     final connected = call?.connectedAt != null;
     final canControl = call?.status == SupportCallStatus.accepted;
     final health = switch (state.health) {
       AudioHealth.healthy => null,
-      AudioHealth.localPoor => 'Votre connexion est instable',
-      AudioHealth.remotePoor =>
-        'La connexion de votre interlocuteur est instable',
-      AudioHealth.reconnecting => 'Reconnexion audio…',
+      AudioHealth.localPoor => l10n.callHealthLocalPoor,
+      AudioHealth.remotePoor => l10n.callHealthRemotePoor,
+      AudioHealth.reconnecting => l10n.callHealthReconnecting,
     };
+    final otherAgent =
+        call?.agentName != null &&
+        call?.agentId != null &&
+        call?.agentId != calls.identity;
     return Theme(
       data: ThemeData.dark(),
       child: Scaffold(
@@ -68,7 +74,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    tooltip: 'Réduire',
+                    tooltip: l10n.callMinimize,
                     onPressed: () {
                       if (context.canPop()) context.pop();
                     },
@@ -95,38 +101,65 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                                   ?.copyWith(color: Colors.white),
                             ),
                             const SizedBox(height: 8),
-                            Text(switch (call.caller.role) {
-                              'client' => 'Client',
-                              'driver' => 'Livreur',
-                              'vendor' => 'Vendeur',
-                              _ => call.caller.role,
-                            }),
+                            Text(CallCopy.role(l10n, call.caller.role)),
                             Text(
                               call.context.reference,
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 16),
                             Text(
+                              key: const ValueKey('call-status'),
                               !call.isActive
-                                  ? supportCallStatusLabel(call)
+                                  ? {
+                                      CallCopy.status(
+                                        l10n,
+                                        call,
+                                        viewerId: calls.identity,
+                                      ),
+                                      ?CallCopy.endReason(
+                                        l10n,
+                                        call,
+                                        viewerId: calls.identity,
+                                      ),
+                                    }.join(' · ')
                                   : connected
-                                  ? supportCallDuration(
+                                  ? CallCopy.duration(
+                                      l10n,
                                       call.durationAt(DateTime.now()),
                                     )
                                   : incoming
-                                  ? 'Appel audio entrant'
-                                  : 'Connexion audio…',
+                                  ? l10n.callIncomingAudio
+                                  : call.status == SupportCallStatus.ringing
+                                  ? l10n.callStatusRinging
+                                  : l10n.callConnecting,
                             ),
                             if (!call.isActive && connected)
                               Text(
-                                supportCallDuration(
+                                CallCopy.duration(
+                                  l10n,
                                   call.durationAt(DateTime.now()),
                                 ),
                               ),
-                            if (call.agentName != null)
-                              Text('Avec ${call.agentName}'),
+                            if (otherAgent)
+                              Text(l10n.callAnsweredBy(call.agentName!)),
+                            const SizedBox(height: 12),
+                            TextButton.icon(
+                              key: const ValueKey('open-conversation'),
+                              onPressed: () => context.push(
+                                AppUiRoute.conversationDetailPath(
+                                  call.context.conversationId,
+                                ),
+                              ),
+                              icon: const Icon(Icons.chat_bubble_outline),
+                              label: Text(l10n.callOpenConversation),
+                            ),
+                            if (calls.inCall)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 8),
+                                child: CallsWaitingIndicator(),
+                              ),
                           ] else
-                            const Text('Aucun appel en cours'),
+                            Text(l10n.callNoActive),
                           if (health != null && call != null && call.isActive)
                             Padding(
                               padding: const EdgeInsets.only(top: 16),
@@ -135,7 +168,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                           if (state.error != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 16),
-                              child: Text(state.error!),
+                              child: Text(
+                                CallCopy.error(l10n, state.error!),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                         ],
                       ),
@@ -153,55 +189,64 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                         FilledButton.icon(
                           onPressed: state.busy
                               ? null
-                              : () => controller.reject(),
+                              : () => actions.reject(call!.id),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.red,
                           ),
                           icon: const Icon(Icons.call_end),
-                          label: const Text('Refuser'),
+                          label: Text(l10n.incomingCallDecline),
                         ),
                         FilledButton.icon(
                           onPressed: state.busy
                               ? null
-                              : () => controller.accept(),
+                              : () =>
+                                    acceptIncomingCall(context, ref, call!.id),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.green,
                           ),
                           icon: const Icon(Icons.call),
-                          label: const Text('Répondre'),
+                          label: Text(l10n.incomingCallAccept),
                         ),
                       ] else if (call != null && call.isActive) ...[
                         if (canControl) ...[
                           OutlinedButton.icon(
                             onPressed: state.busy
                                 ? null
-                                : () => controller.setMuted(!state.muted),
+                                : () => ref
+                                      .read(
+                                        supportCallControllerProvider.notifier,
+                                      )
+                                      .setMuted(!state.muted),
                             icon: Icon(state.muted ? Icons.mic_off : Icons.mic),
                             label: Text(
-                              state.muted
-                                  ? 'Activer le micro'
-                                  : 'Couper le micro',
+                              state.muted ? l10n.callUnmute : l10n.callMute,
                             ),
                           ),
                           OutlinedButton.icon(
                             onPressed: state.busy
                                 ? null
-                                : () => controller.setSpeaker(!state.speaker),
+                                : () => ref
+                                      .read(
+                                        supportCallControllerProvider.notifier,
+                                      )
+                                      .setSpeaker(!state.speaker),
                             icon: Icon(
                               state.speaker ? Icons.volume_up : Icons.hearing,
                             ),
                             label: Text(
-                              state.speaker ? 'Écouteur' : 'Haut-parleur',
+                              state.speaker
+                                  ? l10n.callEarpiece
+                                  : l10n.callSpeaker,
                             ),
                           ),
                         ],
                         FilledButton.icon(
-                          onPressed: state.busy ? null : () => controller.end(),
+                          onPressed: state.busy ? null : () => actions.end(),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.red,
                           ),
                           icon: const Icon(Icons.call_end),
-                          label: const Text('Raccrocher'),
+                          label: Text(l10n.callHangUp),
                         ),
                       ],
                     ],

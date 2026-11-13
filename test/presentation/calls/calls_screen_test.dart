@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supplies_calls/support.dart'
     hide SupportCall, SupportCallActor, SupportCallContext, SupportCallStatus;
+import 'package:supplies_chat_app/core/calls/agent_calls.dart';
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations.dart';
 import 'package:supplies_chat_app/presentation/pages/calls/calls_screen.dart';
 
@@ -140,6 +141,7 @@ void main() {
         status: answered.status,
         createdAt: answered.createdAt,
         expiresAt: answered.expiresAt,
+        acceptedAt: answered.acceptedAt,
         connectedAt: answered.connectedAt,
         endedAt: answered.endedAt,
         agentId: answered.agentId,
@@ -175,6 +177,9 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('fr'),
           home: Scaffold(body: SupportCallHistoryRow(call: historyCall())),
         ),
       );
@@ -186,19 +191,23 @@ void main() {
     },
   );
 
-  test('colleague answers never appear in missed filter', () {
-    expect(supportCallIsMissed(historyCall()), isFalse);
+  test('missed follows the single spec predicate', () {
+    // Answered by a colleague: never missed for anyone.
+    expect(supportCallMissedFor(historyCall(), 'agent'), isFalse);
     expect(
-      supportCallIsMissed(
+      supportCallMissedFor(
         historyCall(status: SupportCallStatus.expired, answered: false),
+        'agent',
       ),
       isTrue,
     );
+    // Caller hung up before anyone answered: missed (spec §1.5).
     expect(
-      supportCallIsMissed(
+      supportCallMissedFor(
         historyCall(status: SupportCallStatus.cancelled, answered: false),
+        'agent',
       ),
-      isFalse,
+      isTrue,
     );
   });
 
@@ -212,6 +221,9 @@ void main() {
       }.entries) {
         await tester.pumpWidget(
           MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('fr'),
             home: Scaffold(
               body: SupportCallHistoryRow(
                 call: historyCall(status: entry.key, answered: false),
@@ -219,7 +231,7 @@ void main() {
             ),
           ),
         );
-        expect(find.text(entry.value), findsOneWidget);
+        expect(find.textContaining(entry.value), findsOneWidget);
         expect(find.text('1 min 5 s'), findsNothing);
         expect(find.text('Répondu par Afi'), findsNothing);
       }

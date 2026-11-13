@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,11 +8,14 @@ import 'package:supplies_calls/support.dart';
 
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
+import '../../../core/calls/agent_calls.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/utils/localization_helper.dart';
 import '../../desktop/widgets/presence_avatar.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
+import 'call_copy.dart';
+import 'widgets/agent_call_widgets.dart';
 
 class CallsScreen extends ConsumerStatefulWidget {
   const CallsScreen({super.key, this.isVisible = true});
@@ -48,27 +53,27 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
     super.dispose();
   }
 
-  void _markVisibleHistory(SupportCallState state) {
-    if (_viewedIdentity != state.identity) {
-      _viewedIdentity = state.identity;
+  void _markVisibleHistory(AgentCallsSnapshot calls) {
+    if (_viewedIdentity != calls.identity) {
+      _viewedIdentity = calls.identity;
       _markedViewed = false;
     }
     if (!_visible) {
       _markedViewed = false;
       return;
     }
-    if (_markedViewed || _markScheduled || !state.historyLoaded) return;
+    if (_markedViewed || _markScheduled || !calls.historyLoaded) return;
     _markScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _markScheduled = false;
       if (!mounted ||
           !_visible ||
           _markedViewed ||
-          !ref.read(supportCallControllerProvider).historyLoaded) {
+          !ref.read(agentCallsProvider).historyLoaded) {
         return;
       }
       _markedViewed = true;
-      ref.read(supportCallControllerProvider.notifier).markHistoryViewed();
+      unawaited(ref.read(missedCallsSeenProvider.notifier).markViewed());
     });
   }
 
@@ -85,21 +90,52 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
     });
   }
 
+  Future<void> _callBack(SupportCall call) async {
+    if (!await prepareCallMicrophone(context, ref)) return;
+    if (!mounted) return;
+    final router = GoRouter.of(context);
+    unawaited(
+      ref.read(agentCallActionsProvider).callback(call.context.conversationId),
+    );
+    unawaited(router.push(AppUiRoute.call));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = LocalizationHelper.of(context);
     final enabled = ref.watch(supportCallsEnabledProvider);
-    final state = ref.watch(supportCallControllerProvider);
-    if (enabled) _markVisibleHistory(state);
+    final calls = ref.watch(agentCallsProvider);
+    final available = enabled && calls.callsEnabled;
+    if (available) _markVisibleHistory(calls);
     final entries =
-        state.history
-            .where((call) => !_missedOnly || supportCallIsMissed(call))
+        calls.history
+            .where(
+              (call) =>
+                  !_missedOnly || supportCallMissedFor(call, calls.identity),
+            )
             .toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final canCallBack = !calls.inCall && calls.active?.isActive != true;
     return PlatformPage(
-      title: LocalizationHelper.of(context).callsTitle,
+      title: l10n.callsTitle,
       actions: const [],
       body: Column(
         children: [
+          if (available) ...[
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 8, 24, 8),
+              child: AvailabilityToggle(),
+            ),
+            if (calls.inCall)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: CallsWaitingIndicator(),
+              ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: IncomingCallsPanel(),
+            ),
+          ],
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
             child: _MissedFilter(
@@ -107,33 +143,34 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
               onChanged: (value) => setState(() => _missedOnly = value),
             ),
           ),
-          if (state.error != null)
+          if (calls.error != null && available)
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   Text(
-                    state.error == 'microphone_permission'
-                        ? 'Autorisez le microphone pour passer et recevoir des appels.'
-                        : state.error!,
+                    CallCopy.error(l10n, calls.error!),
+                    textAlign: TextAlign.center,
                   ),
-                  if (state.error == 'microphone_permission')
+                  if (calls.error == 'microphone_permission')
                     TextButton.icon(
                       onPressed: () => ref
-                          .read(supportCallControllerProvider.notifier)
-                          .prepareMicrophone(),
+                          .read(agentCallActionsProvider)
+                          .requestMicrophone(),
                       icon: const Icon(Icons.mic),
-                      label: const Text('Autoriser le microphone'),
+                      label: Text(l10n.callsAllowMicrophone),
                     ),
                 ],
               ),
             ),
           Expanded(
-            child: !enabled
-                ? const EmptyStateWidget(
+            child: !available
+                ? EmptyStateWidget(
                     icon: Iconsax.call,
-                    title: 'Appels indisponibles',
-                    message: 'Les appels au support ne sont pas activés.',
+                    title: l10n.callsUnavailableTitle,
+                    message: enabled
+                        ? l10n.callErrorDisabled
+                        : l10n.callsUnavailableMessage,
                   )
                 : RefreshIndicator(
                     onRefresh: () => ref
@@ -146,10 +183,9 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
                               EmptyStateWidget(
                                 icon: Iconsax.call,
                                 title: _missedOnly
-                                    ? 'Aucun appel manqué'
-                                    : 'Aucun appel',
-                                message:
-                                    'Vos appels au support apparaîtront ici.',
+                                    ? l10n.callsMissedEmptyTitle
+                                    : l10n.callsEmptyTitle,
+                                message: l10n.callsEmptyMessageAgent,
                               ),
                             ],
                           )
@@ -158,16 +194,23 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
                             itemCount: entries.length,
                             separatorBuilder: (_, _) =>
                                 const Divider(height: 1, indent: 72),
-                            itemBuilder: (context, index) =>
-                                SupportCallHistoryRow(
-                                  key: ValueKey(entries[index].id),
-                                  call: entries[index],
-                                  onOpenConversation: () => context.push(
-                                    AppUiRoute.conversationDetailPath(
-                                      entries[index].context.conversationId,
-                                    ),
+                            itemBuilder: (context, index) {
+                              final call = entries[index];
+                              return SupportCallHistoryRow(
+                                key: ValueKey(call.id),
+                                call: call,
+                                viewerId: calls.identity,
+                                onOpenConversation: () => context.push(
+                                  AppUiRoute.conversationDetailPath(
+                                    call.context.conversationId,
                                   ),
                                 ),
+                                onCallback:
+                                    canCallBack && _isCustomer(call.caller.role)
+                                    ? () => _callBack(call)
+                                    : null,
+                              );
+                            },
                           ),
                   ),
           ),
@@ -177,57 +220,46 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
   }
 }
 
-/// An answered team call is never a missed call for the other agents.
-bool supportCallIsMissed(SupportCall call) =>
-    call.agentId == null && call.status == SupportCallStatus.expired;
-
-String supportCallStatusLabel(SupportCall call) => switch (call.status) {
-  SupportCallStatus.ringing =>
-    call.isCallback ? 'Sonnerie' : 'Entrant · sonnerie',
-  SupportCallStatus.accepted =>
-    call.isCallback ? 'En cours' : 'Entrant · en cours',
-  SupportCallStatus.rejected => 'Refusé',
-  SupportCallStatus.cancelled => 'Annulé',
-  SupportCallStatus.expired =>
-    call.isCallback
-        ? 'Sans réponse'
-        : call.agentId == null
-        ? 'Manqué'
-        : 'Répondu',
-  SupportCallStatus.unavailable => 'Support indisponible',
-  SupportCallStatus.ended =>
-    call.connectedAt == null || call.isCallback
-        ? 'Terminé'
-        : 'Entrant · terminé',
-};
-
-String supportCallDuration(Duration duration) {
-  final seconds = duration.inSeconds;
-  final minutes = seconds ~/ 60;
-  return minutes == 0 ? '$seconds s' : '$minutes min ${seconds % 60} s';
-}
+bool _isCustomer(String role) =>
+    const {'client', 'customer'}.contains(role.split('.').last);
 
 class SupportCallHistoryRow extends StatelessWidget {
   const SupportCallHistoryRow({
     super.key,
     required this.call,
+    this.viewerId,
     this.onOpenConversation,
+    this.onCallback,
   });
   final SupportCall call;
+  final String? viewerId;
   final VoidCallback? onOpenConversation;
+
+  /// "Rappeler": calls the customer back on the same conversation.
+  final VoidCallback? onCallback;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = LocalizationHelper.of(context);
+    final theme = Theme.of(context);
     final created = call.createdAt.toLocal();
     final time =
         '${created.day.toString().padLeft(2, '0')}/${created.month.toString().padLeft(2, '0')} '
         '${created.hour.toString().padLeft(2, '0')}:${created.minute.toString().padLeft(2, '0')}';
-    final role = switch (call.caller.role.toString().split('.').last) {
-      'client' || 'customer' => 'Client',
-      'driver' => 'Livreur',
-      'vendor' => 'Vendeur',
-      _ => call.caller.role.toString().split('.').last,
-    };
+    final missed = supportCallMissedFor(call, viewerId);
+    final status = CallCopy.status(l10n, call, viewerId: viewerId);
+    final reason = call.isActive
+        ? null
+        : CallCopy.endReason(l10n, call, viewerId: viewerId);
+    final statusLine = [
+      call.isCallback ? l10n.callOutgoing(status) : status,
+      if (reason != null && reason != status) reason,
+    ].join(' · ');
+    final answered =
+        call.agentName != null &&
+        (call.isCallback ||
+            call.acceptedAt != null ||
+            call.connectedAt != null);
     return ListTile(
       onTap: onOpenConversation,
       leading: PresenceAvatar(
@@ -237,37 +269,50 @@ class SupportCallHistoryRow extends StatelessWidget {
       ),
       title: Text(
         call.caller.name,
-        style: TextStyle(
-          color: supportCallIsMissed(call)
-              ? Theme.of(context).colorScheme.error
-              : null,
-        ),
+        style: TextStyle(color: missed ? theme.colorScheme.error : null),
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$role · ${call.context.reference}'),
           Text(
-            '${call.isCallback ? 'Sortant · ' : ''}${supportCallStatusLabel(call)}',
+            '${CallCopy.role(l10n, call.caller.role)} · ${call.context.reference}',
           ),
+          Text(statusLine),
           if (call.connectedAt != null && call.endedAt != null)
-            Text(supportCallDuration(call.durationAt(call.endedAt!))),
-          if (call.agentName != null)
+            Text(CallCopy.duration(l10n, call.durationAt(call.endedAt!))),
+          if (answered)
             Text(
-              '${call.isCallback ? 'Lancé par' : 'Répondu par'} ${call.agentName}',
+              call.isCallback
+                  ? l10n.callStartedBy(call.agentName!)
+                  : l10n.callAnsweredBy(call.agentName!),
             ),
         ],
       ),
-      trailing: Text(time, style: Theme.of(context).textTheme.bodySmall),
+      trailing: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(time, style: theme.textTheme.bodySmall),
+          if (onCallback != null)
+            TextButton.icon(
+              key: ValueKey('callback-${call.id}'),
+              onPressed: onCallback,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              icon: const Icon(Icons.phone_callback, size: 16),
+              label: Text(l10n.callCallback),
+            ),
+        ],
+      ),
       isThreeLine: true,
     );
   }
 }
 
-/// Sélecteur « Tous / Manqués ».
-///
-/// Deux segments plutôt qu'un menu de filtres : c'est le seul tri que l'on
-/// cherche dans un historique d'appels, et il doit coûter un geste.
+/// "All / Missed" segmented filter: the only sort agents look for in a call
+/// history, so it costs a single tap.
 class _MissedFilter extends StatelessWidget {
   const _MissedFilter({required this.missedOnly, required this.onChanged});
 
@@ -278,6 +323,7 @@ class _MissedFilter extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = LocalizationHelper.of(context);
 
     return Container(
       padding: const EdgeInsets.all(2),
@@ -287,7 +333,10 @@ class _MissedFilter extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (final segment in [(false, 'Tous'), (true, 'Manqués')])
+          for (final segment in [
+            (false, l10n.callsFilterAll),
+            (true, l10n.callsFilterMissed),
+          ])
             Expanded(
               child: GestureDetector(
                 onTap: () => onChanged(segment.$1),
