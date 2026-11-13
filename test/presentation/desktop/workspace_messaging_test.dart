@@ -11,6 +11,7 @@ import 'package:supplies_chat_app/core/providers/realtime/realtime_provider.dart
 import 'package:supplies_chat_app/domain/entity/messaging/conversation_list_entry.dart';
 import 'package:supplies_chat_app/presentation/desktop/desktop_workspace_shell.dart';
 import 'package:supplies_chat_app/presentation/desktop/widgets/conversation_list_panel.dart';
+import 'package:supplies_chat_app/presentation/desktop/widgets/presence_avatar.dart';
 import 'package:supplies_chat_app/presentation/pages/conversation_detail/conversation_detail_screen.dart';
 import '../../helpers/test_environment.dart';
 
@@ -111,6 +112,36 @@ void main() {
       expect(find.text('+228 90 11 20 31'), findsNothing);
     },
   );
+  testWidgets('sidebar section badges count unread conversations only', (
+    tester,
+  ) async {
+    await pump(tester, [
+      ConversationListEntry(
+        conversationId: 'new',
+        title: 'Real Customer',
+        preview: 'Latest request',
+        date: DateTime(2026, 2),
+        ticketId: 'ticket',
+        isSupport: true,
+        unreadCount: 3,
+      ),
+      ...entries.skip(1),
+    ]);
+    int badge(String section) => tester
+        .widget<WorkspaceBadge>(
+          find.descendant(
+            of: find
+                .ancestor(of: find.text(section), matching: find.byType(Row))
+                .first,
+            matching: find.byType(WorkspaceBadge),
+          ),
+        )
+        .count;
+    expect(badge('Discussions'), 1);
+    expect(badge('Support'), 1);
+    expect(badge('Directes'), 0, reason: 'A read conversation is not a badge');
+    expect(badge('Non lues'), 1);
+  });
   testWidgets('empty inbox never renders fixture conversations or messages', (
     tester,
   ) async {

@@ -115,30 +115,33 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
             active != null &&
             _isProfileOpen &&
             width >= WorkspaceBreakpoints.profileMin;
+        // Section badges count conversations awaiting a read, never the
+        // section size: a red total read as a pile of unread messages.
+        final unread = entries.where((e) => e.unreadCount > 0).toList();
         final sections = <WorkspaceSectionData>[
           WorkspaceSectionData(
             id: 'chats',
             icon: Iconsax.message,
             label: 'Discussions',
-            badgeCount: entries.length,
+            badgeCount: unread.length,
           ),
           WorkspaceSectionData(
             id: 'support',
             icon: Iconsax.support,
             label: 'Support',
-            badgeCount: entries.where((e) => e.isSupport).length,
+            badgeCount: unread.where((e) => e.isSupport).length,
           ),
           WorkspaceSectionData(
             id: 'direct',
             icon: Iconsax.messages,
             label: 'Directes',
-            badgeCount: entries.where((e) => !e.isSupport).length,
+            badgeCount: unread.where((e) => !e.isSupport).length,
           ),
           WorkspaceSectionData(
             id: 'unread',
             icon: Iconsax.direct_notification,
             label: 'Non lues',
-            badgeCount: entries.where((e) => e.unreadCount > 0).length,
+            badgeCount: unread.length,
           ),
           WorkspaceSectionData(
             id: 'pinned',
