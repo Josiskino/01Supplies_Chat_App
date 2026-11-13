@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../domain/repository/auth/auth_repository.dart';
 import '../../../domain/usecases/auth/auth_usecases.dart';
 import '../../auth/auth_gate.dart';
+import '../../calls/calls_sign_out.dart';
 import '../../services/api_client.dart';
 import '../../utils/app_logger.dart';
 import '../directory/directory_provider.dart';
@@ -113,6 +114,21 @@ class AuthStatusNotifier extends _$AuthStatusNotifier {
   }
 
   Future<void> signOut() async {
+    // Calls first: ending the call, unregistering the device and going offline
+    // need the calls session, which can only be refreshed from the main token.
+    try {
+      await ref
+          .read(callsSignOutProvider)
+          .run()
+          .timeout(const Duration(seconds: 10));
+    } catch (error) {
+      AppLogger().error(
+        'Calls cleanup failed during sign-out',
+        feature: 'Calls',
+        error: error,
+      );
+    }
+    if (!ref.mounted) return;
     // Revoke push ownership while the authenticated request can still succeed.
     try {
       await ref.read(pushNotificationsProvider).setSession(null);

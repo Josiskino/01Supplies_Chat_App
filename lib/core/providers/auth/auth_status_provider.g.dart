@@ -81,7 +81,7 @@ final class AuthStatusNotifierProvider
 }
 
 String _$authStatusNotifierHash() =>
-    r'ec86ba1fa841649f75b5e7c75b88cb7832ea765b';
+    r'34ce0c21bc34d2b0d3c5c5ff52935e1e0b968cad';
 
 /// État d'authentification consommé par le routeur.
 ///
