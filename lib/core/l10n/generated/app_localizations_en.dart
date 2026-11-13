@@ -139,4 +139,310 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get callsEmptyMessageAgent =>
+      'Customer calls and your callbacks will appear here.';
+
+  @override
+  String get callsMissedEmptyTitle => 'No missed calls';
+
+  @override
+  String get callsUnavailableTitle => 'Calls unavailable';
+
+  @override
+  String get callsUnavailableMessage => 'Support calls are not enabled.';
+
+  @override
+  String get callsFilterAll => 'All';
+
+  @override
+  String get callsFilterMissed => 'Missed';
+
+  @override
+  String get callsMicrophoneRequired =>
+      'Allow the microphone to make and receive calls.';
+
+  @override
+  String get callsAllowMicrophone => 'Allow microphone';
+
+  @override
+  String get callsMicrophoneDialogTitle => 'Microphone access';
+
+  @override
+  String get callsMicrophoneDialogMessage =>
+      '01 Chat only uses the microphone during your calls with customers. Allow it to answer and call back.';
+
+  @override
+  String get callsMicrophoneDialogContinue => 'Continue';
+
+  @override
+  String get availabilityLabel => 'Call status';
+
+  @override
+  String get availabilityAvailable => 'Available';
+
+  @override
+  String get availabilityPaused => 'Paused';
+
+  @override
+  String get availabilityBusy => 'In a call';
+
+  @override
+  String get availabilityOffline => 'Offline';
+
+  @override
+  String get availabilityAvailableHint => 'You receive customer calls.';
+
+  @override
+  String get availabilityPausedHint => 'You no longer receive calls.';
+
+  @override
+  String get availabilityBusyHint => 'New calls go to your colleagues.';
+
+  @override
+  String get availabilityOfflineHint => 'Call service unreachable.';
+
+  @override
+  String incomingCallsTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count incoming calls',
+      one: 'Incoming call',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get incomingCallAccept => 'Answer';
+
+  @override
+  String get incomingCallDecline => 'Decline';
+
+  @override
+  String incomingCallWaiting(String duration) {
+    return 'Waiting for $duration';
+  }
+
+  @override
+  String callsWaitingQueue(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count calls waiting',
+      one: '1 call waiting',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String callDurationSeconds(int seconds) {
+    return '${seconds}s';
+  }
+
+  @override
+  String callDurationMinutes(int minutes, int seconds) {
+    return '${minutes}m ${seconds}s';
+  }
+
+  @override
+  String get callRoleClient => 'Customer';
+
+  @override
+  String get callRoleDriver => 'Driver';
+
+  @override
+  String get callRoleVendor => 'Vendor';
+
+  @override
+  String get callStatusRinging => 'Ringing…';
+
+  @override
+  String get callStatusIncomingRinging => 'Incoming · ringing';
+
+  @override
+  String get callStatusInProgress => 'In progress';
+
+  @override
+  String get callStatusIncomingInProgress => 'Incoming · in progress';
+
+  @override
+  String get callStatusDeclined => 'Declined';
+
+  @override
+  String get callStatusCancelled => 'Cancelled';
+
+  @override
+  String get callStatusNoAnswer => 'No answer';
+
+  @override
+  String get callStatusMissed => 'Missed';
+
+  @override
+  String get callStatusAnswered => 'Answered';
+
+  @override
+  String get callStatusUnavailable => 'Support unavailable';
+
+  @override
+  String get callStatusEnded => 'Ended';
+
+  @override
+  String get callStatusIncomingEnded => 'Incoming · ended';
+
+  @override
+  String callOutgoing(String status) {
+    return 'Outgoing · $status';
+  }
+
+  @override
+  String callAnsweredBy(String name) {
+    return 'Answered by $name';
+  }
+
+  @override
+  String callStartedBy(String name) {
+    return 'Started by $name';
+  }
+
+  @override
+  String get callEndReasonHangup => 'Hung up';
+
+  @override
+  String get callEndReasonPeerLeft => 'Other party left';
+
+  @override
+  String get callEndReasonAudioFailed => 'Audio connection failed';
+
+  @override
+  String get callEndReasonNetwork => 'Network lost';
+
+  @override
+  String get callEndReasonTimeout => 'Nobody answered in time';
+
+  @override
+  String get callEndReasonNoAgent => 'No agent available';
+
+  @override
+  String get callEndReasonDeclined => 'Declined';
+
+  @override
+  String get callEndReasonCancelled => 'Caller hung up';
+
+  @override
+  String get callEndReasonServerRestart => 'Service restarted';
+
+  @override
+  String get callEndReasonOtherDevice => 'Taken on another device';
+
+  @override
+  String get callEndReasonRevoked => 'Access revoked';
+
+  @override
+  String get callEndReasonMicrophone => 'Microphone unavailable';
+
+  @override
+  String get callCallback => 'Call back';
+
+  @override
+  String get callCallbackTooltip => 'Call the customer';
+
+  @override
+  String get callOpenConversation => 'Open conversation';
+
+  @override
+  String get callMinimize => 'Minimize';
+
+  @override
+  String get callNoActive => 'No call in progress';
+
+  @override
+  String get callIncomingAudio => 'Incoming audio call';
+
+  @override
+  String get callConnecting => 'Connecting audio…';
+
+  @override
+  String get callMute => 'Mute';
+
+  @override
+  String get callUnmute => 'Unmute';
+
+  @override
+  String get callSpeaker => 'Speaker';
+
+  @override
+  String get callEarpiece => 'Earpiece';
+
+  @override
+  String get callHangUp => 'Hang up';
+
+  @override
+  String get callHealthLocalPoor => 'Your connection is unstable';
+
+  @override
+  String get callHealthRemotePoor =>
+      'The other party\'s connection is unstable';
+
+  @override
+  String get callHealthReconnecting => 'Reconnecting audio…';
+
+  @override
+  String get callSupportBrand => '01Supplies Support';
+
+  @override
+  String get callOpen => 'Open call';
+
+  @override
+  String get callErrorUnauthorized => 'Call session expired. Sign in again.';
+
+  @override
+  String get callErrorForbidden => 'This action is not allowed on this call.';
+
+  @override
+  String get callErrorUnavailable =>
+      'The call service is unavailable right now.';
+
+  @override
+  String get callErrorBusy => 'You are already in a call.';
+
+  @override
+  String get callErrorAlreadyTaken => 'A colleague already took this call.';
+
+  @override
+  String get callErrorNotFound => 'This call no longer exists.';
+
+  @override
+  String get callErrorNotAccepted => 'The call has not been accepted yet.';
+
+  @override
+  String get callErrorNetwork =>
+      'Can\'t reach the call service. Check your network.';
+
+  @override
+  String get callErrorAudio => 'The audio connection failed.';
+
+  @override
+  String get callErrorDisabled => 'Calls are temporarily disabled.';
+
+  @override
+  String get callErrorRateLimited => 'Too many attempts. Wait a few seconds.';
+
+  @override
+  String get callErrorOtherDevice => 'Call taken on another device';
+
+  @override
+  String get callErrorGeneric => 'The call failed.';
+
+  @override
+  String callNotificationTitle(String name) {
+    return 'Incoming call · $name';
+  }
+
+  @override
+  String get callRingtoneMute => 'Mute ringtone';
+
+  @override
+  String get callRingtoneUnmute => 'Unmute ringtone';
 }

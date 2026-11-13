@@ -1,29 +1,22 @@
 {
   "@@locale": "en",
-
   "appTitle": "01 Chat",
   "appTagline": "Internal logistics messaging",
-
   "navConversations": "Messages",
   "navCalls": "Calls",
   "navContacts": "Contacts",
   "navSettings": "Settings",
-
   "conversationsTitle": "Conversations",
   "conversationsEmptyTitle": "No conversations",
   "conversationsEmptyMessage": "Customer requests will show up here.",
-
   "callsTitle": "Calls",
   "callsEmptyTitle": "No calls",
   "callsEmptyMessage": "Your call history will show up here.",
-
   "contactsTitle": "Contacts",
   "contactsEmptyTitle": "No contacts",
   "contactsEmptyMessage": "The customer directory will show up here.",
-
   "accountTitle": "Settings",
   "settingsTitle": "Settings",
-
   "themeLabel": "Theme",
   "themeSystem": "System",
   "themeLight": "Light",
@@ -31,7 +24,6 @@
   "languageLabel": "Language",
   "languageFrench": "French",
   "languageEnglish": "English",
-
   "signIn": "Sign in",
   "signOut": "Sign out",
   "emailLabel": "Email address",
@@ -40,16 +32,13 @@
   "loginSubtitle": "Restricted to the 01Supplies logistics team",
   "rememberMe": "Stay signed in",
   "forgotPassword": "Forgot password?",
-
   "retry": "Retry",
   "cancel": "Cancel",
   "confirm": "Confirm",
   "search": "Search",
   "loading": "Loading…",
-
   "errorGeneric": "Something went wrong.",
   "errorNetwork": "Can't connect. Check your network and try again.",
-
   "unreadCount": "{count, plural, =0{No unread messages} =1{1 unread message} other{{count} unread messages}}",
   "@unreadCount": {
     "placeholders": {
@@ -57,5 +46,161 @@
         "type": "int"
       }
     }
-  }
+  },
+  "callsEmptyMessageAgent": "Customer calls and your callbacks will appear here.",
+  "callsMissedEmptyTitle": "No missed calls",
+  "callsUnavailableTitle": "Calls unavailable",
+  "callsUnavailableMessage": "Support calls are not enabled.",
+  "callsFilterAll": "All",
+  "callsFilterMissed": "Missed",
+  "callsMicrophoneRequired": "Allow the microphone to make and receive calls.",
+  "callsAllowMicrophone": "Allow microphone",
+  "callsMicrophoneDialogTitle": "Microphone access",
+  "callsMicrophoneDialogMessage": "01 Chat only uses the microphone during your calls with customers. Allow it to answer and call back.",
+  "callsMicrophoneDialogContinue": "Continue",
+  "availabilityLabel": "Call status",
+  "availabilityAvailable": "Available",
+  "availabilityPaused": "Paused",
+  "availabilityBusy": "In a call",
+  "availabilityOffline": "Offline",
+  "availabilityAvailableHint": "You receive customer calls.",
+  "availabilityPausedHint": "You no longer receive calls.",
+  "availabilityBusyHint": "New calls go to your colleagues.",
+  "availabilityOfflineHint": "Call service unreachable.",
+  "incomingCallsTitle": "{count, plural, =1{Incoming call} other{{count} incoming calls}}",
+  "@incomingCallsTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "incomingCallAccept": "Answer",
+  "incomingCallDecline": "Decline",
+  "incomingCallWaiting": "Waiting for {duration}",
+  "@incomingCallWaiting": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "callsWaitingQueue": "{count, plural, =1{1 call waiting} other{{count} calls waiting}}",
+  "@callsWaitingQueue": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "callDurationSeconds": "{seconds}s",
+  "@callDurationSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "callDurationMinutes": "{minutes}m {seconds}s",
+  "@callDurationMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "callRoleClient": "Customer",
+  "callRoleDriver": "Driver",
+  "callRoleVendor": "Vendor",
+  "callStatusRinging": "Ringing…",
+  "callStatusIncomingRinging": "Incoming · ringing",
+  "callStatusInProgress": "In progress",
+  "callStatusIncomingInProgress": "Incoming · in progress",
+  "callStatusDeclined": "Declined",
+  "callStatusCancelled": "Cancelled",
+  "callStatusNoAnswer": "No answer",
+  "callStatusMissed": "Missed",
+  "callStatusAnswered": "Answered",
+  "callStatusUnavailable": "Support unavailable",
+  "callStatusEnded": "Ended",
+  "callStatusIncomingEnded": "Incoming · ended",
+  "callOutgoing": "Outgoing · {status}",
+  "@callOutgoing": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "callAnsweredBy": "Answered by {name}",
+  "@callAnsweredBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "callStartedBy": "Started by {name}",
+  "@callStartedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "callEndReasonHangup": "Hung up",
+  "callEndReasonPeerLeft": "Other party left",
+  "callEndReasonAudioFailed": "Audio connection failed",
+  "callEndReasonNetwork": "Network lost",
+  "callEndReasonTimeout": "Nobody answered in time",
+  "callEndReasonNoAgent": "No agent available",
+  "callEndReasonDeclined": "Declined",
+  "callEndReasonCancelled": "Caller hung up",
+  "callEndReasonServerRestart": "Service restarted",
+  "callEndReasonOtherDevice": "Taken on another device",
+  "callEndReasonRevoked": "Access revoked",
+  "callEndReasonMicrophone": "Microphone unavailable",
+  "callCallback": "Call back",
+  "callCallbackTooltip": "Call the customer",
+  "callOpenConversation": "Open conversation",
+  "callMinimize": "Minimize",
+  "callNoActive": "No call in progress",
+  "callIncomingAudio": "Incoming audio call",
+  "callConnecting": "Connecting audio…",
+  "callMute": "Mute",
+  "callUnmute": "Unmute",
+  "callSpeaker": "Speaker",
+  "callEarpiece": "Earpiece",
+  "callHangUp": "Hang up",
+  "callHealthLocalPoor": "Your connection is unstable",
+  "callHealthRemotePoor": "The other party's connection is unstable",
+  "callHealthReconnecting": "Reconnecting audio…",
+  "callSupportBrand": "01Supplies Support",
+  "callOpen": "Open call",
+  "callErrorUnauthorized": "Call session expired. Sign in again.",
+  "callErrorForbidden": "This action is not allowed on this call.",
+  "callErrorUnavailable": "The call service is unavailable right now.",
+  "callErrorBusy": "You are already in a call.",
+  "callErrorAlreadyTaken": "A colleague already took this call.",
+  "callErrorNotFound": "This call no longer exists.",
+  "callErrorNotAccepted": "The call has not been accepted yet.",
+  "callErrorNetwork": "Can't reach the call service. Check your network.",
+  "callErrorAudio": "The audio connection failed.",
+  "callErrorDisabled": "Calls are temporarily disabled.",
+  "callErrorRateLimited": "Too many attempts. Wait a few seconds.",
+  "callErrorOtherDevice": "Call taken on another device",
+  "callErrorGeneric": "The call failed.",
+  "callNotificationTitle": "Incoming call · {name}",
+  "@callNotificationTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "callRingtoneMute": "Mute ringtone",
+  "callRingtoneUnmute": "Unmute ringtone"
 }

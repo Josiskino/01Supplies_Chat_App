@@ -337,6 +337,546 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'{count, plural, =0{Aucun message non lu} =1{1 message non lu} other{{count} messages non lus}}'**
   String unreadCount(int count);
+
+  /// No description provided for @callsEmptyMessageAgent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les appels des clients et vos rappels apparaîtront ici.'**
+  String get callsEmptyMessageAgent;
+
+  /// No description provided for @callsMissedEmptyTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun appel manqué'**
+  String get callsMissedEmptyTitle;
+
+  /// No description provided for @callsUnavailableTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appels indisponibles'**
+  String get callsUnavailableTitle;
+
+  /// No description provided for @callsUnavailableMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les appels au support ne sont pas activés.'**
+  String get callsUnavailableMessage;
+
+  /// No description provided for @callsFilterAll.
+  ///
+  /// In fr, this message translates to:
+  /// **'Tous'**
+  String get callsFilterAll;
+
+  /// No description provided for @callsFilterMissed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Manqués'**
+  String get callsFilterMissed;
+
+  /// No description provided for @callsMicrophoneRequired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autorisez le microphone pour passer et recevoir des appels.'**
+  String get callsMicrophoneRequired;
+
+  /// No description provided for @callsAllowMicrophone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Autoriser le microphone'**
+  String get callsAllowMicrophone;
+
+  /// No description provided for @callsMicrophoneDialogTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès au microphone'**
+  String get callsMicrophoneDialogTitle;
+
+  /// No description provided for @callsMicrophoneDialogMessage.
+  ///
+  /// In fr, this message translates to:
+  /// **'01 Chat utilise le microphone uniquement pendant vos appels avec les clients. Autorisez-le pour répondre et rappeler.'**
+  String get callsMicrophoneDialogMessage;
+
+  /// No description provided for @callsMicrophoneDialogContinue.
+  ///
+  /// In fr, this message translates to:
+  /// **'Continuer'**
+  String get callsMicrophoneDialogContinue;
+
+  /// No description provided for @availabilityLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Statut d\'appel'**
+  String get availabilityLabel;
+
+  /// No description provided for @availabilityAvailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Disponible'**
+  String get availabilityAvailable;
+
+  /// No description provided for @availabilityPaused.
+  ///
+  /// In fr, this message translates to:
+  /// **'En pause'**
+  String get availabilityPaused;
+
+  /// No description provided for @availabilityBusy.
+  ///
+  /// In fr, this message translates to:
+  /// **'En appel'**
+  String get availabilityBusy;
+
+  /// No description provided for @availabilityOffline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Hors ligne'**
+  String get availabilityOffline;
+
+  /// No description provided for @availabilityAvailableHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous recevez les appels des clients.'**
+  String get availabilityAvailableHint;
+
+  /// No description provided for @availabilityPausedHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous ne recevez plus d\'appels.'**
+  String get availabilityPausedHint;
+
+  /// No description provided for @availabilityBusyHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les nouveaux appels vont à vos collègues.'**
+  String get availabilityBusyHint;
+
+  /// No description provided for @availabilityOfflineHint.
+  ///
+  /// In fr, this message translates to:
+  /// **'Service d\'appels non joignable.'**
+  String get availabilityOfflineHint;
+
+  /// No description provided for @incomingCallsTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, =1{Appel entrant} other{{count} appels entrants}}'**
+  String incomingCallsTitle(int count);
+
+  /// No description provided for @incomingCallAccept.
+  ///
+  /// In fr, this message translates to:
+  /// **'Répondre'**
+  String get incomingCallAccept;
+
+  /// No description provided for @incomingCallDecline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Refuser'**
+  String get incomingCallDecline;
+
+  /// No description provided for @incomingCallWaiting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Attend depuis {duration}'**
+  String incomingCallWaiting(String duration);
+
+  /// No description provided for @callsWaitingQueue.
+  ///
+  /// In fr, this message translates to:
+  /// **'{count, plural, =1{1 appel en attente} other{{count} appels en attente}}'**
+  String callsWaitingQueue(int count);
+
+  /// No description provided for @callDurationSeconds.
+  ///
+  /// In fr, this message translates to:
+  /// **'{seconds} s'**
+  String callDurationSeconds(int seconds);
+
+  /// No description provided for @callDurationMinutes.
+  ///
+  /// In fr, this message translates to:
+  /// **'{minutes} min {seconds} s'**
+  String callDurationMinutes(int minutes, int seconds);
+
+  /// No description provided for @callRoleClient.
+  ///
+  /// In fr, this message translates to:
+  /// **'Client'**
+  String get callRoleClient;
+
+  /// No description provided for @callRoleDriver.
+  ///
+  /// In fr, this message translates to:
+  /// **'Livreur'**
+  String get callRoleDriver;
+
+  /// No description provided for @callRoleVendor.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vendeur'**
+  String get callRoleVendor;
+
+  /// No description provided for @callStatusRinging.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sonnerie…'**
+  String get callStatusRinging;
+
+  /// No description provided for @callStatusIncomingRinging.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrant · sonnerie'**
+  String get callStatusIncomingRinging;
+
+  /// No description provided for @callStatusInProgress.
+  ///
+  /// In fr, this message translates to:
+  /// **'En cours'**
+  String get callStatusInProgress;
+
+  /// No description provided for @callStatusIncomingInProgress.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrant · en cours'**
+  String get callStatusIncomingInProgress;
+
+  /// No description provided for @callStatusDeclined.
+  ///
+  /// In fr, this message translates to:
+  /// **'Refusé'**
+  String get callStatusDeclined;
+
+  /// No description provided for @callStatusCancelled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Annulé'**
+  String get callStatusCancelled;
+
+  /// No description provided for @callStatusNoAnswer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sans réponse'**
+  String get callStatusNoAnswer;
+
+  /// No description provided for @callStatusMissed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Manqué'**
+  String get callStatusMissed;
+
+  /// No description provided for @callStatusAnswered.
+  ///
+  /// In fr, this message translates to:
+  /// **'Répondu'**
+  String get callStatusAnswered;
+
+  /// No description provided for @callStatusUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Support indisponible'**
+  String get callStatusUnavailable;
+
+  /// No description provided for @callStatusEnded.
+  ///
+  /// In fr, this message translates to:
+  /// **'Terminé'**
+  String get callStatusEnded;
+
+  /// No description provided for @callStatusIncomingEnded.
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrant · terminé'**
+  String get callStatusIncomingEnded;
+
+  /// No description provided for @callOutgoing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Sortant · {status}'**
+  String callOutgoing(String status);
+
+  /// No description provided for @callAnsweredBy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Répondu par {name}'**
+  String callAnsweredBy(String name);
+
+  /// No description provided for @callStartedBy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Lancé par {name}'**
+  String callStartedBy(String name);
+
+  /// No description provided for @callEndReasonHangup.
+  ///
+  /// In fr, this message translates to:
+  /// **'Raccroché'**
+  String get callEndReasonHangup;
+
+  /// No description provided for @callEndReasonPeerLeft.
+  ///
+  /// In fr, this message translates to:
+  /// **'Interlocuteur déconnecté'**
+  String get callEndReasonPeerLeft;
+
+  /// No description provided for @callEndReasonAudioFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Échec de la connexion audio'**
+  String get callEndReasonAudioFailed;
+
+  /// No description provided for @callEndReasonNetwork.
+  ///
+  /// In fr, this message translates to:
+  /// **'Coupure réseau'**
+  String get callEndReasonNetwork;
+
+  /// No description provided for @callEndReasonTimeout.
+  ///
+  /// In fr, this message translates to:
+  /// **'Personne n\'a répondu à temps'**
+  String get callEndReasonTimeout;
+
+  /// No description provided for @callEndReasonNoAgent.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun agent disponible'**
+  String get callEndReasonNoAgent;
+
+  /// No description provided for @callEndReasonDeclined.
+  ///
+  /// In fr, this message translates to:
+  /// **'Refusé'**
+  String get callEndReasonDeclined;
+
+  /// No description provided for @callEndReasonCancelled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Raccroché par l\'appelant'**
+  String get callEndReasonCancelled;
+
+  /// No description provided for @callEndReasonServerRestart.
+  ///
+  /// In fr, this message translates to:
+  /// **'Redémarrage du service'**
+  String get callEndReasonServerRestart;
+
+  /// No description provided for @callEndReasonOtherDevice.
+  ///
+  /// In fr, this message translates to:
+  /// **'Pris sur un autre appareil'**
+  String get callEndReasonOtherDevice;
+
+  /// No description provided for @callEndReasonRevoked.
+  ///
+  /// In fr, this message translates to:
+  /// **'Accès révoqué'**
+  String get callEndReasonRevoked;
+
+  /// No description provided for @callEndReasonMicrophone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Microphone indisponible'**
+  String get callEndReasonMicrophone;
+
+  /// No description provided for @callCallback.
+  ///
+  /// In fr, this message translates to:
+  /// **'Rappeler'**
+  String get callCallback;
+
+  /// No description provided for @callCallbackTooltip.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appeler le client'**
+  String get callCallbackTooltip;
+
+  /// No description provided for @callOpenConversation.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouvrir la conversation'**
+  String get callOpenConversation;
+
+  /// No description provided for @callMinimize.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réduire'**
+  String get callMinimize;
+
+  /// No description provided for @callNoActive.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucun appel en cours'**
+  String get callNoActive;
+
+  /// No description provided for @callIncomingAudio.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appel audio entrant'**
+  String get callIncomingAudio;
+
+  /// No description provided for @callConnecting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion audio…'**
+  String get callConnecting;
+
+  /// No description provided for @callMute.
+  ///
+  /// In fr, this message translates to:
+  /// **'Couper le micro'**
+  String get callMute;
+
+  /// No description provided for @callUnmute.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activer le micro'**
+  String get callUnmute;
+
+  /// No description provided for @callSpeaker.
+  ///
+  /// In fr, this message translates to:
+  /// **'Haut-parleur'**
+  String get callSpeaker;
+
+  /// No description provided for @callEarpiece.
+  ///
+  /// In fr, this message translates to:
+  /// **'Écouteur'**
+  String get callEarpiece;
+
+  /// No description provided for @callHangUp.
+  ///
+  /// In fr, this message translates to:
+  /// **'Raccrocher'**
+  String get callHangUp;
+
+  /// No description provided for @callHealthLocalPoor.
+  ///
+  /// In fr, this message translates to:
+  /// **'Votre connexion est instable'**
+  String get callHealthLocalPoor;
+
+  /// No description provided for @callHealthRemotePoor.
+  ///
+  /// In fr, this message translates to:
+  /// **'La connexion de votre interlocuteur est instable'**
+  String get callHealthRemotePoor;
+
+  /// No description provided for @callHealthReconnecting.
+  ///
+  /// In fr, this message translates to:
+  /// **'Reconnexion audio…'**
+  String get callHealthReconnecting;
+
+  /// No description provided for @callSupportBrand.
+  ///
+  /// In fr, this message translates to:
+  /// **'Support 01Supplies'**
+  String get callSupportBrand;
+
+  /// No description provided for @callOpen.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouvrir l\'appel'**
+  String get callOpen;
+
+  /// No description provided for @callErrorUnauthorized.
+  ///
+  /// In fr, this message translates to:
+  /// **'Session d\'appel expirée. Reconnectez-vous.'**
+  String get callErrorUnauthorized;
+
+  /// No description provided for @callErrorForbidden.
+  ///
+  /// In fr, this message translates to:
+  /// **'Action non autorisée sur cet appel.'**
+  String get callErrorForbidden;
+
+  /// No description provided for @callErrorUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Service d\'appels indisponible pour le moment.'**
+  String get callErrorUnavailable;
+
+  /// No description provided for @callErrorBusy.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous êtes déjà en appel.'**
+  String get callErrorBusy;
+
+  /// No description provided for @callErrorAlreadyTaken.
+  ///
+  /// In fr, this message translates to:
+  /// **'Un collègue a déjà pris cet appel.'**
+  String get callErrorAlreadyTaken;
+
+  /// No description provided for @callErrorNotFound.
+  ///
+  /// In fr, this message translates to:
+  /// **'Cet appel n\'existe plus.'**
+  String get callErrorNotFound;
+
+  /// No description provided for @callErrorNotAccepted.
+  ///
+  /// In fr, this message translates to:
+  /// **'L\'appel n\'a pas encore été accepté.'**
+  String get callErrorNotAccepted;
+
+  /// No description provided for @callErrorNetwork.
+  ///
+  /// In fr, this message translates to:
+  /// **'Connexion au service d\'appels impossible. Vérifiez votre réseau.'**
+  String get callErrorNetwork;
+
+  /// No description provided for @callErrorAudio.
+  ///
+  /// In fr, this message translates to:
+  /// **'La connexion audio a échoué.'**
+  String get callErrorAudio;
+
+  /// No description provided for @callErrorDisabled.
+  ///
+  /// In fr, this message translates to:
+  /// **'Les appels sont temporairement désactivés.'**
+  String get callErrorDisabled;
+
+  /// No description provided for @callErrorRateLimited.
+  ///
+  /// In fr, this message translates to:
+  /// **'Trop de tentatives. Patientez quelques secondes.'**
+  String get callErrorRateLimited;
+
+  /// No description provided for @callErrorOtherDevice.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appel pris sur un autre appareil'**
+  String get callErrorOtherDevice;
+
+  /// No description provided for @callErrorGeneric.
+  ///
+  /// In fr, this message translates to:
+  /// **'L\'appel a échoué.'**
+  String get callErrorGeneric;
+
+  /// No description provided for @callNotificationTitle.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appel entrant · {name}'**
+  String callNotificationTitle(String name);
+
+  /// No description provided for @callRingtoneMute.
+  ///
+  /// In fr, this message translates to:
+  /// **'Couper la sonnerie'**
+  String get callRingtoneMute;
+
+  /// No description provided for @callRingtoneUnmute.
+  ///
+  /// In fr, this message translates to:
+  /// **'Activer la sonnerie'**
+  String get callRingtoneUnmute;
 }
 
 class _AppLocalizationsDelegate
