@@ -26,6 +26,12 @@ class WorkspaceIconRail extends StatelessWidget {
     this.visibleIndices,
     this.onSettings,
     this.onContacts,
+    this.onCalls,
+    this.callsBadgeCount = 0,
+    this.callsTooltip = '',
+    this.presence = PresenceStatus.offline,
+    this.presenceTooltip,
+    this.onPresenceTap,
   });
 
   final int selectedIndex;
@@ -41,6 +47,16 @@ class WorkspaceIconRail extends StatelessWidget {
   final Set<int>? visibleIndices;
   final VoidCallback? onSettings;
   final VoidCallback? onContacts;
+
+  /// Calls history entry. Selected when [selectedIndex] is -2.
+  final VoidCallback? onCalls;
+  final int callsBadgeCount;
+  final String callsTooltip;
+
+  /// Call availability of the signed-in agent, shown on the avatar.
+  final PresenceStatus presence;
+  final String? presenceTooltip;
+  final VoidCallback? onPresenceTap;
 
   /// Largeur du rail.
   ///
@@ -124,6 +140,15 @@ class WorkspaceIconRail extends StatelessWidget {
                 ),
               ),
 
+              if (onCalls != null)
+                _RailIcon(
+                  key: const ValueKey('rail-calls'),
+                  icon: CupertinoIcons.phone,
+                  tooltip: callsTooltip,
+                  isSelected: selectedIndex == -2,
+                  badgeCount: callsBadgeCount,
+                  onTap: onCalls!,
+                ),
               if (onContacts != null)
                 _RailIcon(
                   icon: CupertinoIcons.person_2,
@@ -155,10 +180,18 @@ class WorkspaceIconRail extends StatelessWidget {
               const SizedBox(height: DesignTokens.spaceS),
               Padding(
                 padding: const EdgeInsets.only(bottom: DesignTokens.spaceM),
-                child: PresenceAvatar(
-                  name: userName.isEmpty ? 'Agent' : userName,
-                  size: DesignTokens.avatarS,
-                  presence: PresenceStatus.offline,
+                child: Tooltip(
+                  message: presenceTooltip ?? '',
+                  child: InkWell(
+                    key: const ValueKey('rail-presence'),
+                    customBorder: const CircleBorder(),
+                    onTap: onPresenceTap,
+                    child: PresenceAvatar(
+                      name: userName.isEmpty ? 'Agent' : userName,
+                      size: DesignTokens.avatarS,
+                      presence: presence,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -171,14 +204,17 @@ class WorkspaceIconRail extends StatelessWidget {
 
 class _RailIcon extends StatelessWidget {
   const _RailIcon({
+    super.key,
     required this.icon,
     required this.tooltip,
     required this.isSelected,
     required this.onTap,
     this.hasDot = false,
+    this.badgeCount = 0,
   });
 
   final IconData icon;
+  final int badgeCount;
   final String tooltip;
   final bool isSelected;
   final VoidCallback onTap;
@@ -221,7 +257,32 @@ class _RailIcon extends StatelessWidget {
                         ? theme.colorScheme.primary
                         : DesignTokens.getTextColorWithOpacity(context, 0.55),
                   ),
-                  if (hasDot)
+                  if (badgeCount > 0)
+                    Positioned(
+                      right: -8,
+                      top: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.error,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          badgeCount > 99 ? '99+' : '$badgeCount',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: theme.colorScheme.onError,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (hasDot)
                     Positioned(
                       right: -2,
                       top: -2,

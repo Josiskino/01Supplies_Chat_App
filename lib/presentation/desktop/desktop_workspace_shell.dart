@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:supplies_calls/support.dart' show SupportAgentAvailability;
 
 import '../../config/theme/design_tokens.dart';
 import '../../config/theme/glass_surfaces.dart';
 import '../../config/theme/theme.dart';
+import '../../core/calls/agent_calls.dart';
 import '../../core/constants/app_ui_route.dart';
 import '../../core/platform/window_glass.dart';
 import '../../core/providers/auth/auth_provider.dart';
 import '../../core/providers/messaging/pinned_provider.dart';
 import '../../core/providers/messaging/support_provider.dart';
 import '../../core/utils/chat_date_formatter.dart';
+import '../../core/utils/localization_helper.dart';
+import '../pages/calls/calls_screen.dart';
+import '../pages/calls/widgets/agent_call_widgets.dart';
 import '../pages/contacts/contacts_screen.dart';
 import '../pages/conversation_detail/conversation_detail_screen.dart';
 import '../shared/models/conversation_view_data.dart';
@@ -90,7 +95,13 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
     final active = entries
         .where((e) => e.conversationId == _conversationId)
         .firstOrNull;
-    final contacts = _sectionId == 'contacts';
+    final callsSection = _sectionId == 'calls';
+    final contacts = _sectionId == 'contacts' || callsSection;
+    final l10n = LocalizationHelper.of(context);
+    final missedCalls = ref.watch(missedCallsCountProvider);
+    final availability = ref.watch(
+      agentCallsProvider.select((s) => s.availability),
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -137,6 +148,12 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
                 .where((e) => pins.contains(e.conversationId))
                 .length,
           ),
+          WorkspaceSectionData(
+            id: 'calls',
+            icon: Iconsax.call,
+            label: l10n.callsTitle,
+            badgeCount: missedCalls,
+          ),
           const WorkspaceSectionData(
             id: 'contacts',
             icon: Iconsax.profile_2user,
@@ -148,11 +165,33 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
           child: Row(
             children: [
               WorkspaceIconRail(
-                selectedIndex: contacts ? -1 : 1,
+                selectedIndex: callsSection
+                    ? -2
+                    : contacts
+                    ? -1
+                    : 1,
                 visibleIndices: const {1},
                 userName: ref.watch(currentUserProvider)?.displayName ?? '',
                 onSelected: (_) => _section('chats'),
                 onContacts: () => _section('contacts'),
+                onCalls: () => _section('calls'),
+                callsTooltip: l10n.callsTitle,
+                callsBadgeCount: missedCalls,
+                presence: switch (availability) {
+                  SupportAgentAvailability.available => PresenceStatus.online,
+                  SupportAgentAvailability.offline => PresenceStatus.offline,
+                  _ => PresenceStatus.away,
+                },
+                presenceTooltip: availabilityLabel(l10n, availability),
+                onPresenceTap:
+                    availability == SupportAgentAvailability.available ||
+                        availability == SupportAgentAvailability.paused
+                    ? () => setAgentAvailability(
+                        context,
+                        ref,
+                        availability != SupportAgentAvailability.available,
+                      )
+                    : null,
                 onSettings: () => context.push(AppUiRoute.settings),
                 topInset: WindowGlass.titleBarInset,
                 isDarkMode: isDark,
@@ -229,7 +268,9 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
                     ],
                   ),
                 ),
-              if (contacts)
+              if (callsSection)
+                const Expanded(child: CallsScreen())
+              else if (contacts)
                 const Expanded(child: ContactsScreen())
               else if (width >= WorkspaceBreakpoints.listMin || active != null)
                 Expanded(

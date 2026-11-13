@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/theme/app_colors.dart';
+import '../../core/calls/agent_calls.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/platform/app_platform.dart';
 import '../../core/platform/platform_ui_provider.dart';
@@ -75,9 +76,8 @@ class _MainPageState extends ConsumerState<MainPage> with RestorationMixin {
     final screens = isAndroid ? _screens.take(4).toList() : _screens;
     final selectedIndex = requestedIndex >= screens.length ? 0 : requestedIndex;
 
-    // Le compteur de non-lus viendra de la feature messagerie ; en attendant
-    // aucun badge n'est affiché.
-    const unreadByTab = <int, int>{};
+    // Calls tab: missed calls since the history was last viewed.
+    final unreadByTab = <int, int>{1: ref.watch(missedCallsCountProvider)};
 
     final destinations = [
       for (final spec in NavDestinations.forPlatform(platformUi.platform))
