@@ -150,6 +150,17 @@ void main() {
         ];
       final messages = FakeMessages()
         ..messages = [
+          // An earlier admin message is not counted, and the customer
+          // messages after it are still waiting for the team.
+          MessageEntity(
+            id: 'admin-message',
+            conversationId: 'c',
+            senderId: 'another-admin',
+            content: 'Hello',
+            type: MessageType.text,
+            delivery: MessageDelivery.sent,
+            sentAt: DateTime.utc(2026),
+          ),
           for (var i = 0; i < 2; i++)
             MessageEntity(
               id: 'm$i',
@@ -160,15 +171,6 @@ void main() {
               delivery: MessageDelivery.sent,
               sentAt: DateTime.utc(2026),
             ),
-          MessageEntity(
-            id: 'admin-message',
-            conversationId: 'c',
-            senderId: 'another-admin',
-            content: 'Hello',
-            type: MessageType.text,
-            delivery: MessageDelivery.sent,
-            sentAt: DateTime.utc(2026),
-          ),
         ];
       final container = ProviderContainer(
         overrides: [

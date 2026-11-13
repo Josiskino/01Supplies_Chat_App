@@ -159,6 +159,28 @@ void main() {
     expect(await unread(other), 1);
   });
 
+  test(
+    'an agent reply marks earlier customer messages handled for every admin',
+    () async {
+      messages = PagedMessages()
+        ..pages = [
+          [
+            msg('m1', 'customer', 1),
+            msg('reply', 'admin-b', 2),
+            msg('m3', 'customer', 3),
+          ],
+          [for (var i = 0; i < 100; i++) msg('old$i', 'customer', 0)],
+        ];
+      final container = await launch('admin-a');
+      expect(await unread(container), 1);
+      expect(
+        (messages as PagedMessages).requested,
+        [1],
+        reason: 'Older history before a reply cannot be unread',
+      );
+    },
+  );
+
   test('the read-through timestamp never moves backwards', () async {
     messages = fixtures.FakeMessages()
       ..messages = [msg('m1', 'customer', 1), msg('m2', 'customer', 2)];

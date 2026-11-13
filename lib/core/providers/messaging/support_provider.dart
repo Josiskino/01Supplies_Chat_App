@@ -357,17 +357,30 @@ class SupportQueue extends _$SupportQueue {
             unread = 0;
             readThrough = latestReadThrough;
           }
+          // Pages run from the newest backwards. A reply from anyone other
+          // than the customer means the team has handled everything before
+          // it, whoever read it: only later customer messages stay unread,
+          // and older pages need not be fetched.
+          final authorId = ticket.author?.id;
+          final lastReply = authorId == null
+              ? -1
+              : messages.lastIndexWhere(
+                  (message) =>
+                      message.senderId != authorId &&
+                      message.type != MessageType.system,
+                );
           unread += messages
+              .skip(lastReply + 1)
               .where(
                 (message) =>
-                    message.senderId == ticket.author?.id &&
+                    message.senderId == authorId &&
                     message.type != MessageType.system &&
                     message.delivery != MessageDelivery.read &&
                     (readThrough == null ||
                         message.sentAt.isAfter(readThrough)),
               )
               .length;
-          if (messages.length < 100) {
+          if (lastReply >= 0 || messages.length < 100) {
             count = unread;
             _queueUnreadCache[entry.conversationId] = (
               revision: entry.date,
