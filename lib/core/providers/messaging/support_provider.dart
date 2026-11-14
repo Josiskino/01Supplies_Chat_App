@@ -57,7 +57,35 @@ JoinTicketUseCase joinTicketUseCase(Ref ref) =>
 /// et le premier qui répond s'en saisit. C'est pourquoi elle vient de
 /// `/messaging/support` et non de `/support/me`, qui ne rend que les tickets
 /// créés par le compte authentifié (la vue client).
-@riverpod
+/// Why the support queue could not be built; keeps the domain failure so
+/// the retry policy can honour a server `retryAfter`.
+class SupportQueueUnavailable implements Exception {
+  SupportQueueUnavailable(this.label, this.failure);
+  final String label;
+  final Failure failure;
+
+  @override
+  String toString() => 'Exception: $label ${failure.message}';
+}
+
+/// Riverpod retries failed providers on its own (a few seconds at most),
+/// which ignored the server's `retryAfter` after a 429 and kept the API
+/// rate limit tripped. Rate limits wait exactly what the server asked;
+/// other failures back off exponentially up to 30 s.
+Duration? supportQueueRetry(int retryCount, Object error) {
+  if (error is SupportQueueUnavailable) {
+    final failure = error.failure;
+    if (failure is RateLimitFailure) {
+      return Duration(seconds: failure.retryAfterSeconds.clamp(1, 600));
+    }
+    if (failure is AuthFailure || failure is ForbiddenFailure) return null;
+  }
+  if (retryCount >= 8) return null;
+  final ms = 500 * (1 << retryCount);
+  return Duration(milliseconds: ms > 30000 ? 30000 : ms);
+}
+
+@Riverpod(retry: supportQueueRetry)
 class SupportQueue extends _$SupportQueue {
   final _latestActivity = <String, ({DateTime date, String preview})>{};
   final _confirmedPreviews = <String>{};
@@ -229,8 +257,9 @@ class SupportQueue extends _$SupportQueue {
     if (queueFailure != null) {
       final kept = _keepPreviousOn(queueFailure);
       if (kept != null) return kept;
-      throw Exception(
-        'Demandes de support indisponibles. ${queueFailure.message}',
+      throw SupportQueueUnavailable(
+        'Demandes de support indisponibles.',
+        queueFailure,
       );
     }
     final tickets = queue.getRight().toNullable()!;
@@ -247,8 +276,9 @@ class SupportQueue extends _$SupportQueue {
     if (conversationsFailure != null) {
       final kept = _keepPreviousOn(conversationsFailure);
       if (kept != null) return kept;
-      throw Exception(
-        'Conversations indisponibles. ${conversationsFailure.message}',
+      throw SupportQueueUnavailable(
+        'Conversations indisponibles.',
+        conversationsFailure,
       );
     }
     final conversationList = conversations.getRight().toNullable()!;

@@ -70,8 +70,7 @@ class FakeRepository implements SupportRepository {
     FetchQueueParams params,
   ) async => right(tickets);
   @override
-  Future<Either<Failure, List<ConversationEntity>>>
-  fetchConversations() async {
+  Future<Either<Failure, List<ConversationEntity>>> fetchConversations() async {
     conversationsCalls++;
     final failure = conversationsFailure;
     if (failure != null) return left(failure);
@@ -79,6 +78,7 @@ class FakeRepository implements SupportRepository {
         ? left(NetworkFailure('Réessayez.'))
         : right(conversations);
   }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -612,10 +612,35 @@ void main() {
     addTearDown(container.dispose);
     final subscription = container.listen(supportQueueProvider, (_, _) {});
     addTearDown(subscription.close);
-    await expectLater(
-      container.read(supportQueueProvider.future),
-      throwsA(isA<Exception>()),
+    // The provider's own retry policy keeps `.future` pending while it backs
+    // off, so assert on the exposed state instead.
+    for (
+      var i = 0;
+      i < 20 && !container.read(supportQueueProvider).hasError;
+      i++
+    ) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    final state = container.read(supportQueueProvider);
+    expect(state.hasError, true);
+    expect(state.error, isA<SupportQueueUnavailable>());
+    expect(state.hasValue, false);
+  });
+  test('rate-limited queue retries exactly after the server retryAfter', () {
+    final error = SupportQueueUnavailable(
+      'Conversations indisponibles.',
+      RateLimitFailure('Trop de tentatives.', retryAfterSeconds: 229),
     );
+    expect(supportQueueRetry(0, error), const Duration(seconds: 229));
+    expect(supportQueueRetry(5, error), const Duration(seconds: 229));
+  });
+  test('other queue failures back off up to 30 s and stop on auth', () {
+    final network = SupportQueueUnavailable('x', NetworkFailure('offline'));
+    expect(supportQueueRetry(0, network), const Duration(milliseconds: 500));
+    expect(supportQueueRetry(7, network), const Duration(seconds: 30));
+    expect(supportQueueRetry(8, network), isNull);
+    final auth = SupportQueueUnavailable('x', AuthFailure('expired'));
+    expect(supportQueueRetry(0, auth), isNull);
   });
   test('a burst of refresh requests triggers a single fetch', () {
     fakeAsync((async) {
