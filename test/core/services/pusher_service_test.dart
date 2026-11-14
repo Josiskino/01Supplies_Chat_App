@@ -27,6 +27,57 @@ class FakeTransport implements PusherTransport {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  Future<(FakeTransport, PusherService, List<RealtimeConnectionState>)>
+  connected() async {
+    final transport = FakeTransport();
+    final service = PusherService(transportFactory: () => transport);
+    final states = <RealtimeConnectionState>[];
+    service.connectionStates.listen(states.add);
+    await service.connect(
+      apiKey: 'key',
+      cluster: 'eu',
+      authorizer: (_, _) async => {'auth': 'signed'},
+    );
+    transport.receive(
+      'pusher:connection_established',
+      jsonEncode({'socket_id': '1.1', 'activity_timeout': 120}),
+    );
+    await Future<void>.delayed(Duration.zero);
+    return (transport, service, states);
+  }
+
+  test('an informational pusher:error keeps the connection open', () async {
+    final (transport, service, states) = await connected();
+    states.clear();
+    transport.receive('pusher:error', {
+      'code': null,
+      'message': "Invalid key in subscription auth data: 'abc'",
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(service.isConnected, isTrue);
+    expect(states, isEmpty);
+    await service.disconnect();
+  });
+
+  test('a 4100-4299 pusher:error reconnects', () async {
+    final (transport, service, states) = await connected();
+    states.clear();
+    transport.receive('pusher:error', {'code': 4201, 'message': 'pong'});
+    await Future<void>.delayed(Duration.zero);
+    expect(states, contains(RealtimeConnectionState.reconnecting));
+    await service.disconnect();
+  });
+
+  test('a 4000-4099 pusher:error stops without reconnecting', () async {
+    final (transport, service, states) = await connected();
+    states.clear();
+    transport.receive('pusher:error', {'code': 4001, 'message': 'app'});
+    await Future<void>.delayed(Duration.zero);
+    expect(states.last, RealtimeConnectionState.disconnected);
+    expect(states, isNot(contains(RealtimeConnectionState.reconnecting)));
+    await service.disconnect();
+  });
+
   test('connects to the secure Pusher websocket endpoint', () async {
     final transport = FakeTransport();
     final service = PusherService(transportFactory: () => transport);

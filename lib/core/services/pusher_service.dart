@@ -210,6 +210,22 @@ class PusherService {
       return;
     }
     if (event == 'pusher:error') {
+      // Pusher protocol 7: only 4100-4299 ask the client to reconnect, and
+      // 4000-4099 ask it not to. Anything else (code null) is informational,
+      // e.g. "Invalid key in subscription auth data" for one channel, and the
+      // socket stays open. Reconnecting on those restarted the session in a
+      // loop and refetched the whole inbox on every cycle.
+      final code = (data['code'] as num?)?.toInt();
+      _logger.warning(
+        'Server error ${code ?? '-'}: ${data['message'] ?? ''}',
+        feature: 'Pusher',
+      );
+      if (code == null || code < 4000 || code >= 4300) return;
+      if (code < 4100) {
+        _wanted = false;
+        _lost(epoch);
+        return;
+      }
       _lost(epoch);
       return;
     }
