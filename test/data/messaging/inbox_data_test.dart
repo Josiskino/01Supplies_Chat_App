@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:supplies_chat_app/core/abstract/failure.dart';
 import 'package:supplies_chat_app/core/providers/messaging/support_provider.dart';
+import 'package:supplies_chat_app/core/providers/messaging/inbox_snapshot_store.dart';
 import 'package:supplies_chat_app/core/providers/messaging/message_provider.dart';
 import 'package:supplies_chat_app/domain/repository/messaging/message_repository.dart';
 import 'package:supplies_chat_app/core/providers/auth/auth_provider.dart';
@@ -625,6 +626,70 @@ void main() {
     expect(state.hasError, true);
     expect(state.error, isA<SupportQueueUnavailable>());
     expect(state.hasValue, false);
+  });
+  test(
+    'cold start shows the saved inbox while the API is rate limited',
+    () async {
+      final snapshots = InMemoryInboxSnapshotStore();
+      await snapshots.save('admin', [
+        ConversationListEntry(
+          conversationId: 'saved',
+          title: 'Client',
+          preview: 'Bonjour',
+          date: DateTime.utc(2026, 11, 13),
+          isSupport: true,
+        ),
+      ]);
+      final repository = FakeRepository()
+        ..conversationsFailure = RateLimitFailure(
+          'Trop de tentatives.',
+          retryAfterSeconds: 200,
+        );
+      final container = ProviderContainer(
+        overrides: [
+          supportRepositoryProvider.overrideWith((ref) => repository),
+          inboxSnapshotStoreProvider.overrideWithValue(snapshots),
+        ],
+      );
+      addTearDown(container.dispose);
+      container
+          .read(currentUserProvider.notifier)
+          .set(
+            const UserEntity(
+              id: 'admin',
+              email: '',
+              firstName: '',
+              lastName: '',
+              role: null,
+            ),
+          );
+      final subscription = container.listen(supportQueueProvider, (_, _) {});
+      addTearDown(subscription.close);
+      final entries = await container.read(supportQueueProvider.future);
+      expect(entries.single.conversationId, 'saved');
+      final state = container.read(supportQueueProvider);
+      expect(state.hasError, false);
+    },
+  );
+  test('inbox snapshot round-trips through its JSON form', () async {
+    final entry = ConversationListEntry(
+      conversationId: 'c1',
+      title: 'Jean',
+      preview: 'Merci',
+      date: DateTime.utc(2026, 11, 14, 8),
+      peerRole: UserRole.client,
+      peerId: 'u1',
+      unreadCount: 2,
+      ticketId: 't1',
+      assigneeId: 'a1',
+      assigneeName: 'Agent',
+      isUnclaimed: true,
+      isSupport: true,
+    );
+    final json = PreferencesInboxSnapshotStore.encode(entry);
+    expect(json['peerRole'], 'client');
+    expect(json['unread'], 2);
+    expect(json['support'], true);
   });
   test('rate-limited queue retries exactly after the server retryAfter', () {
     final error = SupportQueueUnavailable(

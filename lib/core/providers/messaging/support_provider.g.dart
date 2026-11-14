@@ -320,7 +320,7 @@ final class SupportQueueProvider
   SupportQueue create() => SupportQueue();
 }
 
-String _$supportQueueHash() => r'36dd665598bb80d1bc89ae23764e56eda1d4701b';
+String _$supportQueueHash() => r'4503ec82ef4f7ae233ed4b5f364b3e489a7e3b20';
 
 abstract class _$SupportQueue
     extends $AsyncNotifier<List<ConversationListEntry>> {

@@ -16,6 +16,7 @@ import '../../../domain/repository/messaging/support_repository.dart';
 import '../../../domain/usecases/messaging/support_usecases.dart';
 import '../request/api_provider.dart';
 import 'message_provider.dart';
+import 'inbox_snapshot_store.dart';
 import 'read_watermark_store.dart';
 import '../../../domain/repository/messaging/message_repository.dart';
 
@@ -114,14 +115,29 @@ class SupportQueue extends _$SupportQueue {
   /// activity. Every receipt, delivery ack and new message used to refetch
   /// the whole queue, which tripped the API rate limit (429) and kept the
   /// list in a failing refresh loop.
-  static const minRefreshInterval = Duration(seconds: 3);
+  static const minRefreshInterval = Duration(seconds: 15);
+
+  /// The API allows 100 `GET /messaging/conversations` per user per
+  /// 15 minutes. Event-driven refreshes stay well under it, leaving room for
+  /// explicit retries and other screens.
+  static const refreshBudget = 70;
+  static const refreshBudgetWindow = Duration(minutes: 15);
+  final _queueBuilds = <DateTime>[];
 
   /// Asks for a queue refresh. Bursts are coalesced into one trailing fetch,
-  /// spaced by [minRefreshInterval] and never before a server `retryAfter`.
+  /// spaced by [minRefreshInterval], kept within [refreshBudget] per
+  /// [refreshBudgetWindow], and never before a server `retryAfter`.
   void requestRefresh() {
     if (!ref.mounted || _refreshTimer != null) return;
     final now = DateTime.now();
     var at = _lastQueueBuild.add(minRefreshInterval);
+    _queueBuilds.removeWhere(
+      (t) => now.difference(t) >= refreshBudgetWindow,
+    );
+    if (_queueBuilds.length >= refreshBudget) {
+      final freed = _queueBuilds.first.add(refreshBudgetWindow);
+      if (freed.isAfter(at)) at = freed;
+    }
     final retryAt = _queueRetryAt;
     if (retryAt != null && retryAt.isAfter(at)) at = retryAt;
     if (!at.isAfter(now)) {
@@ -213,6 +229,7 @@ class SupportQueue extends _$SupportQueue {
     _refreshTimer?.cancel();
     _refreshTimer = null;
     _lastQueueBuild = DateTime.now();
+    _queueBuilds.add(_lastQueueBuild);
     ref.onDispose(() {
       _historyContinuation?.cancel();
       _refreshTimer?.cancel();
@@ -248,6 +265,17 @@ class SupportQueue extends _$SupportQueue {
       }
       _mergeReadThrough(stored);
       _watermarksOwner = me;
+    }
+    if (me != null && !state.hasValue) {
+      // Cold start: paint the last known inbox at once instead of an empty
+      // list while the two API calls (and possibly a rate limit) complete.
+      final snapshot = await ref.read(inboxSnapshotStoreProvider).load(me);
+      if (!ref.mounted || ref.read(currentUserProvider)?.id != me) {
+        return const [];
+      }
+      if (snapshot.isNotEmpty && !state.hasValue) {
+        state = AsyncData(snapshot);
+      }
     }
     final queue = await ref
         .read(fetchQueueUseCaseProvider)
@@ -495,7 +523,11 @@ class SupportQueue extends _$SupportQueue {
       return const [];
     }
     _loadedOwner = me;
-    return DemoData.maskEntries(_mergeActivity(entries));
+    final result = DemoData.maskEntries(_mergeActivity(entries));
+    if (me != null) {
+      unawaited(ref.read(inboxSnapshotStoreProvider).save(me, result));
+    }
+    return result;
   }
 
   /// Publish a confirmed message immediately, before reloading REST metadata.

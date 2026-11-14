@@ -57,7 +57,7 @@ class MessageEventsService with WidgetsBindingObserver {
   MessageEventsService(
     this._ref, {
     PusherService? pusher,
-    this.queueRefreshInterval = const Duration(seconds: 30),
+    this.queueRefreshInterval = const Duration(seconds: 60),
   }) : _pusher = pusher ?? PusherService() {
     WidgetsBinding.instance.addObserver(this);
     _connectionSubscription = _pusher.connectionStates.listen(
@@ -73,6 +73,16 @@ class MessageEventsService with WidgetsBindingObserver {
   final Ref _ref;
   final PusherService _pusher;
   final Duration queueRefreshInterval;
+
+  /// Conversation events that can change an inbox row (order, preview,
+  /// existence). `message.new` is also applied locally at once through
+  /// `recordActivity`; the refetch only confirms it.
+  static const _inboxEvents = {
+    'message.new',
+    'message.updated',
+    'message.deleted',
+    'conversation.updated',
+  };
   Timer? _queueRefreshTimer;
   bool _disposed = false;
   int _generation = 0;
@@ -383,7 +393,10 @@ class MessageEventsService with WidgetsBindingObserver {
           );
     }
     _threadEvents.add(id);
-    requestSupportQueueRefresh(_ref);
+    // Receipts and reactions only change the open thread. Refetching the
+    // whole inbox for each of them spent the API budget (100 list calls per
+    // user per 15 min) and locked the inbox for the rest of the window.
+    if (_inboxEvents.contains(name)) requestSupportQueueRefresh(_ref);
     if (name != 'message.new' ||
         (isForeground && id == _ref.read(visibleConversationProvider))) {
       return;
