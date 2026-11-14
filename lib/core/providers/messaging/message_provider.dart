@@ -315,13 +315,13 @@ class Thread extends _$Thread {
         );
     if (!_current(owner, generation)) return false;
     if (result.isLeft()) {
-      ref.invalidate(supportQueueProvider);
+      requestSupportQueueRefresh(ref);
       return false;
     }
     final message = result.getRight().toNullable()!;
     state = AsyncData(ThreadMessages(_merge(_messages, [message])));
     ref.read(supportQueueProvider.notifier).recordActivity(message);
-    ref.invalidate(supportQueueProvider);
+    requestSupportQueueRefresh(ref);
     return true;
   }
 
@@ -365,7 +365,7 @@ class Thread extends _$Thread {
       if (!_current(owner, generation) || result.isLeft()) return;
       if (_current(owner, generation)) {
         _readFingerprint = fingerprint;
-        ref.invalidate(supportQueueProvider);
+        requestSupportQueueRefresh(ref);
       }
     } finally {
       _reading = false;
@@ -538,7 +538,7 @@ class Thread extends _$Thread {
     if (!_current(owner, generation) || result.isLeft()) return false;
     _deleted.add(messageId);
     state = AsyncData(ThreadMessages(_merge(_messages, const [])));
-    ref.invalidate(supportQueueProvider);
+    requestSupportQueueRefresh(ref);
     return true;
   }
 

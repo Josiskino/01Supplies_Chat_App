@@ -47,7 +47,7 @@ void pushRegistration(Ref ref) {
     // The shared dispatcher deduplicates FCM and Pusher, including observers
     // who do not yet have access to the private conversation channel.
     ref.read(messageEventsProvider).handleNotification(message.data);
-    ref.invalidate(supportQueueProvider);
+    requestSupportQueueRefresh(ref);
   });
   ref.onDispose(() => unawaited(subscription.cancel()));
 }

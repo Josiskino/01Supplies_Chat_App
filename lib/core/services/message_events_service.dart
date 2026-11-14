@@ -196,7 +196,7 @@ class MessageEventsService with WidgetsBindingObserver {
               handler: (payload) {
                 if (_current(generation)) {
                   if (event == 'notification') handleNotification(payload);
-                  _ref.invalidate(supportQueueProvider);
+                  requestSupportQueueRefresh(_ref);
                 }
               },
             );
@@ -220,7 +220,7 @@ class MessageEventsService with WidgetsBindingObserver {
               if (_current(generation) &&
                   isForeground &&
                   !_ref.read(supportQueueProvider).isLoading) {
-                _ref.invalidate(supportQueueProvider);
+                requestSupportQueueRefresh(_ref);
               }
             });
           }
@@ -383,7 +383,7 @@ class MessageEventsService with WidgetsBindingObserver {
           );
     }
     _threadEvents.add(id);
-    _ref.invalidate(supportQueueProvider);
+    requestSupportQueueRefresh(_ref);
     if (name != 'message.new' ||
         (isForeground && id == _ref.read(visibleConversationProvider))) {
       return;
@@ -619,7 +619,7 @@ class MessageEventsService with WidgetsBindingObserver {
     if (_disposed || _account == null) {
       return;
     }
-    _ref.invalidate(supportQueueProvider);
+    requestSupportQueueRefresh(_ref);
     if (_pendingDelivered.isNotEmpty) {
       _deliveryRetries.clear();
       _scheduleDelivery(Duration.zero);

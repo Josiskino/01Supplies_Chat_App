@@ -281,7 +281,7 @@ final class ThreadProvider extends $AsyncNotifierProvider<Thread, ThreadState> {
   }
 }
 
-String _$threadHash() => r'6af5a2e1746bc8b9f8606f084c29251acf3b0436';
+String _$threadHash() => r'35a6fffaff7d10ec75ccdc2fc982f62c3203f336';
 
 final class ThreadFamily extends $Family
     with

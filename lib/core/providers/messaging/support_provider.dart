@@ -77,6 +77,51 @@ class SupportQueue extends _$SupportQueue {
   int _historyReads = 0;
   DateTime? _historyRetryAt;
 
+  /// Earliest time the queue may be fetched again after a 429.
+  DateTime? _queueRetryAt;
+  DateTime _lastQueueBuild = DateTime.fromMillisecondsSinceEpoch(0);
+  Timer? _refreshTimer;
+
+  /// Minimum spacing between two queue fetches triggered by realtime
+  /// activity. Every receipt, delivery ack and new message used to refetch
+  /// the whole queue, which tripped the API rate limit (429) and kept the
+  /// list in a failing refresh loop.
+  static const minRefreshInterval = Duration(seconds: 3);
+
+  /// Asks for a queue refresh. Bursts are coalesced into one trailing fetch,
+  /// spaced by [minRefreshInterval] and never before a server `retryAfter`.
+  void requestRefresh() {
+    if (!ref.mounted || _refreshTimer != null) return;
+    final now = DateTime.now();
+    var at = _lastQueueBuild.add(minRefreshInterval);
+    final retryAt = _queueRetryAt;
+    if (retryAt != null && retryAt.isAfter(at)) at = retryAt;
+    if (!at.isAfter(now)) {
+      ref.invalidateSelf();
+      return;
+    }
+    _refreshTimer = Timer(at.difference(now), () {
+      _refreshTimer = null;
+      if (ref.mounted) ref.invalidateSelf();
+    });
+  }
+
+  /// A refresh failed while a list is already displayed: keep that list,
+  /// honour the server's retry delay, and try again silently.
+  List<ConversationListEntry>? _keepPreviousOn(Failure failure) {
+    final previous = state.value;
+    final seconds = failure is RateLimitFailure
+        ? failure.retryAfterSeconds
+        : 15;
+    _queueRetryAt = DateTime.now().add(
+      Duration(seconds: seconds.clamp(1, 600)),
+    );
+    if (previous == null) return null;
+    // Schedule after the current build completes.
+    scheduleMicrotask(requestRefresh);
+    return previous;
+  }
+
   void _historyFailed(Failure failure) {
     final seconds = failure is RateLimitFailure
         ? failure.retryAfterSeconds
@@ -137,7 +182,14 @@ class SupportQueue extends _$SupportQueue {
   Future<List<ConversationListEntry>> build() async {
     _historyContinuation?.cancel();
     _historyContinuation = null;
-    ref.onDispose(() => _historyContinuation?.cancel());
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    _lastQueueBuild = DateTime.now();
+    ref.onDispose(() {
+      _historyContinuation?.cancel();
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    });
     // Account changes rebuild this snapshot and discard all activity retained
     // for the previous session. Profile refreshes for the same account do not.
     final me = ref.watch(currentUserProvider)?.id;
@@ -173,12 +225,15 @@ class SupportQueue extends _$SupportQueue {
         .read(fetchQueueUseCaseProvider)
         .call(const FetchQueueParams());
 
-    final tickets = queue.match(
-      (failure) => throw Exception(
-        'Demandes de support indisponibles. ${failure.message}',
-      ),
-      (value) => value,
-    );
+    final queueFailure = queue.getLeft().toNullable();
+    if (queueFailure != null) {
+      final kept = _keepPreviousOn(queueFailure);
+      if (kept != null) return kept;
+      throw Exception(
+        'Demandes de support indisponibles. ${queueFailure.message}',
+      );
+    }
+    final tickets = queue.getRight().toNullable()!;
 
     // Deux sources, deux rôles. La file dit **quelles demandes existent** ; les
     // conversations disent **ce qui s'y est dit depuis**. Le ticket porte une
@@ -188,11 +243,16 @@ class SupportQueue extends _$SupportQueue {
         .read(fetchConversationsUseCaseProvider)
         .call(const FetchConversationsParams());
 
-    final conversationList = conversations.match(
-      (failure) =>
-          throw Exception('Conversations indisponibles. ${failure.message}'),
-      (value) => value,
-    );
+    final conversationsFailure = conversations.getLeft().toNullable();
+    if (conversationsFailure != null) {
+      final kept = _keepPreviousOn(conversationsFailure);
+      if (kept != null) return kept;
+      throw Exception(
+        'Conversations indisponibles. ${conversationsFailure.message}',
+      );
+    }
+    final conversationList = conversations.getRight().toNullable()!;
+    _queueRetryAt = null;
     final byId = {for (final c in conversationList) c.id: c};
     final visibleIds = <String>{};
     var checkedSystemHistory = false;
@@ -590,4 +650,12 @@ class SupportQueue extends _$SupportQueue {
     if (result.isRight()) await refresh();
     return result.isRight();
   }
+}
+
+/// Coalesced queue refresh for realtime events and local mutations. A no-op
+/// when nothing currently listens to the queue (reading the notifier would
+/// otherwise build it just to throw it away).
+void requestSupportQueueRefresh(Ref ref) {
+  if (!ref.exists(supportQueueProvider)) return;
+  ref.read(supportQueueProvider.notifier).requestRefresh();
 }

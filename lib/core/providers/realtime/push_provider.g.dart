@@ -95,7 +95,7 @@ final class PushRegistrationProvider
   }
 }
 
-String _$pushRegistrationHash() => r'51bdad499cd03a83c6c077e0308cbc27d1506e9f';
+String _$pushRegistrationHash() => r'81dc0c65b4a60d41293a006705a311a722b37b3b';
 
 /// Routes only messages accepted by the active account's push session.
 

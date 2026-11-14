@@ -1,3 +1,7 @@
+// fake_async ships with flutter_test; adding it to pubspec would only
+// duplicate that constraint.
+// ignore: depend_on_referenced_packages
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
@@ -57,6 +61,8 @@ class FakeClient extends ApiClientInterface {
 
 class FakeRepository implements SupportRepository {
   bool failConversations = false;
+  Failure? conversationsFailure;
+  int conversationsCalls = 0;
   List<SupportTicketEntity> tickets = [];
   List<ConversationEntity> conversations = [];
   @override
@@ -65,9 +71,14 @@ class FakeRepository implements SupportRepository {
   ) async => right(tickets);
   @override
   Future<Either<Failure, List<ConversationEntity>>>
-  fetchConversations() async => failConversations
-      ? left(NetworkFailure('Réessayez.'))
-      : right(conversations);
+  fetchConversations() async {
+    conversationsCalls++;
+    final failure = conversationsFailure;
+    if (failure != null) return left(failure);
+    return failConversations
+        ? left(NetworkFailure('Réessayez.'))
+        : right(conversations);
+  }
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -560,7 +571,7 @@ void main() {
     expect(direct.isSupport, isFalse);
   });
   test(
-    'partial refresh failure exposes error and retains previous inbox',
+    'a failed background refresh keeps the previous inbox without error',
     () async {
       final repository = FakeRepository()
         ..conversations = [
@@ -580,17 +591,65 @@ void main() {
       final subscription = container.listen(supportQueueProvider, (_, _) {});
       addTearDown(subscription.close);
       await container.read(supportQueueProvider.future);
-      repository.failConversations = true;
-      container.invalidate(supportQueueProvider);
-      await expectLater(
-        container.read(supportQueueProvider.future),
-        throwsA(isA<Exception>()),
+      repository.conversationsFailure = RateLimitFailure(
+        'Trop de tentatives.',
+        retryAfterSeconds: 7,
       );
+      container.invalidate(supportQueueProvider);
+      final kept = await container.read(supportQueueProvider.future);
+      expect(kept.single.conversationId, 'c');
       final state = container.read(supportQueueProvider);
-      expect(state.hasError, true);
+      expect(state.hasError, false);
       expect(state.value?.single.conversationId, 'c');
     },
   );
+  test('a first load that fails still surfaces the error', () async {
+    final repository = FakeRepository()..failConversations = true;
+    final container = ProviderContainer(
+      retry: (_, _) => null,
+      overrides: [supportRepositoryProvider.overrideWith((ref) => repository)],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(supportQueueProvider, (_, _) {});
+    addTearDown(subscription.close);
+    await expectLater(
+      container.read(supportQueueProvider.future),
+      throwsA(isA<Exception>()),
+    );
+  });
+  test('a burst of refresh requests triggers a single fetch', () {
+    fakeAsync((async) {
+      final repository = FakeRepository()
+        ..conversations = [
+          ConversationEntity(
+            id: 'c',
+            updatedAt: DateTime.utc(2026),
+            lastMessage: 'Hello',
+          ),
+        ];
+      final container = ProviderContainer(
+        retry: (_, _) => null,
+        overrides: [
+          supportRepositoryProvider.overrideWith((ref) => repository),
+        ],
+      );
+      final subscription = container.listen(supportQueueProvider, (_, _) {});
+      container.read(supportQueueProvider.future);
+      async.flushMicrotasks();
+      final afterFirstLoad = repository.conversationsCalls;
+      final notifier = container.read(supportQueueProvider.notifier);
+      for (var i = 0; i < 20; i++) {
+        notifier.requestRefresh();
+      }
+      async.elapse(const Duration(milliseconds: 500));
+      expect(repository.conversationsCalls, afterFirstLoad);
+      async.elapse(SupportQueue.minRefreshInterval);
+      async.flushMicrotasks();
+      expect(repository.conversationsCalls, afterFirstLoad + 1);
+      subscription.close();
+      container.dispose();
+    });
+  });
   test('sparse embedded conversation never invents current activity time', () {
     final ticket = SupportTicketModel.fromJson({
       'id': 't',

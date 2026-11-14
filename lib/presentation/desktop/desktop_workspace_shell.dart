@@ -223,7 +223,10 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (queue.hasError)
+                      // A failed background refresh keeps the current list (see
+                      // SupportQueue.requestRefresh); only a first load that
+                      // never succeeded needs the retry banner.
+                      if (queue.hasError && !queue.hasValue)
                         MaterialBanner(
                           content: const Text(
                             'Actualisation impossible. Réessayez.',
