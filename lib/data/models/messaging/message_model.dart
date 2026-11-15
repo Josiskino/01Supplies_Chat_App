@@ -107,6 +107,14 @@ class MessageModel {
       return text.isEmpty ? null : text;
     }
 
+    // The server fills a missing legacy `name` with the media id: an id is
+    // not a file name, the URL file name reads better.
+    String? legacyName(Map item, String? mediaId) {
+      final name = asText(item['name'] ?? item['originalName']);
+      final id = mediaId ?? asText(item['id'] ?? item['_id']);
+      return name != null && name == id ? null : name;
+    }
+
     final media = json['attachmentMedia'];
     if (media is List) {
       for (final item in media.whereType<Map>()) {
@@ -150,7 +158,7 @@ class MessageModel {
           byUrl[url] = MessageAttachmentEntity(
             url: url,
             mediaId: known?.mediaId ?? asText(item['id'] ?? item['_id']),
-            name: known?.name ?? asText(item['name'] ?? item['originalName']),
+            name: known?.name ?? legacyName(item, known?.mediaId),
             size: known?.size ?? asInt(item['size']),
             mimeType:
                 known?.mimeType ??

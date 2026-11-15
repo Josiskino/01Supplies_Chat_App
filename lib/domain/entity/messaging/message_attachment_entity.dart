@@ -81,7 +81,15 @@ class MessageAttachmentEntity {
     final explicit = name?.trim() ?? '';
     if (explicit.isNotEmpty) return explicit;
     final path = Uri.tryParse(url)?.path ?? url;
-    final last = Uri.decodeComponent(path.split(RegExp(r'[/\\]')).last);
+    final raw = path.split(RegExp(r'[/\\]')).last;
+    // A malformed escape (`%ZZ`) must not break the whole thread rendering.
+    String last;
+    try {
+      last = Uri.decodeComponent(raw);
+    } catch (_) {
+      // ArgumentError (bad escape) or FormatException (bad UTF-8).
+      last = raw;
+    }
     return last.isEmpty ? 'document' : last;
   }
 

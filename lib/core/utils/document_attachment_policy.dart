@@ -85,9 +85,9 @@ abstract final class DocumentAttachmentPolicy {
 
     final space = comma ? ' ' : ' ';
     if (bytes < 1024) return '$bytes$space${units.b}';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).round()}$space${units.kb}';
-    }
+    // Compared after rounding: 1 048 000 bytes must read "1 MB", not "1024 KB".
+    final kilobytes = (bytes / 1024).round();
+    if (kilobytes < 1024) return '$kilobytes$space${units.kb}';
     return '${fixed(bytes / (1024 * 1024))}$space${units.mb}';
   }
 }
