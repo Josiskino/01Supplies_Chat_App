@@ -219,5 +219,55 @@
     }
   },
   "callRingtoneMute": "Couper la sonnerie",
-  "callRingtoneUnmute": "Activer la sonnerie"
+  "callRingtoneUnmute": "Activer la sonnerie",
+  "inboxOrderNumber": "({number})",
+  "@inboxOrderNumber": {
+    "description": "Order reference shown in parentheses after the contact name",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxTicketUnclaimed": "Non assignée",
+  "@inboxTicketUnclaimed": {
+    "description": "Support request nobody has claimed yet"
+  },
+  "inboxTicketMine": "Vous",
+  "@inboxTicketMine": {
+    "description": "Support request assigned to the signed-in agent"
+  },
+  "inboxTicketAssigned": "Assignée",
+  "@inboxTicketAssigned": {
+    "description": "Support request assigned to an agent whose name is unknown"
+  },
+  "inboxTicketAssignedTo": "Assignée à {name}",
+  "@inboxTicketAssignedTo": {
+    "description": "Accessibility label of a support request assigned to another agent",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "inboxEmpty": "Aucune conversation",
+  "@inboxEmpty": {
+    "description": "Empty conversation list"
+  },
+  "inboxSearchHint": "Rechercher une conversation",
+  "@inboxSearchHint": {
+    "description": "Search field hint of the conversation list"
+  },
+  "inboxRoleClient": "Client",
+  "@inboxRoleClient": {
+    "description": "Avatar role indicator: customer"
+  },
+  "inboxRoleDelivery": "Livreur",
+  "@inboxRoleDelivery": {
+    "description": "Avatar role indicator: delivery driver"
+  },
+  "inboxRoleVendor": "Vendeur",
+  "@inboxRoleVendor": {
+    "description": "Avatar role indicator: vendor"
+  }
 }

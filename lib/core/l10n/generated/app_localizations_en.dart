@@ -448,4 +448,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get callRingtoneUnmute => 'Unmute ringtone';
+
+  @override
+  String inboxOrderNumber(String number) {
+    return '($number)';
+  }
+
+  @override
+  String get inboxTicketUnclaimed => 'Unassigned';
+
+  @override
+  String get inboxTicketMine => 'You';
+
+  @override
+  String get inboxTicketAssigned => 'Assigned';
+
+  @override
+  String inboxTicketAssignedTo(String name) {
+    return 'Assigned to $name';
+  }
+
+  @override
+  String get inboxEmpty => 'No conversations';
+
+  @override
+  String get inboxSearchHint => 'Search conversations';
+
+  @override
+  String get inboxRoleClient => 'Customer';
+
+  @override
+  String get inboxRoleDelivery => 'Driver';
+
+  @override
+  String get inboxRoleVendor => 'Vendor';
 }

@@ -79,6 +79,23 @@ class DesignTokens {
   static const double avatarXl = 64.0;
   static const double avatarXxl = 80.0;
 
+  // ==================== INBOX (conversation list) ====================
+  /// Avatar of a conversation row on phones and on desktop.
+  static const double inboxAvatarMobile = 50.0;
+  static const double inboxAvatarDesktop = 40.0;
+
+  /// Role indicator stitched on the avatar's bottom-right edge.
+  static const double inboxRoleBadgeMobile = 18.0;
+  static const double inboxRoleBadgeDesktop = 16.0;
+
+  /// Height of the unread counter; its width follows the digits.
+  static const double inboxUnreadBadge = 20.0;
+
+  /// Secondary text of a row (order number, preview, time) as a share of the
+  /// foreground color: legible in both themes without competing with names.
+  static const double inboxMutedOpacity = 0.52;
+  static const double inboxFaintOpacity = 0.42;
+
   // ==================== ELEVATION & SHADOWS ====================
   /// Ombres minimales — le design est plat par défaut.
   static List<BoxShadow> get shadowNone => [];

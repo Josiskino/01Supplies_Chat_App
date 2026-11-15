@@ -26,6 +26,21 @@ enum PresenceStatus {
   bool get isVisible => this != offline;
 }
 
+/// Ownership of the support request behind a conversation row.
+enum InboxTicketState {
+  /// Direct conversation: there is no request to own.
+  none,
+
+  /// Waiting in the shared queue: nobody has claimed it.
+  unclaimed,
+
+  /// Claimed by the signed-in agent.
+  mine,
+
+  /// Claimed by another agent.
+  assigned,
+}
+
 /// Une entrée de la liste des conversations (colonne 3).
 class ConversationListItemData {
   const ConversationListItemData({
@@ -41,6 +56,9 @@ class ConversationListItemData {
     this.unreadCount = 0,
     this.isStarred = false,
     this.isMissedCall = false,
+    this.orderNumber,
+    this.ticketState = InboxTicketState.none,
+    this.assigneeName,
   });
 
   final String id;
@@ -63,13 +81,26 @@ class ConversationListItemData {
   /// Un appel manqué s'affiche avec une icône dédiée à la place de l'aperçu.
   final bool isMissedCall;
 
+  /// Human order number shown in parentheses after [name], when known.
+  final String? orderNumber;
+
+  /// Who owns the support request, rendered as a discreet pill.
+  final InboxTicketState ticketState;
+
+  /// Agent holding the request when [ticketState] is
+  /// [InboxTicketState.assigned]; `null` when the API did not name them.
+  final String? assigneeName;
+
   /// Projette une entrée de la liste — demande de support ou conversation
   /// directe — dans une ligne affichable.
   factory ConversationListItemData.fromEntry(
     ConversationListEntry entry, {
     required String timeLabel,
     bool showPeerRole = false,
+    String? currentUserId,
   }) {
+    final isSupport = entry.isSupport || entry.ticketId != null;
+    final assignee = entry.assigneeId;
     return ConversationListItemData(
       // L'identifiant de **conversation**, pas celui du ticket : c'est lui qui
       // ouvre le fil et sert de canal temps réel.
@@ -78,7 +109,7 @@ class ConversationListItemData {
       kindLabel: showPeerRole
           ? entry.peerRoleLabel
           : [
-              entry.isSupport || entry.ticketId != null ? 'Support' : 'Direct',
+              isSupport ? 'Support' : 'Direct',
               if (entry.peerRoleLabel != null) entry.peerRoleLabel!,
             ].join(' · '),
       name: entry.title,
@@ -90,6 +121,18 @@ class ConversationListItemData {
       // L'étoile marque les demandes que personne n'a encore prises : c'est
       // l'information qui décide de l'action dans une file partagée.
       isStarred: entry.isUnclaimed,
+      orderNumber: entry.orderNumber,
+      ticketState: !isSupport
+          ? InboxTicketState.none
+          : entry.isUnclaimed
+          ? InboxTicketState.unclaimed
+          : assignee == null || assignee.isEmpty
+          // A closed or resolved request without an owner: nothing to act on.
+          ? InboxTicketState.none
+          : currentUserId != null && assignee == currentUserId
+          ? InboxTicketState.mine
+          : InboxTicketState.assigned,
+      assigneeName: entry.assigneeName,
     );
   }
 }

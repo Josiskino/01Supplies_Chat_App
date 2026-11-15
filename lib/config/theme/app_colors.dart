@@ -37,6 +37,14 @@ class AppColors {
   static const Color pendingStatusBackgroundColor = Color(0xFFFFF3E0);
   static const Color notVerifiedStatusBackgroundColor = Color(0xFFFFEBEE);
 
+  // ── Interlocutor roles (inbox avatars) ─────────────────────────────────────
+  static const Color roleClientLight = Color(0xFF3B7DD8);
+  static const Color roleClientDark = Color(0xFF7FB0F0);
+  static const Color roleDeliveryLight = Color(0xFFE0701A);
+  static const Color roleDeliveryDark = Color(0xFFFFA364);
+  static const Color roleVendorLight = Color(0xFF2E9E6B);
+  static const Color roleVendorDark = Color(0xFF6BD3A1);
+
   // ── Flat design : bordures & séparateurs ──────────────────────────────────
   static Color borderColorLight = Colors.black.withValues(alpha: 0.08);
   static Color borderColorDark = Colors.white.withValues(alpha: 0.1);

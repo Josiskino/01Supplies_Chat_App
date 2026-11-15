@@ -11,6 +11,7 @@ import '../../core/calls/agent_calls.dart';
 import '../../core/constants/app_ui_route.dart';
 import '../../core/platform/window_glass.dart';
 import '../../core/providers/auth/auth_provider.dart';
+import '../../core/providers/messaging/message_provider.dart';
 import '../../core/providers/messaging/pinned_provider.dart';
 import '../../core/providers/messaging/support_provider.dart';
 import '../../core/utils/chat_date_formatter.dart';
@@ -69,6 +70,7 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final queue = ref.watch(supportQueueProvider);
     final pins = ref.watch(pinnedConversationsProvider);
+    final me = ref.watch(currentUserIdProvider);
     final entries = [...?queue.value];
     entries.sort((a, b) {
       final pinned = (pins.contains(a.conversationId) ? 0 : 1).compareTo(
@@ -90,7 +92,8 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
       return matchesSection &&
           (needle.isEmpty ||
               entry.title.toLowerCase().contains(needle) ||
-              entry.preview.toLowerCase().contains(needle));
+              entry.preview.toLowerCase().contains(needle) ||
+              (entry.orderNumber?.toLowerCase().contains(needle) ?? false));
     }).toList();
     final active = entries
         .where((e) => e.conversationId == _conversationId)
@@ -239,11 +242,6 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
                             ),
                           ],
                         ),
-                      // Only the first load shows progress: realtime events
-                      // and the periodic refresh reload the queue silently
-                      // while the previous list stays on screen.
-                      if (queue.isLoading && !queue.hasValue)
-                        const LinearProgressIndicator(),
                       Expanded(
                         child: ConversationListPanel(
                           conversations: [
@@ -253,6 +251,7 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
                                 timeLabel: ChatDateFormatter.listLabel(
                                   entry.date,
                                 ),
+                                currentUserId: me,
                               ),
                           ],
                           selectedId: active?.conversationId,
@@ -266,15 +265,12 @@ class _DesktopWorkspaceShellState extends ConsumerState<DesktopWorkspaceShell> {
                           onQueryChanged: (value) =>
                               setState(() => _query = value),
                           searchFocusNode: _searchFocus,
+                          // Only the first load shows placeholders: realtime
+                          // events and the periodic refresh reload the queue
+                          // silently while the previous list stays on screen.
+                          isLoading: queue.isLoading && !queue.hasValue,
                         ),
                       ),
-                      if (filtered.isEmpty &&
-                          !queue.isLoading &&
-                          !queue.hasError)
-                        const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text('Aucune conversation'),
-                        ),
                     ],
                   ),
                 ),

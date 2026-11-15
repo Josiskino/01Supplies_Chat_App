@@ -11,6 +11,7 @@ import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
+import '../../../core/providers/messaging/message_provider.dart';
 import '../../../core/providers/messaging/pinned_provider.dart';
 import '../../../core/providers/messaging/support_provider.dart';
 import '../../../core/utils/chat_date_formatter.dart';
@@ -91,7 +92,6 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
   Widget build(BuildContext context) {
     final l10n = LocalizationHelper.of(context);
     final platformUi = ref.watch(platformUiProvider);
-    final isApple = platformUi.platform.isApple;
     final isAndroid = platformUi.platform == AppPlatform.android;
     final async = ref.watch(supportQueueProvider);
 
@@ -115,12 +115,19 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
     }
 
     final pinnedIds = ref.watch(pinnedConversationsProvider);
+    final me = ref.watch(currentUserIdProvider);
 
     final conversations = [
       for (final entry in async.value ?? const [])
         if (!isAndroid ||
             ((entry.isSupport || entry.ticketId != null) == _supportSelected &&
-                '${entry.title} ${entry.preview} ${entry.peerRoleLabel ?? ""}'
+                [
+                      entry.title,
+                      entry.preview,
+                      entry.peerRoleLabel ?? '',
+                      entry.orderNumber ?? '',
+                    ]
+                    .join(' ')
                     .toLowerCase()
                     .contains(_query.toLowerCase().trim())))
           ConversationListItemData.fromEntry(
@@ -129,6 +136,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
             // bouge pas au fil des échanges et figeait l'heure affichée.
             timeLabel: ChatDateFormatter.listLabel(entry.date),
             showPeerRole: isAndroid,
+            currentUserId: me,
           ),
     ];
 
@@ -201,7 +209,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
                   ),
                   CustomSearchBar(
                     controller: _searchController,
-                    hintText: 'Rechercher une conversation',
+                    hintText: l10n.inboxSearchHint,
                     onChanged: (value) => setState(() => _query = value),
                   ),
                   const SizedBox(height: DesignTokens.spaceM),
@@ -237,23 +245,26 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
             sliver: SliverList.separated(
               itemCount: conversations.length,
               separatorBuilder: (context, index) {
-                // iOS aligne le séparateur sur le texte et non sur le bord de
-                // l'écran : c'est ce qui donne à la liste son rythme
-                // caractéristique.
+                // The separator starts under the text, not at the screen
+                // edge: avatars then read as one column.
                 return Divider(
                   height: DesignTokens.borderWidthThin,
                   thickness: DesignTokens.borderWidthThin,
-                  indent: isApple ? 88 : DesignTokens.spaceL,
+                  indent:
+                      DesignTokens.spaceL +
+                      DesignTokens.inboxAvatarMobile +
+                      DesignTokens.spaceM,
                   endIndent: 0,
                   color: DesignTokens.getBorderColor(
                     Theme.of(context).brightness == Brightness.dark,
-                    opacity: 0.10,
+                    opacity: 0.08,
                   ),
                 );
               },
               itemBuilder: (context, index) {
                 final conversation = conversations[index];
                 return ConversationRow(
+                  key: ValueKey(conversation.id),
                   data: conversation,
                   isPinned: pinnedIds.contains(conversation.id),
                   onTogglePin: () => ref

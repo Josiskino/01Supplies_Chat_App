@@ -883,6 +883,66 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Activer la sonnerie'**
   String get callRingtoneUnmute;
+
+  /// Order reference shown in parentheses after the contact name
+  ///
+  /// In fr, this message translates to:
+  /// **'({number})'**
+  String inboxOrderNumber(String number);
+
+  /// Support request nobody has claimed yet
+  ///
+  /// In fr, this message translates to:
+  /// **'Non assignée'**
+  String get inboxTicketUnclaimed;
+
+  /// Support request assigned to the signed-in agent
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous'**
+  String get inboxTicketMine;
+
+  /// Support request assigned to an agent whose name is unknown
+  ///
+  /// In fr, this message translates to:
+  /// **'Assignée'**
+  String get inboxTicketAssigned;
+
+  /// Accessibility label of a support request assigned to another agent
+  ///
+  /// In fr, this message translates to:
+  /// **'Assignée à {name}'**
+  String inboxTicketAssignedTo(String name);
+
+  /// Empty conversation list
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune conversation'**
+  String get inboxEmpty;
+
+  /// Search field hint of the conversation list
+  ///
+  /// In fr, this message translates to:
+  /// **'Rechercher une conversation'**
+  String get inboxSearchHint;
+
+  /// Avatar role indicator: customer
+  ///
+  /// In fr, this message translates to:
+  /// **'Client'**
+  String get inboxRoleClient;
+
+  /// Avatar role indicator: delivery driver
+  ///
+  /// In fr, this message translates to:
+  /// **'Livreur'**
+  String get inboxRoleDelivery;
+
+  /// Avatar role indicator: vendor
+  ///
+  /// In fr, this message translates to:
+  /// **'Vendeur'**
+  String get inboxRoleVendor;
 }
 
 class _AppLocalizationsDelegate

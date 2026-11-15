@@ -203,5 +203,15 @@
     }
   },
   "callRingtoneMute": "Mute ringtone",
-  "callRingtoneUnmute": "Unmute ringtone"
+  "callRingtoneUnmute": "Unmute ringtone",
+  "inboxOrderNumber": "({number})",
+  "inboxTicketUnclaimed": "Unassigned",
+  "inboxTicketMine": "You",
+  "inboxTicketAssigned": "Assigned",
+  "inboxTicketAssignedTo": "Assigned to {name}",
+  "inboxEmpty": "No conversations",
+  "inboxSearchHint": "Search conversations",
+  "inboxRoleClient": "Customer",
+  "inboxRoleDelivery": "Driver",
+  "inboxRoleVendor": "Vendor"
 }
