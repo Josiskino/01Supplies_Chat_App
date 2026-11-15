@@ -27,6 +27,7 @@ class ConversationListEntry {
     this.assigneeName,
     this.isUnclaimed = false,
     this.isSupport = false,
+    this.orderNumber,
   });
 
   final String conversationId;
@@ -59,6 +60,9 @@ class ConversationListEntry {
   /// on est déjà participant d'une conversation qu'on a soi-même ouverte.
   final bool isUnclaimed;
 
+  /// Human number of the order the support request is about, if known.
+  final String? orderNumber;
+
   /// Construit une ligne à partir d'une demande de support.
   factory ConversationListEntry.fromTicket(
     SupportTicketEntity ticket, {
@@ -78,6 +82,7 @@ class ConversationListEntry {
     assigneeId: ticket.assigneeId,
     assigneeName: ticket.assigneeName,
     isUnclaimed: ticket.isUnclaimed && ticket.status.isActive,
+    orderNumber: ticket.orderNumber,
   );
 
   /// Construit une ligne à partir d'une conversation sans dossier.

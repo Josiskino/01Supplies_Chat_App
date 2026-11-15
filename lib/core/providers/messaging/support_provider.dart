@@ -131,9 +131,7 @@ class SupportQueue extends _$SupportQueue {
     if (!ref.mounted || _refreshTimer != null) return;
     final now = DateTime.now();
     var at = _lastQueueBuild.add(minRefreshInterval);
-    _queueBuilds.removeWhere(
-      (t) => now.difference(t) >= refreshBudgetWindow,
-    );
+    _queueBuilds.removeWhere((t) => now.difference(t) >= refreshBudgetWindow);
     if (_queueBuilds.length >= refreshBudget) {
       final freed = _queueBuilds.first.add(refreshBudgetWindow);
       if (freed.isAfter(at)) at = freed;
@@ -665,6 +663,7 @@ class SupportQueue extends _$SupportQueue {
           assigneeId: entry.assigneeId,
           assigneeName: entry.assigneeName,
           isUnclaimed: entry.isUnclaimed,
+          orderNumber: entry.orderNumber,
         ),
       );
     }
@@ -699,6 +698,7 @@ class SupportQueue extends _$SupportQueue {
     assigneeId: entry.assigneeId,
     assigneeName: entry.assigneeName,
     isUnclaimed: entry.isUnclaimed,
+    orderNumber: entry.orderNumber,
   );
 
   /// Rejoint un ticket, puis recharge la file pour refléter la participation.

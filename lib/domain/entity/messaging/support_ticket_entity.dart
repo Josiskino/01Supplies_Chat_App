@@ -77,6 +77,8 @@ class SupportTicketEntity {
     this.lastMessageType,
     this.lastMessageAt,
     this.liveUnreadCount,
+    this.orderId,
+    this.orderNumber,
   });
 
   final String id;
@@ -124,6 +126,12 @@ class SupportTicketEntity {
   /// Compteur de non-lus tenu par la conversation, plus juste que celui du
   /// ticket, qui ne bouge pas au fil des échanges.
   final int? liveUnreadCount;
+
+  /// Technical id of the linked order. Never shown to users.
+  final String? orderId;
+
+  /// Human order number (`Order.orderNumber`), when the API provides it.
+  final String? orderNumber;
 
   /// Ce que la liste doit montrer : le dernier échange, ou à défaut la demande.
   String get preview {
@@ -175,6 +183,8 @@ class SupportTicketEntity {
     lastMessageType: lastMessageType ?? this.lastMessageType,
     lastMessageAt: lastMessageAt ?? this.lastMessageAt,
     liveUnreadCount: unreadCount ?? liveUnreadCount,
+    orderId: orderId,
+    orderNumber: orderNumber,
   );
 
   /// Suis-je dans cette conversation ?

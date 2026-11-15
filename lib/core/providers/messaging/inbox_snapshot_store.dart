@@ -74,6 +74,7 @@ class PreferencesInboxSnapshotStore implements InboxSnapshotStore {
     'assigneeName': e.assigneeName,
     'unclaimed': e.isUnclaimed,
     'support': e.isSupport,
+    'orderNumber': e.orderNumber,
   };
 
   static ConversationListEntry? _decode(Map<String, dynamic> m) {
@@ -97,6 +98,9 @@ class PreferencesInboxSnapshotStore implements InboxSnapshotStore {
       assigneeName: m['assigneeName'] as String?,
       isUnclaimed: m['unclaimed'] == true,
       isSupport: m['support'] == true,
+      orderNumber: m['orderNumber'] is String
+          ? m['orderNumber'] as String
+          : null,
     );
   }
 }

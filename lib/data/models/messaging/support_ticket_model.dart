@@ -1,6 +1,7 @@
 import '../../../domain/entity/messaging/support_ticket_entity.dart';
 import '../auth/user_model.dart';
 import 'conversation_model.dart';
+import 'order_reference_parser.dart';
 
 /// Représentation JSON d'un ticket de support.
 class SupportTicketModel {
@@ -19,6 +20,8 @@ class SupportTicketModel {
     this.assigneeName,
     this.participantIds = const [],
     this.conversation,
+    this.orderId,
+    this.orderNumber,
   });
 
   final String id;
@@ -35,6 +38,12 @@ class SupportTicketModel {
   final String? assigneeName;
   final List<String> participantIds;
   final ConversationModel? conversation;
+
+  /// Mongo id of the linked order. Never shown to users.
+  final String? orderId;
+
+  /// Human order number, when the payload carries one.
+  final String? orderNumber;
 
   factory SupportTicketModel.fromJson(Map<String, dynamic> json) {
     final conv = (json['conversation'] as Map?)?.cast<String, dynamic>();
@@ -61,6 +70,8 @@ class SupportTicketModel {
       assigneeName: _parseAssigneeName(json, conv),
       conversation: conv == null ? null : ConversationModel.fromJson(conv),
       participantIds: _parseParticipantIds(conv),
+      orderId: OrderReferenceParser.orderId(json),
+      orderNumber: OrderReferenceParser.orderNumber(json),
     );
   }
 
@@ -126,5 +137,7 @@ class SupportTicketModel {
       conversation?.lastMessageAt ?? conversation?.updatedAt ?? '',
     )?.toLocal(),
     liveUnreadCount: conversation?.unreadCount,
+    orderId: orderId,
+    orderNumber: orderNumber,
   );
 }
