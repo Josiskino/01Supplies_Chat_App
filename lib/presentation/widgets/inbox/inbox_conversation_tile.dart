@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
@@ -126,6 +128,14 @@ class _InboxConversationTileState extends State<InboxConversationTile> {
     );
 
     final previewLines = _isDesktop ? 1 : 2;
+    // Reserved height of the preview area. It also covers the unread
+    // counter, which is taller than one desktop preview line: without this,
+    // a message arriving on a desktop row would grow it by a pixel and push
+    // every row below.
+    final previewAreaHeight = math.max(
+      scaler.scale(previewLineHeight) * previewLines,
+      DesignTokens.inboxUnreadBadge + 1,
+    );
     final background = _background(theme, isDark);
     final ring =
         widget.ringColor ??
@@ -191,7 +201,7 @@ class _InboxConversationTileState extends State<InboxConversationTile> {
                   Expanded(
                     // Reserved height: short previews keep the row height.
                     child: SizedBox(
-                      height: scaler.scale(previewLineHeight) * previewLines,
+                      height: previewAreaHeight,
                       child: Text.rich(
                         TextSpan(
                           children: [

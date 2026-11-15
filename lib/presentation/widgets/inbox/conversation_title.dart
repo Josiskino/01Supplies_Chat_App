@@ -160,8 +160,11 @@ class ConversationTitle extends StatelessWidget {
           return format('$prefix…${body.substring(body.length - tail)}');
         }
       }
-      // Nothing meaningful fits: let the Text ellipsize the full label.
-      return full;
+      // Even a 4-character tail does not fit: the end of the number still
+      // tells orders apart better than the prefix every order shares, which
+      // is all a trailing ellipsis on the full label would leave visible.
+      final tail = longestTail('');
+      return tail > 0 ? format('…${body.substring(body.length - tail)}') : full;
     } finally {
       painter.dispose();
     }
