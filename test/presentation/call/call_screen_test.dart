@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,15 +76,30 @@ SupportCall supportCall({
   );
 }
 
-Widget host(FakeCallController controller) => ProviderScope(
-  overrides: [supportCallControllerProvider.overrideWith(() => controller)],
-  child: const MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: Locale('fr'),
-    home: CallScreen(),
-  ),
-);
+class FakeSpeech implements SupportSpeechLevels {
+  final remote = ValueNotifier<double>(0);
+  final muted = ValueNotifier<bool>(false);
+  @override
+  ValueListenable<double> get remoteLevel => remote;
+  @override
+  ValueListenable<double> get localLevel => const AlwaysStoppedAnimation(0);
+  @override
+  ValueListenable<bool> get remoteMuted => muted;
+}
+
+Widget host(FakeCallController controller, {SupportSpeechLevels? speech}) =>
+    ProviderScope(
+      overrides: [
+        supportCallControllerProvider.overrideWith(() => controller),
+        supportCallSpeechProvider.overrideWithValue(speech),
+      ],
+      child: const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('fr'),
+        home: CallScreen(),
+      ),
+    );
 
 void main() {
   testWidgets('terminal support call shows outcome without live controls', (
@@ -202,5 +218,43 @@ void main() {
     expect(find.text('Appel pris sur un autre appareil'), findsOneWidget);
     expect(find.text('other_device'), findsNothing);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the caller avatar carries the halo and a muted peer is shown', (
+    tester,
+  ) async {
+    final speech = FakeSpeech();
+    final controller = FakeCallController(
+      SupportCallState(
+        isAgent: true,
+        identity: 'agent',
+        mediaConnected: true,
+        active: supportCall(agentId: 'agent', connectedAt: DateTime.now()),
+      ),
+    );
+    await tester.pumpWidget(host(controller, speech: speech));
+    expect(find.byType(SpeakingHalo), findsOneWidget);
+    expect(find.text('Son micro est coupé'), findsNothing);
+    speech.muted.value = true;
+    await tester.pump();
+    expect(find.text('Son micro est coupé'), findsOneWidget);
+    speech.remote.value = 0.8;
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  test('the speaker control follows the real audio route', () {
+    final l10n = lookupAppLocalizations(const Locale('fr'));
+    const base = SupportCallState();
+    expect(callRouteLabel(l10n, base), 'Haut-parleur');
+    expect(callRouteIcon(base), Icons.hearing);
+    expect(callRouteLabel(l10n, base.copy(speaker: true)), 'Écouteur');
+    expect(callRouteIcon(base.copy(speaker: true)), Icons.volume_up);
+    final bluetooth = base.copy(audioRoute: CallAudioRoute.bluetooth);
+    expect(callRouteLabel(l10n, bluetooth), 'Bluetooth');
+    expect(callRouteIcon(bluetooth), Icons.bluetooth_audio);
+    final wired = base.copy(audioRoute: CallAudioRoute.wired);
+    expect(callRouteLabel(l10n, wired), 'Casque');
+    expect(callRouteIcon(wired), Icons.headset);
   });
 }
