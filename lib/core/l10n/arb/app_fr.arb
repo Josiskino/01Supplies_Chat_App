@@ -219,5 +219,49 @@
     }
   },
   "callRingtoneMute": "Couper la sonnerie",
-  "callRingtoneUnmute": "Activer la sonnerie"
+  "callRingtoneUnmute": "Activer la sonnerie",
+  "chatAttachDocument": "Document",
+  "chatAttachChooseImages": "Choisir des images",
+  "chatAttachChooseDocument": "Choisir un document",
+  "chatDocumentTypeGroup": "Documents",
+  "chatDocumentSave": "Enregistrer une copie…",
+  "chatDocumentOpenAction": "Ouvrir le document",
+  "chatDocumentDownloading": "Téléchargement… {percent} %",
+  "@chatDocumentDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDocumentUploading": "Envoi… {percent} %",
+  "@chatDocumentUploading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDocumentUnavailable": "Fichier indisponible",
+  "chatDocumentRetry": "Réessayer",
+  "chatDocumentDownloadFailed": "Téléchargement impossible. Vérifiez votre connexion et réessayez.",
+  "chatDocumentExpired": "Le lien du fichier a expiré. Réessayez.",
+  "chatDocumentNoViewer": "Aucune application ne peut ouvrir ce fichier.",
+  "chatDocumentStorageFailed": "Impossible d’enregistrer le fichier sur cet appareil.",
+  "chatDocumentSaved": "Copie enregistrée.",
+  "chatDocumentTooLarge": "Ce fichier dépasse {max} Mo, la taille maximale autorisée.",
+  "@chatDocumentTooLarge": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDocumentEmpty": "Ce fichier est vide.",
+  "chatDocumentUnsupported": "Format non pris en charge. Formats acceptés : PDF, Word, Excel, PowerPoint, TXT et CSV.",
+  "chatDocumentSendFailed": "Envoi du document impossible. Réessayez.",
+  "chatDocumentPickFailed": "Impossible d’accéder aux fichiers.",
+  "chatFileSizeBytes": "o",
+  "chatFileSizeKb": "Ko",
+  "chatFileSizeMb": "Mo"
 }

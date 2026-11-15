@@ -17,6 +17,7 @@ import 'package:supplies_chat_app/presentation/shared/fixtures/conversation_fixt
 import 'package:supplies_chat_app/presentation/shared/models/conversation_view_data.dart';
 
 import 'package:supplies_chat_app/core/providers/messaging/message_provider.dart';
+import 'package:supplies_chat_app/domain/entity/messaging/message_attachment_entity.dart';
 import 'package:supplies_chat_app/core/providers/messaging/support_provider.dart';
 import 'package:supplies_chat_app/domain/entity/messaging/conversation_list_entry.dart';
 import 'package:supplies_chat_app/domain/entity/messaging/message_entity.dart';
@@ -79,6 +80,7 @@ class _StubThread extends Thread {
     required MessageType type,
     String content = '',
     String? replyTo,
+    List<MessageAttachmentEntity> details = const [],
   }) async => true;
 }
 

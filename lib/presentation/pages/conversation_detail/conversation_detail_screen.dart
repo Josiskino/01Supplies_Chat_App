@@ -1,5 +1,6 @@
 import '../call/widgets/support_callback_button.dart';
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -7,12 +8,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:image_picker/image_picker.dart' show XFile;
+import 'package:path_provider/path_provider.dart';
 
 import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_images.dart';
 import '../../../core/constants/app_ui_route.dart';
+import '../../../core/providers/media/media_provider.dart';
 import '../../../core/providers/messaging/message_provider.dart';
+import '../../../core/services/document_file_service.dart';
+import '../../../core/utils/document_attachment_policy.dart';
+import '../../../core/utils/localization_helper.dart';
+import '../../../domain/entity/messaging/message_attachment_entity.dart';
 import '../../../core/providers/messaging/draft_provider.dart';
 import '../../../core/providers/auth/auth_provider.dart';
 import '../../../core/services/message_events_service.dart';
@@ -196,6 +204,7 @@ class _ConversationDetailScreenState
       replyTo: m.replyTo,
       voice: m.voice,
       attachments: m.attachments,
+      documents: m.documents,
       status: status ?? m.status,
       isTyping: m.isTyping,
     );
@@ -274,7 +283,12 @@ class _ConversationDetailScreenState
   ///
   /// L'attente est signalée : un envoi de photos passe par un téléversement,
   /// et sans repère l'utilisateur croit que rien ne part.
-  Future<void> _sendFiles(List<String> paths, MessageType type) async {
+  Future<void> _sendFiles(
+    List<String> paths,
+    MessageType type, {
+    String content = '',
+    List<MessageAttachmentEntity> details = const [],
+  }) async {
     if (paths.isEmpty) return;
     final reply = _replyTo;
     setState(() => _replyTo = null);
@@ -285,6 +299,8 @@ class _ConversationDetailScreenState
           filePaths: paths,
           type: type,
           replyTo: reply?.messageId,
+          content: content,
+          details: details,
         );
 
     if (!mounted || ok) return;
@@ -295,11 +311,170 @@ class _ConversationDetailScreenState
         .overlays
         .notify(
           context: context,
-          message: type == MessageType.audio
-              ? 'Note vocale non envoyée. Réessayez.'
-              : 'Envoi des photos impossible. Réessayez.',
+          message: switch (type) {
+            MessageType.audio => 'Note vocale non envoyée. Réessayez.',
+            MessageType.file => LocalizationHelper.of(
+              context,
+            ).chatDocumentSendFailed,
+            _ => 'Envoi des photos impossible. Réessayez.',
+          },
           isError: true,
         );
+  }
+
+  void _notify(String message, {bool isError = true}) {
+    if (!mounted) return;
+    ref
+        .read(platformUiProvider)
+        .overlays
+        .notify(context: context, message: message, isError: isError);
+  }
+
+  /// Checks then sends a document picked in the composer.
+  ///
+  /// The size and format are checked here, against the media service
+  /// limits: otherwise a 60 MB file would upload in full before the server
+  /// refused it.
+  Future<void> _sendDocument(XFile file) async {
+    final l10n = LocalizationHelper.of(context);
+    final name = file.name.isNotEmpty
+        ? file.name
+        : file.path.split(RegExp(r'[/\\]')).last;
+    final int size;
+    try {
+      size = await file.length();
+    } catch (_) {
+      _notify(l10n.chatDocumentPickFailed);
+      return;
+    }
+    if (!mounted) return;
+    switch (DocumentAttachmentPolicy.check(name: name, sizeBytes: size)) {
+      case DocumentCheck.tooLarge:
+        _notify(
+          l10n.chatDocumentTooLarge(
+            DocumentAttachmentPolicy.maxBytes ~/ (1024 * 1024),
+          ),
+        );
+        return;
+      case DocumentCheck.empty:
+        _notify(l10n.chatDocumentEmpty);
+        return;
+      case DocumentCheck.unsupportedType:
+        _notify(l10n.chatDocumentUnsupported);
+        return;
+      case DocumentCheck.accepted:
+        break;
+    }
+
+    // The upload names the file after its path. Some pickers hand back a
+    // cache copy with a generated name: copy it under its real name so the
+    // recipient sees "invoice.pdf" rather than a random identifier.
+    var path = file.path;
+    if (path.split(RegExp(r'[/\\]')).last != name) {
+      try {
+        final folder = Directory(
+          '${(await getTemporaryDirectory()).path}${Platform.pathSeparator}'
+          'outgoing_documents${Platform.pathSeparator}'
+          '${DateTime.now().microsecondsSinceEpoch}',
+        );
+        await folder.create(recursive: true);
+        final copy = File(
+          '${folder.path}${Platform.pathSeparator}'
+          '${DocumentFileService.safeFileName(name)}',
+        );
+        await file.saveTo(copy.path);
+        path = copy.path;
+      } catch (_) {
+        // Sending under the technical name beats not sending at all.
+      }
+    }
+    if (!mounted) return;
+    final ext = DocumentAttachmentPolicy.extensionOf(name);
+    await _sendFiles(
+      [path],
+      MessageType.file,
+      // Older clients read the document name from the message content.
+      content: name,
+      details: [
+        MessageAttachmentEntity(
+          url: path,
+          name: name,
+          size: size,
+          mimeType: DocumentAttachmentPolicy.mimeTypes[ext],
+        ),
+      ],
+    );
+  }
+
+  String _documentFailureMessage(Object error) {
+    final l10n = LocalizationHelper.of(context);
+    final kind = error is DocumentFileException
+        ? error.kind
+        : DocumentFailureKind.download;
+    return switch (kind) {
+      DocumentFailureKind.download => l10n.chatDocumentDownloadFailed,
+      DocumentFailureKind.expired => l10n.chatDocumentExpired,
+      DocumentFailureKind.noViewer => l10n.chatDocumentNoViewer,
+      DocumentFailureKind.storage => l10n.chatDocumentStorageFailed,
+    };
+  }
+
+  Future<File> _obtainDocument(
+    ChatDocumentData document,
+    ValueChanged<double> onProgress,
+  ) {
+    final mediaId = document.mediaId;
+    return ref
+        .read(documentFileServiceProvider)
+        .obtain(
+          source: document.source,
+          fileName: document.name,
+          mediaId: mediaId,
+          expectedSize: document.sizeBytes,
+          onProgress: onProgress,
+          renewUrl: mediaId == null
+              ? null
+              : () => ref
+                    .read(threadProvider(widget.conversationId).notifier)
+                    .refreshAttachmentUrl(mediaId),
+        );
+  }
+
+  /// Downloads a document into the temporary directory, then opens it with
+  /// the system viewer (or the default desktop application).
+  Future<bool> _openDocument(
+    ChatDocumentData document,
+    ValueChanged<double> onProgress,
+  ) async {
+    try {
+      final file = await _obtainDocument(document, onProgress);
+      await ref
+          .read(documentFileServiceProvider)
+          .open(file, mimeType: document.mimeType);
+      return true;
+    } catch (e) {
+      _notify(_documentFailureMessage(e));
+      return false;
+    }
+  }
+
+  /// Desktop: downloads a document then asks where to save a copy.
+  Future<bool> _saveDocument(
+    ChatDocumentData document,
+    ValueChanged<double> onProgress,
+  ) async {
+    final l10n = LocalizationHelper.of(context);
+    try {
+      final file = await _obtainDocument(document, onProgress);
+      final saved = await ref
+          .read(documentFileServiceProvider)
+          .saveCopy(file, suggestedName: document.name);
+      if (saved != null) _notify(l10n.chatDocumentSaved, isError: false);
+      return true;
+    } catch (e) {
+      _notify(_documentFailureMessage(e));
+      return false;
+    }
   }
 
   /// Nom de l'agent déjà sur le dossier, ou `null` si personne.
@@ -382,7 +557,10 @@ class _ConversationDetailScreenState
           Clipboard.setData(ClipboardData(text: message.text));
         },
       ),
-      if (message.isMine && !message.isVoice && !message.hasAttachments)
+      if (message.isMine &&
+          !message.isVoice &&
+          !message.hasAttachments &&
+          !message.hasDocuments)
         PlatformMenuAction(
           label: 'Modifier',
           icon: Iconsax.edit_2,
@@ -659,6 +837,7 @@ class _ConversationDetailScreenState
                   .set(text),
               onTyping: _typingChanged,
               onPickImages: _sendImages,
+              onPickDocument: _sendDocument,
               placeholder: 'Écrire un message…',
               replyTo: _replyTo,
               onCancelReply: () => setState(() => _replyTo = null),
@@ -722,6 +901,13 @@ class _ConversationDetailScreenState
           .refreshVoiceSource(message.id),
       onTapQuote: _scrollToMessage,
       onOpenGallery: _openGallery,
+      onOpenDocument: _openDocument,
+      onSaveDocument: platformUi.platform.isMobile ? null : _saveDocument,
+      uploadProgress: message.status == MessageStatus.sending
+          ? ref
+                .read(threadProvider(widget.conversationId).notifier)
+                .uploadProgress(message.id)
+          : null,
     );
 
     final keyed = KeyedSubtree(

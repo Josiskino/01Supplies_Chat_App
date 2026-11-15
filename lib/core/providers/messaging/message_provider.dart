@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../data/datasources/abstract/messaging/message_datasource_contract.dart';
 import '../../../data/datasources/remote/message_remote_datasource.dart';
 import '../../../data/repository/message_repository_impl.dart';
+import '../../../domain/entity/messaging/message_attachment_entity.dart';
 import '../../../domain/entity/messaging/message_entity.dart';
 import '../../../domain/repository/messaging/message_repository.dart';
 import '../../../domain/usecases/messaging/message_usecases.dart';
@@ -82,13 +84,24 @@ class OutgoingAttachment {
     required this.type,
     required this.content,
     this.replyTo,
+    this.details = const [],
   });
   final String id;
   final List<String> paths;
   final MessageType type;
   final String content;
   final String? replyTo;
+
+  /// Local name, size and MIME type of each file, shown by the pending bubble
+  /// (a document tile needs its name before any server metadata exists).
+  final List<MessageAttachmentEntity> details;
   final Map<String, String> mediaIds = {};
+
+  /// Upload progress between 0 and 1, listened to by the pending bubble.
+  ///
+  /// A listenable rather than thread state: rebuilding the whole thread on
+  /// every progress tick would make scrolling stutter during the upload.
+  final ValueNotifier<double> progress = ValueNotifier(0);
 }
 
 @riverpod
@@ -372,11 +385,16 @@ class Thread extends _$Thread {
     }
   }
 
+  /// Upload progress of a pending attachment message, if any.
+  ValueListenable<double>? uploadProgress(String messageId) =>
+      _outgoing[messageId]?.progress;
+
   Future<bool> sendAttachments({
     required List<String> filePaths,
     required MessageType type,
     String content = '',
     String? replyTo,
+    List<MessageAttachmentEntity> details = const [],
   }) async {
     if (filePaths.isEmpty || filePaths.length > 10) return false;
     final operation = OutgoingAttachment(
@@ -385,6 +403,7 @@ class Thread extends _$Thread {
       type: type,
       content: content,
       replyTo: replyTo,
+      details: List.unmodifiable(details),
     );
     _outgoing[operation.id] = operation;
     if (_sending) {
@@ -398,6 +417,7 @@ class Thread extends _$Thread {
         delivery: MessageDelivery.sent,
         sentAt: DateTime.now(),
         attachments: operation.paths,
+        attachmentDetails: operation.details,
         replyToId: replyTo,
         isFailed: true,
       );
@@ -412,6 +432,7 @@ class Thread extends _$Thread {
     if (_sending) return;
     final operation = _outgoing.remove(id);
     if (operation == null) return;
+    operation.progress.dispose();
     if (_outgoing.isEmpty) {
       _releaseRetries?.call();
       _releaseRetries = null;
@@ -436,6 +457,9 @@ class Thread extends _$Thread {
     final generation = _generation;
     final lease = ref.keepAlive();
     _sending = true;
+    // A retry resumes after the files that already reached the server.
+    operation.progress.value =
+        operation.mediaIds.length / operation.paths.length;
     final pending = MessageEntity(
       id: operation.id,
       conversationId: conversationId,
@@ -446,6 +470,7 @@ class Thread extends _$Thread {
       delivery: MessageDelivery.sent,
       sentAt: DateTime.now(),
       attachments: operation.paths,
+      attachmentDetails: operation.details,
       replyToId: operation.replyTo,
       isPending: true,
     );
@@ -453,11 +478,21 @@ class Thread extends _$Thread {
     bool sent = false;
     try {
       if (!await _ensureParticipation(owner, generation)) return false;
-      for (final path in operation.paths) {
+      final count = operation.paths.length;
+      for (final (index, path) in operation.paths.indexed) {
         if (operation.mediaIds.containsKey(path)) continue;
         final upload = await ref
             .read(uploadMediaUseCaseProvider)
-            .call(UploadMediaParams(path));
+            .call(
+              UploadMediaParams(
+                path,
+                onProgress: (sent, total) {
+                  if (total <= 0) return;
+                  operation.progress.value = ((index + sent / total) / count)
+                      .clamp(0.0, 1.0);
+                },
+              ),
+            );
         if (!_current(owner, generation)) return false;
         final media = upload.getRight().toNullable();
         if (media == null || media.id.isEmpty) return false;
@@ -480,7 +515,7 @@ class Thread extends _$Thread {
       if (_current(owner, generation)) {
         final retained = _messages.where((m) => m.id != operation.id).toList();
         if (sent) {
-          _outgoing.remove(operation.id);
+          _outgoing.remove(operation.id)?.progress.dispose();
           for (final path in operation.paths) {
             if (operation.type == MessageType.audio) {
               unawaited(deleteTemporaryVoiceRecording(path));
@@ -500,6 +535,15 @@ class Thread extends _$Thread {
       _sending = false;
       lease.close();
     }
+  }
+
+  /// Fresh signed URL for one attachment, renewed through its media id.
+  Future<String?> refreshAttachmentUrl(String mediaId) async {
+    final owner = _owner;
+    final generation = _generation;
+    final result = await ref.read(mediaRepositoryProvider).getById(mediaId);
+    if (!_current(owner, generation)) return null;
+    return result.getRight().toNullable()?.url;
   }
 
   Future<String?> refreshVoiceSource(String messageId) async {

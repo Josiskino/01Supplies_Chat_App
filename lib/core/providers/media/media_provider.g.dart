@@ -98,6 +98,68 @@ final class MediaRepositoryProvider
 
 String _$mediaRepositoryHash() => r'8ea27e72d6ebfd94ef7df31e3bd5e986eef12093';
 
+/// Downloads and opens chat documents.
+///
+/// The platform is read from `defaultTargetPlatform` (never `dart:io`), so
+/// tests can exercise both the mobile and the desktop behaviour.
+
+@ProviderFor(documentFileService)
+final documentFileServiceProvider = DocumentFileServiceProvider._();
+
+/// Downloads and opens chat documents.
+///
+/// The platform is read from `defaultTargetPlatform` (never `dart:io`), so
+/// tests can exercise both the mobile and the desktop behaviour.
+
+final class DocumentFileServiceProvider
+    extends
+        $FunctionalProvider<
+          DocumentFileService,
+          DocumentFileService,
+          DocumentFileService
+        >
+    with $Provider<DocumentFileService> {
+  /// Downloads and opens chat documents.
+  ///
+  /// The platform is read from `defaultTargetPlatform` (never `dart:io`), so
+  /// tests can exercise both the mobile and the desktop behaviour.
+  DocumentFileServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'documentFileServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$documentFileServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<DocumentFileService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  DocumentFileService create(Ref ref) {
+    return documentFileService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(DocumentFileService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<DocumentFileService>(value),
+    );
+  }
+}
+
+String _$documentFileServiceHash() =>
+    r'd9d113ed09eabb7277cc20d360382d3484d8d28f';
+
 @ProviderFor(uploadMediaUseCase)
 final uploadMediaUseCaseProvider = UploadMediaUseCaseProvider._();
 

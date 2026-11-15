@@ -84,6 +84,8 @@ dependencies:
   adaptive_platform_ui: ^0.1.111
   flutter_acrylic: ^1.1.4
   macos_window_utils: ^1.9.1
+  file_selector: ^1.1.0
+  open_filex: ^5.0.0
 
 dev_dependencies:
   flutter_test:

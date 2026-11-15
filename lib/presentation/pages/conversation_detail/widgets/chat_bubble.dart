@@ -1,10 +1,12 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../desktop/widgets/presence_avatar.dart';
 import '../../../shared/models/conversation_view_data.dart';
+import 'document_tile.dart';
 import 'photo_stack.dart';
 import 'voice_note_bubble.dart';
 
@@ -30,6 +32,9 @@ class ChatBubble extends StatelessWidget {
     this.refreshVoiceSource,
     this.onTapQuote,
     this.onOpenGallery,
+    this.onOpenDocument,
+    this.onSaveDocument,
+    this.uploadProgress,
     this.contactName = '',
   });
 
@@ -55,6 +60,15 @@ class ChatBubble extends StatelessWidget {
   /// Appelé au tap sur un lot de photos, avec toutes les images du message.
   final ValueChanged<List<String>>? onOpenGallery;
 
+  /// Downloads and opens a document attached to the message.
+  final DocumentAction? onOpenDocument;
+
+  /// Desktop only: saves a copy of a document where the user chooses.
+  final DocumentAction? onSaveDocument;
+
+  /// Upload progress of a pending outgoing attachment.
+  final ValueListenable<double>? uploadProgress;
+
   final String contactName;
 
   /// Débordement de la pastille de réaction sous la bulle.
@@ -75,6 +89,7 @@ class ChatBubble extends StatelessWidget {
         !message.hasAttachments ||
         message.text.isNotEmpty ||
         message.isVoice ||
+        message.hasDocuments ||
         message.isTyping ||
         message.replyTo != null;
 
@@ -222,6 +237,17 @@ class ChatBubble extends StatelessWidget {
                                           onTap: onTapQuote,
                                         ),
                                       ),
+                                    for (final document in message.documents)
+                                      DocumentTile(
+                                        document: document,
+                                        foreground: foreground,
+                                        isUploading:
+                                            message.status ==
+                                            MessageStatus.sending,
+                                        uploadProgress: uploadProgress,
+                                        onOpen: onOpenDocument,
+                                        onSave: onSaveDocument,
+                                      ),
                                     if (message.isTyping)
                                       const TypingDots()
                                     else if (message.isVoice)
@@ -236,7 +262,8 @@ class ChatBubble extends StatelessWidget {
                                             ? foreground
                                             : theme.colorScheme.primary,
                                       )
-                                    else
+                                    else if (message.text.isNotEmpty ||
+                                        !message.hasDocuments)
                                       _TextWithTime(
                                         text: message.text,
                                         timeLabel: message.timeLabel,
@@ -245,7 +272,9 @@ class ChatBubble extends StatelessWidget {
                                     // Les bulles sans texte portent leur heure en
                                     // dessous : il n'y a pas de ligne dans laquelle la
                                     // glisser.
-                                    if (message.isVoice &&
+                                    if ((message.isVoice ||
+                                            (message.hasDocuments &&
+                                                message.text.isEmpty)) &&
                                         message.timeLabel.isNotEmpty)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 2),

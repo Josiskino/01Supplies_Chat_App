@@ -38,6 +38,7 @@ abstract class ApiClientInterface {
     Map<String, dynamic>? additionalData,
     Map<String, String>? headers,
     HttpMethod method = HttpMethod.post,
+    void Function(int sent, int total)? onSendProgress,
   });
 
   Future<ApiResult<T>> uploadFilesWithDifferentKeys<T>({

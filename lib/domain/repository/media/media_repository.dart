@@ -11,6 +11,9 @@ abstract interface class MediaRepository {
 }
 
 class UploadMediaParams {
-  const UploadMediaParams(this.filePath);
+  const UploadMediaParams(this.filePath, {this.onProgress});
   final String filePath;
+
+  /// Bytes sent so far and total bytes, reported while the file uploads.
+  final void Function(int sent, int total)? onProgress;
 }
