@@ -23,6 +23,7 @@ import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/utils/chat_date_formatter.dart';
 import '../../desktop/widgets/presence_avatar.dart';
+import '../../widgets/inbox/conversation_title.dart';
 import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
 import 'widgets/chat_bubble.dart';
@@ -522,6 +523,7 @@ class _ConversationDetailScreenState
                   peerRole == 'Client',
             ),
             peerRole: peerRole,
+            orderNumber: entry?.orderNumber,
             peerOnline: peerPresent,
             onBack: widget.embedded ? widget.onBack : () => context.pop(),
             onMore: () => _openCallOptions(context, conversation.name),
@@ -840,10 +842,14 @@ class _ConversationHeader extends StatelessWidget {
     required this.isApple,
     this.callAction,
     this.peerRole,
+    this.orderNumber,
     this.peerOnline = false,
   });
 
   final ConversationListItemData conversation;
+
+  /// Human number of the order the request is about, shown after the name.
+  final String? orderNumber;
   final VoidCallback? onBack;
   final VoidCallback onMore;
   final bool isApple;
@@ -920,13 +926,18 @@ class _ConversationHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    conversation.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium
+                  // 16 pt rather than the 17 pt headline: the order number
+                  // shares the line and the name must leave it room.
+                  ConversationTitle(
+                    name: conversation.name,
+                    orderNumber: orderNumber,
+                    nameStyle: theme.textTheme.titleMedium
                         ?.merge(AppleType.headline)
-                        .copyWith(fontWeight: FontWeight.w600),
+                        .copyWith(
+                          fontSize: 16,
+                          height: 21 / 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                   if (peerRole != null || peerOnline)
                     Wrap(
