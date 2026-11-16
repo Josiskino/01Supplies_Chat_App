@@ -48,7 +48,9 @@ class InboxAvatar extends StatelessWidget {
 
   static IconData? iconFor(UserRole? role) => switch (role) {
     UserRole.client => Iconsax.user,
-    UserRole.delivery => Iconsax.truck_fast,
+    // Drivers ride motorbikes: Iconsax has no two-wheeler, so the Material
+    // glyph is used (filled, readable at badge size).
+    UserRole.delivery => Icons.two_wheeler,
     UserRole.vendor => Iconsax.shop,
     _ => null,
   };

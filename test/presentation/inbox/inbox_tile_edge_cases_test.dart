@@ -297,6 +297,32 @@ void main() {
       expect(colors, hasLength(3), reason: 'each role is distinguishable');
     });
 
+    testWidgets('the driver badge is a motorbike, not a truck', (
+      tester,
+    ) async {
+      expect(InboxAvatar.iconFor(UserRole.delivery), Icons.two_wheeler);
+      await tester.pumpWidget(
+        _app(
+          const InboxAvatar(
+            name: 'Kossi',
+            size: 40,
+            badgeSize: 16,
+            ringColor: Colors.white,
+            role: UserRole.delivery,
+          ),
+        ),
+      );
+      final icon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byType(InboxAvatar),
+          matching: find.byType(Icon),
+        ),
+      );
+      expect(icon.icon, Icons.two_wheeler);
+      // Badge geometry is unchanged: 62 % of the badge diameter.
+      expect(icon.size, closeTo(16 * 0.62, 0.001));
+    });
+
     testWidgets('staff avatars draw no badge', (tester) async {
       await tester.pumpWidget(
         _app(
