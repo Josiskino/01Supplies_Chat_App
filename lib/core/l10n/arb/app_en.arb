@@ -260,5 +260,6 @@
   "chatDocumentPickFailed": "Files cannot be accessed.",
   "chatFileSizeBytes": "B",
   "chatFileSizeKb": "KB",
-  "chatFileSizeMb": "MB"
+  "chatFileSizeMb": "MB",
+  "voiceNotePosition": "Voice note position"
 }

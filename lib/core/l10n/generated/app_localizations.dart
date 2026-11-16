@@ -1099,6 +1099,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Mo'**
   String get chatFileSizeMb;
+
+  /// Accessibility label of the voice note waveform slider
+  ///
+  /// In fr, this message translates to:
+  /// **'Position dans la note vocale'**
+  String get voiceNotePosition;
 }
 
 class _AppLocalizationsDelegate

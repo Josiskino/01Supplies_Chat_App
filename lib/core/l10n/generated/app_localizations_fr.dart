@@ -578,4 +578,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get chatFileSizeMb => 'Mo';
+
+  @override
+  String get voiceNotePosition => 'Position dans la note vocale';
 }

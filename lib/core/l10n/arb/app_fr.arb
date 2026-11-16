@@ -316,5 +316,9 @@
   "chatDocumentPickFailed": "Impossible d’accéder aux fichiers.",
   "chatFileSizeBytes": "o",
   "chatFileSizeKb": "Ko",
-  "chatFileSizeMb": "Mo"
+  "chatFileSizeMb": "Mo",
+  "voiceNotePosition": "Position dans la note vocale",
+  "@voiceNotePosition": {
+    "description": "Accessibility label of the voice note waveform slider"
+  }
 }
