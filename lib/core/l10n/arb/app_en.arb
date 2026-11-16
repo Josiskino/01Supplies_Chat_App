@@ -251,6 +251,13 @@
   "chatDocumentNoViewer": "No app on this device can open this file.",
   "chatDocumentStorageFailed": "The file could not be saved on this device.",
   "chatDocumentSaved": "Copy saved.",
+  "profilePhotoViewLabel": "View {name}'s profile photo",
+  "@profilePhotoViewLabel": {"placeholders": {"name": {"type": "String"}}},
+  "profilePhotoUnavailable": "Photo unavailable",
+  "profilePhotoRoleDriver": "Driver",
+  "profilePhotoRoleClient": "Customer",
+  "profilePhotoRoleSupport": "Support",
+  "profilePhotoRoleVendor": "Vendor",
   "chatDocumentTooLarge": "This file is larger than {max} MB, the maximum allowed size.",
   "@chatDocumentTooLarge": {
     "placeholders": {

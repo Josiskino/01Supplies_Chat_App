@@ -567,6 +567,26 @@ class AppLocalizationsFr extends AppLocalizations {
   String get chatDocumentSaved => 'Copie enregistrée.';
 
   @override
+  String profilePhotoViewLabel(String name) {
+    return 'Voir la photo de profil de $name';
+  }
+
+  @override
+  String get profilePhotoUnavailable => 'Photo indisponible';
+
+  @override
+  String get profilePhotoRoleDriver => 'Livreur';
+
+  @override
+  String get profilePhotoRoleClient => 'Client';
+
+  @override
+  String get profilePhotoRoleSupport => 'Support';
+
+  @override
+  String get profilePhotoRoleVendor => 'Vendeur';
+
+  @override
   String chatDocumentTooLarge(int max) {
     return 'Ce fichier dépasse $max Mo, la taille maximale autorisée.';
   }
