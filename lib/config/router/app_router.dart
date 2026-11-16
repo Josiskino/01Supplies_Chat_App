@@ -8,6 +8,7 @@ import '../../core/constants/app_ui_route.dart';
 import '../../core/providers/auth/auth_status_provider.dart';
 import '../../core/providers/navigation/main_tab_provider.dart';
 import '../../core/providers/splash_completed_provider.dart';
+import '../../presentation/widgets/profile_photo/profile_photo_viewer.dart';
 import '../../presentation/main/main_page.dart';
 import '../../presentation/main/nav_destinations.dart';
 import '../../presentation/pages/auth/login_screen.dart';
@@ -144,6 +145,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // transition. `opaque: false` est le seul moyen de l'obtenir avec
       // GoRouter ; c'est aussi le pattern à reprendre pour les futurs overlays
       // de la messagerie (galerie de pièces jointes, aperçu de document).
+      GoRoute(
+        path: AppUiRoute.profilePhotoViewer,
+        pageBuilder: (context, state) => buildProfilePhotoViewerPage(
+          state,
+          wrap: (child) => _ProtectedContent(child: child),
+        ),
+      ),
       GoRoute(
         path: AppUiRoute.imageViewer,
         pageBuilder: (context, state) {

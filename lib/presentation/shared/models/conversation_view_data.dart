@@ -174,6 +174,7 @@ class ChatMessageData {
     this.sentAt,
     this.senderName,
     this.avatarUrl,
+    this.senderRole,
     this.reaction,
     this.replyTo,
     this.voice,
@@ -201,6 +202,10 @@ class ChatMessageData {
   final String? senderName;
 
   final String? avatarUrl;
+
+  /// Backend role of the author (`client`, `delivery`…), shown in the
+  /// profile photo viewer.
+  final String? senderRole;
 
   /// Emoji de réaction affiché sous la bulle.
   final String? reaction;
@@ -306,6 +311,7 @@ class ChatMessageData {
           ? (isMine ? null : peerName)
           : (message.authorName.isEmpty ? null : message.authorName),
       avatarUrl: DemoData.enabled ? null : message.sender?.avatarUrl,
+      senderRole: message.sender?.role?.wireName,
       reaction: message.reaction,
       replyTo: message.replyToId == null
           ? null

@@ -33,4 +33,8 @@ class AppUiRoute {
 
   static const String settings = '/settings';
   static const String imageViewer = '/image-viewer';
+
+  /// Full-screen profile photo of a chat participant (`extra`: the map
+  /// built by `ProfilePhotoViewerArgs.toExtra`).
+  static const String profilePhotoViewer = '/profile-photo';
 }

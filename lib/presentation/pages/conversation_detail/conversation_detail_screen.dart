@@ -31,6 +31,7 @@ import '../../../core/platform/platform_ui.dart';
 import '../../../core/platform/platform_ui_provider.dart';
 import '../../../core/utils/chat_date_formatter.dart';
 import '../../desktop/widgets/presence_avatar.dart';
+import '../../widgets/profile_photo/tappable_avatar.dart';
 import '../../widgets/inbox/conversation_title.dart';
 import '../../shared/fixtures/conversation_fixtures.dart';
 import '../../shared/models/conversation_view_data.dart';
@@ -201,6 +202,7 @@ class _ConversationDetailScreenState
       sentAt: m.sentAt,
       senderName: senderName ?? m.senderName,
       avatarUrl: m.avatarUrl,
+      senderRole: m.senderRole,
       reaction: reaction == _unset ? m.reaction : reaction as String?,
       replyTo: m.replyTo,
       voice: m.voice,
@@ -649,12 +651,20 @@ class _ConversationDetailScreenState
     final isApple = platformUi.platform.isApple;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final conversation = _conversation;
     final entry = ref
         .watch(supportQueueProvider)
         .value
         ?.where((e) => e.conversationId == widget.conversationId)
         .firstOrNull;
+    // The inbox entry carries the peer's photo: the header shows it and opens
+    // it full screen.
+    final conversation = ConversationListItemData(
+      id: widget.conversationId,
+      name: _conversation.name,
+      preview: '',
+      timeLabel: '',
+      avatarUrl: entry?.avatarUrl,
+    );
     final peerRole = entry?.peerRoleLabel;
     final async = ref.watch(threadProvider(widget.conversationId));
     final thread = async.value;
@@ -958,6 +968,7 @@ class _ConversationDetailScreenState
             isFirstOfGroup: position.isFirst,
             isLastOfGroup: position.isLast,
             showAuthorAlways: true,
+            avatarTappable: false,
           ),
           alignEnd: message.isOutgoing,
           selectedReaction: message.reaction,
@@ -1089,16 +1100,22 @@ class _ConversationHeader extends StatelessWidget {
                 ),
               ),
             ),
-          PresenceAvatar(
+          TappableAvatar(
+            photoUrl: conversation.avatarUrl,
             name: conversation.name,
-            avatarUrl: conversation.avatarUrl,
-            presence: peerOnline
-                ? PresenceStatus.online
-                : PresenceStatus.offline,
-            // 38 et non 30 : en dessous, la pastille ne tient plus son rang face
-            // au nom en `headline` (17 pt gras) et l'en-tête paraît déséquilibré.
-            // C'est aussi l'ordre de grandeur retenu par Messages et WhatsApp.
-            size: 38,
+            roleLabel: peerRole,
+            heroTag: 'profile-photo:header:${conversation.id}',
+            child: PresenceAvatar(
+              name: conversation.name,
+              avatarUrl: conversation.avatarUrl,
+              presence: peerOnline
+                  ? PresenceStatus.online
+                  : PresenceStatus.offline,
+              // 38 et non 30 : en dessous, la pastille ne tient plus son rang face
+              // au nom en `headline` (17 pt gras) et l'en-tête paraît déséquilibré.
+              // C'est aussi l'ordre de grandeur retenu par Messages et WhatsApp.
+              size: 38,
+            ),
           ),
           const SizedBox(width: DesignTokens.spaceS),
           // `Expanded` et non `Flexible` : le second laisse le nom à sa largeur

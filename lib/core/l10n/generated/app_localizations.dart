@@ -1076,6 +1076,42 @@ abstract class AppLocalizations {
   /// **'Copie enregistrée.'**
   String get chatDocumentSaved;
 
+  /// No description provided for @profilePhotoViewLabel.
+  ///
+  /// In fr, this message translates to:
+  /// **'Voir la photo de profil de {name}'**
+  String profilePhotoViewLabel(String name);
+
+  /// No description provided for @profilePhotoUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Photo indisponible'**
+  String get profilePhotoUnavailable;
+
+  /// No description provided for @profilePhotoRoleDriver.
+  ///
+  /// In fr, this message translates to:
+  /// **'Livreur'**
+  String get profilePhotoRoleDriver;
+
+  /// No description provided for @profilePhotoRoleClient.
+  ///
+  /// In fr, this message translates to:
+  /// **'Client'**
+  String get profilePhotoRoleClient;
+
+  /// No description provided for @profilePhotoRoleSupport.
+  ///
+  /// In fr, this message translates to:
+  /// **'Support'**
+  String get profilePhotoRoleSupport;
+
+  /// No description provided for @profilePhotoRoleVendor.
+  ///
+  /// In fr, this message translates to:
+  /// **'Vendeur'**
+  String get profilePhotoRoleVendor;
+
   /// No description provided for @chatDocumentTooLarge.
   ///
   /// In fr, this message translates to:

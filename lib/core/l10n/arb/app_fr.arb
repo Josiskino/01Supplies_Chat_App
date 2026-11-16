@@ -318,6 +318,13 @@
   "chatDocumentNoViewer": "Aucune application ne peut ouvrir ce fichier.",
   "chatDocumentStorageFailed": "Impossible d’enregistrer le fichier sur cet appareil.",
   "chatDocumentSaved": "Copie enregistrée.",
+  "profilePhotoViewLabel": "Voir la photo de profil de {name}",
+  "@profilePhotoViewLabel": {"placeholders": {"name": {"type": "String"}}},
+  "profilePhotoUnavailable": "Photo indisponible",
+  "profilePhotoRoleDriver": "Livreur",
+  "profilePhotoRoleClient": "Client",
+  "profilePhotoRoleSupport": "Support",
+  "profilePhotoRoleVendor": "Vendeur",
   "chatDocumentTooLarge": "Ce fichier dépasse {max} Mo, la taille maximale autorisée.",
   "@chatDocumentTooLarge": {
     "placeholders": {

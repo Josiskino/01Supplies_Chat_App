@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
+import '../../../../core/l10n/generated/app_localizations.dart';
 import '../../../desktop/widgets/presence_avatar.dart';
+import '../../../widgets/profile_photo/tappable_avatar.dart';
 import '../../../shared/models/conversation_view_data.dart';
 import 'document_tile.dart';
 import 'photo_stack.dart';
@@ -36,6 +38,7 @@ class ChatBubble extends StatelessWidget {
     this.onSaveDocument,
     this.uploadProgress,
     this.contactName = '',
+    this.avatarTappable = true,
   });
 
   final ChatMessageData message;
@@ -71,11 +74,29 @@ class ChatBubble extends StatelessWidget {
 
   final String contactName;
 
+  /// False for copies of a bubble (e.g. the context menu preview): only the
+  /// bubble in the thread opens the author's photo, which keeps Hero tags
+  /// unique.
+  final bool avatarTappable;
+
   /// Débordement de la pastille de réaction sous la bulle.
   static const double _reactionOverhang = 12;
 
   static const double _avatarSize = 28;
-  static const double _avatarGutter = _avatarSize + DesignTokens.spaceS;
+
+  /// Avatar column: the avatar's tap target, which also spaces it from the
+  /// bubble.
+  static const double _avatarGutter = TappableAvatar.minTapTarget;
+
+  /// Role shown in the profile photo viewer. Read without asserting: the
+  /// bubble does not otherwise need translations (and is shown without them
+  /// in isolated previews).
+  String? _roleLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final role = message.senderRole;
+    if (l10n == null || role == null) return null;
+    return profilePhotoRoleLabel(l10n, [role]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,10 +185,20 @@ class ChatBubble extends StatelessWidget {
                         // La gouttière est réservée même sans avatar : sans elle, les
                         // bulles d'une même série ne seraient pas alignées.
                         child: isLastOfGroup
-                            ? PresenceAvatar(
+                            ? TappableAvatar(
+                                photoUrl: message.avatarUrl,
                                 name: message.senderName ?? contactName,
-                                avatarUrl: message.avatarUrl,
-                                size: _avatarSize,
+                                roleLabel: _roleLabel(context),
+                                // One Hero per message: an author appears
+                                // many times in the thread.
+                                heroTag: 'profile-photo:message:${message.id}',
+                                alignment: Alignment.bottomLeft,
+                                enabled: avatarTappable,
+                                child: PresenceAvatar(
+                                  name: message.senderName ?? contactName,
+                                  avatarUrl: message.avatarUrl,
+                                  size: _avatarSize,
+                                ),
                               )
                             : null,
                       ),
