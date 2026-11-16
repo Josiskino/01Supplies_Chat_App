@@ -269,5 +269,9 @@
   "inboxRoleVendor": "Vendeur",
   "@inboxRoleVendor": {
     "description": "Avatar role indicator: vendor"
+  },
+  "voiceNotePosition": "Position dans la note vocale",
+  "@voiceNotePosition": {
+    "description": "Accessibility label of the voice note waveform slider"
   }
 }

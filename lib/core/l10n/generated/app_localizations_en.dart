@@ -482,4 +482,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inboxRoleVendor => 'Vendor';
+
+  @override
+  String get voiceNotePosition => 'Voice note position';
 }

@@ -489,4 +489,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get inboxRoleVendor => 'Vendeur';
+
+  @override
+  String get voiceNotePosition => 'Position dans la note vocale';
 }

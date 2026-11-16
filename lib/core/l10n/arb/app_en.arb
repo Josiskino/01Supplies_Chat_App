@@ -213,5 +213,6 @@
   "inboxSearchHint": "Search conversations",
   "inboxRoleClient": "Customer",
   "inboxRoleDelivery": "Driver",
-  "inboxRoleVendor": "Vendor"
+  "inboxRoleVendor": "Vendor",
+  "voiceNotePosition": "Voice note position"
 }
