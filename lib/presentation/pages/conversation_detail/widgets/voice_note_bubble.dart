@@ -134,10 +134,9 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
   /// Moves playback to [target], chosen on the waveform. A playing note
   /// continues from there; a paused or not yet started one will start there.
   Future<void> _seekTo(Duration target) async {
-    setState(() {
-      _position = target;
-      _error = false;
-    });
+    // A failed note keeps its retry: the next tap renews the link first, then
+    // starts from the chosen position.
+    setState(() => _position = target);
     try {
       await _ensurePlayer().seek(target);
     } catch (_) {
