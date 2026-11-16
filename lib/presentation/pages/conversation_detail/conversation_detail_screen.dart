@@ -20,6 +20,7 @@ import '../../../core/providers/messaging/message_provider.dart';
 import '../../../core/services/document_file_service.dart';
 import '../../../core/utils/document_attachment_policy.dart';
 import '../../../core/utils/localization_helper.dart';
+import '../../../core/utils/refresh_gate.dart';
 import '../../../domain/entity/messaging/message_attachment_entity.dart';
 import '../../../core/providers/messaging/draft_provider.dart';
 import '../../../core/providers/auth/auth_provider.dart';
@@ -37,6 +38,7 @@ import '../../shared/models/conversation_view_data.dart';
 import 'widgets/chat_bubble.dart';
 import 'widgets/conversation_online_status.dart';
 import '../../widgets/common/context_actions_panel.dart';
+import '../../widgets/common/platform_refresh.dart';
 import 'widgets/message_composer.dart';
 import 'widgets/sticky_date_list.dart';
 import 'widgets/swipe_to_reply.dart';
@@ -111,6 +113,25 @@ class _ConversationDetailScreenState
 
   final ScrollController _scroll = ScrollController();
   bool _readScheduled = false;
+  final _refreshGate = RefreshGate();
+
+  /// Pull-to-refresh: refetches the latest messages through the same
+  /// catch-up path as realtime resume (`Thread.refresh`), which merges into
+  /// the loaded history, so older pages already shown are kept.
+  Future<void> _refreshThread() => _refreshGate.run(() async {
+    final provider = threadProvider(widget.conversationId);
+    try {
+      await ref.read(provider.notifier).refresh();
+    } catch (_) {
+      if (mounted) _notify(LocalizationHelper.of(context).refreshFailed);
+      return;
+    }
+    if (!mounted) return;
+    final thread = ref.read(provider).value;
+    if (thread is ThreadMessages && thread.syncError != null) {
+      _notify(LocalizationHelper.of(context).refreshFailed);
+    }
+  });
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -754,26 +775,32 @@ class _ConversationDetailScreenState
                       _scheduleRead();
                       return false;
                     },
-                    child: StickyDateList(
-                      restorationId:
-                          'messages-${me ?? 'pending'}-${widget.conversationId}',
-                      controller: _scroll,
-                      now: DateTime.now(),
-                      padding: const EdgeInsets.symmetric(
-                        vertical: DesignTokens.spaceM,
-                      ),
-                      messages: [
-                        for (var i = 0; i < messages.length; i++)
-                          DatedMessage(
-                            sentAt: messages[i].sentAt ?? DateTime.now(),
-                            child: _buildBubble(
-                              context,
-                              platformUi,
-                              messages,
-                              i,
+                    // Pull-down at the visual top of the reversed list. The
+                    // newest edge stays the anchor; older history keeps its
+                    // explicit "load previous" action below.
+                    child: PlatformReversedRefresh(
+                      onRefresh: _refreshThread,
+                      child: StickyDateList(
+                        restorationId:
+                            'messages-${me ?? 'pending'}-${widget.conversationId}',
+                        controller: _scroll,
+                        now: DateTime.now(),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: DesignTokens.spaceM,
+                        ),
+                        messages: [
+                          for (var i = 0; i < messages.length; i++)
+                            DatedMessage(
+                              sentAt: messages[i].sentAt ?? DateTime.now(),
+                              child: _buildBubble(
+                                context,
+                                platformUi,
+                                messages,
+                                i,
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
               ],

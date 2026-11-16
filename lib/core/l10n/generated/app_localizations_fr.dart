@@ -131,6 +131,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Connexion impossible. Vérifiez votre réseau et réessayez.';
 
   @override
+  String get refreshFailed => 'Actualisation impossible. Réessayez.';
+
+  @override
   String unreadCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

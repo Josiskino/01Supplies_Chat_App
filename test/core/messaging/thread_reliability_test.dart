@@ -335,4 +335,50 @@ void main() {
       expect(messages.calls, ['send']);
     },
   );
+
+  test(
+    'pull refresh fetches the latest messages and keeps older pages loaded',
+    () async {
+      MessageEntity at(String id, int minute) => MessageEntity(
+        id: id,
+        conversationId: 'c1',
+        senderId: 'client',
+        content: id,
+        type: MessageType.text,
+        delivery: MessageDelivery.sent,
+        sentAt: DateTime.utc(2026, 11, 10, 12, minute),
+      );
+      final thread = await setup(support: false);
+      // The first page, as an open thread holds it.
+      messages.messages = [at('m10', 10), at('m11', 11)];
+      await thread.refresh();
+      // The agent scrolled back and loaded an older page.
+      messages.older[DateTime.utc(2026, 11, 10, 12, 10).toIso8601String()] = [
+        at('m1', 1),
+        at('m2', 2),
+      ];
+      // The server said a full first page came back: history continues.
+      thread.hasMore = true;
+      await thread.loadOlder();
+      expect(
+        (container.read(threadProvider('c1')).requireValue as ThreadMessages)
+            .messages
+            .length,
+        4,
+      );
+      // A message arrived while realtime missed it; the pull refetches.
+      messages.messages = [at('m10', 10), at('m11', 11), at('m12', 12)];
+      await thread.refresh();
+      final state =
+          container.read(threadProvider('c1')).requireValue as ThreadMessages;
+      expect(state.messages.map((m) => m.id), [
+        'm1',
+        'm2',
+        'm10',
+        'm11',
+        'm12',
+      ]);
+      expect(state.syncError, isNull);
+    },
+  );
 }

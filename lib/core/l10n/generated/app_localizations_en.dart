@@ -129,6 +129,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Can\'t connect. Check your network and try again.';
 
   @override
+  String get refreshFailed => 'Couldn\'t refresh. Try again.';
+
+  @override
   String unreadCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,

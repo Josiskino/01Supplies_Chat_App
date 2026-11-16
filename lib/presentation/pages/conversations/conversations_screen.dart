@@ -16,9 +16,11 @@ import '../../../core/providers/messaging/pinned_provider.dart';
 import '../../../core/providers/messaging/support_provider.dart';
 import '../../../core/utils/chat_date_formatter.dart';
 import '../../../core/utils/localization_helper.dart';
+import '../../../core/utils/refresh_gate.dart';
 import '../../shared/models/conversation_view_data.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
+import '../../widgets/common/platform_refresh.dart';
 import 'widgets/conversation_row.dart';
 import 'widgets/pinned_strip_header.dart';
 
@@ -44,6 +46,7 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
   final _support = RestorableBool(true);
   final _search = RestorableString('');
   final _searchController = TextEditingController();
+  final _refreshGate = RefreshGate();
   bool get _supportSelected => _support.value;
   set _supportSelected(bool value) => _support.value = value;
   String get _query => _search.value;
@@ -66,6 +69,26 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
     _searchController.dispose();
     super.dispose();
   }
+
+  /// Pull-to-refresh: reloads the inbox from the API through the queue's own
+  /// refresh, and reports a failure even when the previous list was kept.
+  Future<void> _refresh() => _refreshGate.run(() async {
+    bool fresh;
+    try {
+      fresh = await ref.read(supportQueueProvider.notifier).refresh();
+    } catch (_) {
+      fresh = false;
+    }
+    if (fresh || !mounted) return;
+    ref
+        .read(platformUiProvider)
+        .overlays
+        .notify(
+          context: context,
+          message: LocalizationHelper.of(context).refreshFailed,
+          isError: true,
+        );
+  });
 
   /// Conversations mises en avant, présentées en pastilles au-dessus de la liste.
   ///
@@ -106,10 +129,18 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
     if (async.hasError && !async.hasValue) {
       return PlatformPage(
         title: l10n.conversationsTitle,
-        body: EmptyStateWidget(
-          icon: Iconsax.cloud_cross,
-          title: 'File indisponible',
-          message: async.error.toString().replaceFirst('Exception: ', ''),
+        body: PlatformRefreshScrollView(
+          onRefresh: _refresh,
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyStateWidget(
+                icon: Iconsax.cloud_cross,
+                title: 'File indisponible',
+                message: async.error.toString().replaceFirst('Exception: ', ''),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -163,10 +194,18 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
     if (conversations.isEmpty && !isAndroid) {
       return PlatformPage(
         title: l10n.conversationsTitle,
-        body: EmptyStateWidget(
-          icon: Iconsax.message,
-          title: l10n.conversationsEmptyTitle,
-          message: l10n.conversationsEmptyMessage,
+        body: PlatformRefreshScrollView(
+          onRefresh: _refresh,
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyStateWidget(
+                icon: Iconsax.message,
+                title: l10n.conversationsEmptyTitle,
+                message: l10n.conversationsEmptyMessage,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -184,7 +223,8 @@ class _ConversationsScreenState extends ConsumerState<ConversationsScreen>
       // `CustomScrollView` et non `ListView` : la bande d'épinglés doit rester
       // accrochée en haut tout en se repliant, ce qu'un simple premier élément
       // de liste ne sait pas faire — il défile et disparaît.
-      body: CustomScrollView(
+      body: PlatformRefreshScrollView(
+        onRefresh: _refresh,
         restorationId: 'chat-inbox-scroll',
         slivers: [
           if (isAndroid)

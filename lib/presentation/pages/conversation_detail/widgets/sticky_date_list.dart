@@ -156,6 +156,8 @@ class _StickyDateListState extends State<StickyDateList> {
             restorationId: widget.restorationId,
             controller: widget.controller,
             reverse: true,
+            // A short thread must still accept the pull-to-refresh drag.
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: widget.padding,
             // Les séparateurs hors écran doivent rester montés : leur position
             // est ce qui décide du libellé de la pilule.

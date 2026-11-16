@@ -159,6 +159,7 @@ class SupportQueue extends _$SupportQueue {
       Duration(seconds: seconds.clamp(1, 600)),
     );
     if (previous == null) return null;
+    _keptPreviousOnFailure = true;
     // Schedule after the current build completes.
     scheduleMicrotask(requestRefresh);
     return previous;
@@ -220,8 +221,39 @@ class SupportQueue extends _$SupportQueue {
     return true;
   }
 
+  /// Callers of [refresh] waiting for the next build to settle.
+  final _refreshWaiters = <Completer<bool>>[];
+  int _buildGeneration = 0;
+
+  /// Set when the latest build failed but kept the displayed list.
+  bool _keptPreviousOnFailure = false;
+
   @override
   Future<List<ConversationListEntry>> build() async {
+    final generation = ++_buildGeneration;
+    _keptPreviousOnFailure = false;
+    try {
+      final entries = await _load();
+      _settleRefresh(generation, fresh: !_keptPreviousOnFailure);
+      return entries;
+    } catch (_) {
+      _settleRefresh(generation, fresh: false);
+      rethrow;
+    }
+  }
+
+  /// Completes the pending [refresh] calls once the latest build settles.
+  /// A superseded build leaves them to the newer one.
+  void _settleRefresh(int generation, {required bool fresh}) {
+    if (generation != _buildGeneration) return;
+    final waiters = List.of(_refreshWaiters);
+    _refreshWaiters.clear();
+    for (final waiter in waiters) {
+      if (!waiter.isCompleted) waiter.complete(fresh);
+    }
+  }
+
+  Future<List<ConversationListEntry>> _load() async {
     _historyContinuation?.cancel();
     _historyContinuation = null;
     _refreshTimer?.cancel();
@@ -676,9 +708,27 @@ class SupportQueue extends _$SupportQueue {
     return entries;
   }
 
-  Future<void> refresh() async {
+  /// Refetches the queue now and reports whether a fresh list arrived.
+  ///
+  /// Completes as soon as the fetch settles. Awaiting `future` would not:
+  /// after a failure Riverpod schedules an automatic retry and keeps the
+  /// state loading through the whole backoff (up to minutes), which would
+  /// leave a pull-to-refresh spinner turning. A failure that kept the
+  /// displayed list on screen also reports `false`.
+  Future<bool> refresh() {
+    final settled = Completer<bool>();
+    _refreshWaiters.add(settled);
     ref.invalidateSelf();
-    await future;
+    // Reading `future` forces the rebuild even when nothing listens. It also
+    // settles the call when `build` is overridden (tests), since only the
+    // real build completes the waiters.
+    final loaded = future.then(
+      (_) => !_keptPreviousOnFailure,
+      onError: (Object _) => false,
+    );
+    return Future.any([settled.future, loaded]).whenComplete(
+      () => _refreshWaiters.remove(settled),
+    );
   }
 
   static ConversationListEntry _withUnread(

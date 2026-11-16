@@ -2,7 +2,8 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/cupertino.dart';
 // Import ciblé : ce fichier reste volontairement Cupertino, on n'emprunte à
 // Material que le conteneur exigé par les widgets partagés.
-import 'package:flutter/material.dart' show Material, MaterialType;
+import 'package:flutter/material.dart'
+    show Material, MaterialType, RefreshIndicator, Theme;
 
 import '../../../presentation/main/widgets/custom_bottom_nav_bar_item.dart';
 import '../../../presentation/main/widgets/custom_nav_rail.dart';
@@ -303,6 +304,57 @@ class CupertinoControls implements PlatformControls {
     final indicator = CupertinoActivityIndicator(key: key, color: color);
     if (size == null) return indicator;
     return SizedBox(width: size, height: size, child: indicator);
+  }
+
+  @override
+  Widget refreshableScrollView({
+    Key? key,
+    required Future<void> Function() onRefresh,
+    required List<Widget> slivers,
+    ScrollController? controller,
+    String? restorationId,
+  }) {
+    // The native iOS control: a sliver that scrolls with the content, under
+    // the navigation bar, revealed by the bouncing overscroll.
+    return CustomScrollView(
+      key: key,
+      controller: controller,
+      restorationId: restorationId,
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      slivers: [
+        CupertinoSliverRefreshControl(onRefresh: onRefresh),
+        ...slivers,
+      ],
+    );
+  }
+
+  @override
+  Widget reversedRefresh({
+    Key? key,
+    required Future<void> Function() onRefresh,
+    required Widget child,
+  }) {
+    // `CupertinoSliverRefreshControl` asserts a downward axis and cannot live
+    // in a reversed list. `RefreshIndicator.adaptive` handles the reversed
+    // axis and draws a `CupertinoActivityIndicator`, but picks its spinner
+    // from `Theme.platform`, not from this abstraction: the platform is
+    // forced to iOS for the indicator only, and the original theme is
+    // restored for [child].
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Theme(
+          data: theme.copyWith(platform: TargetPlatform.iOS),
+          child: RefreshIndicator.adaptive(
+            key: key,
+            onRefresh: onRefresh,
+            child: Theme(data: theme, child: child),
+          ),
+        );
+      },
+    );
   }
 }
 

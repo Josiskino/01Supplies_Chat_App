@@ -177,6 +177,39 @@ class MaterialControls implements PlatformControls {
     if (size == null) return indicator;
     return SizedBox(width: size, height: size, child: indicator);
   }
+
+  @override
+  Widget refreshableScrollView({
+    Key? key,
+    required Future<void> Function() onRefresh,
+    required List<Widget> slivers,
+    ScrollController? controller,
+    String? restorationId,
+  }) {
+    return RefreshIndicator(
+      key: key,
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        controller: controller,
+        restorationId: restorationId,
+        // A short or empty list must still accept the pull.
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: slivers,
+      ),
+    );
+  }
+
+  @override
+  Widget reversedRefresh({
+    Key? key,
+    required Future<void> Function() onRefresh,
+    required Widget child,
+  }) {
+    // `RefreshIndicator` supports `reverse: true` natively: for an upward
+    // axis it arms when `extentAfter == 0`, i.e. at the visual top, and
+    // paints its spinner there.
+    return RefreshIndicator(key: key, onRefresh: onRefresh, child: child);
+  }
 }
 
 class MaterialOverlays implements PlatformOverlays {

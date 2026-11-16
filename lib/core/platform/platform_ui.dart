@@ -202,6 +202,35 @@ abstract interface class PlatformControls {
 
   /// Indicateur d'activité (roue Material ou Cupertino).
   Widget progressIndicator({Key? key, Color? color, double? size});
+
+  /// Top-anchored scroll view over [slivers] with pull-to-refresh.
+  ///
+  /// A contract method rather than a wrapper because the platforms place the
+  /// control differently: iOS inserts a `CupertinoSliverRefreshControl` as
+  /// the first sliver (it scrolls with the content, under the navigation
+  /// bar), Material wraps the whole scroll view in a `RefreshIndicator`.
+  ///
+  /// [onRefresh] must complete only once the data has arrived: the spinner
+  /// stays visible until then.
+  Widget refreshableScrollView({
+    Key? key,
+    required Future<void> Function() onRefresh,
+    required List<Widget> slivers,
+    ScrollController? controller,
+    String? restorationId,
+  });
+
+  /// Pull-to-refresh around a bottom-anchored (`reverse: true`) scroll view,
+  /// such as a chat thread.
+  ///
+  /// The refresh fires on a pull-down at the **visual top** — the oldest
+  /// loaded message — and never at the anchored bottom edge. [child] must be
+  /// always scrollable, so that a short thread can still be pulled.
+  Widget reversedRefresh({
+    Key? key,
+    required Future<void> Function() onRefresh,
+    required Widget child,
+  });
 }
 
 /// Éléments transitoires : dialogues et messages.

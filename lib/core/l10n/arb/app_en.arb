@@ -39,6 +39,7 @@
   "loading": "Loading…",
   "errorGeneric": "Something went wrong.",
   "errorNetwork": "Can't connect. Check your network and try again.",
+  "refreshFailed": "Couldn't refresh. Try again.",
   "unreadCount": "{count, plural, =0{No unread messages} =1{1 unread message} other{{count} unread messages}}",
   "@unreadCount": {
     "placeholders": {

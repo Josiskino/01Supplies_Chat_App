@@ -11,9 +11,11 @@ import '../../../config/theme/design_tokens.dart';
 import '../../../core/calls/agent_calls.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/utils/localization_helper.dart';
+import '../../../core/utils/refresh_gate.dart';
 import '../../../core/platform/platform_ui_provider.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
+import '../../widgets/common/platform_refresh.dart';
 import 'call_copy.dart';
 import 'widgets/agent_call_widgets.dart';
 import 'widgets/call_history_row.dart';
@@ -81,6 +83,13 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
   }
 
   bool _missedOnly = false;
+  final _refreshGate = RefreshGate();
+
+  /// The controller logs and swallows history failures itself; the list
+  /// simply keeps its previous rows.
+  Future<void> _refreshHistory() => _refreshGate.run(
+    () => ref.read(supportCallControllerProvider.notifier).refreshHistory(),
+  );
 
   @override
   void initState() {
@@ -176,32 +185,29 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
                         ? l10n.callErrorDisabled
                         : l10n.callsUnavailableMessage,
                   )
-                : RefreshIndicator(
-                    onRefresh: () => ref
-                        .read(supportCallControllerProvider.notifier)
-                        .refreshHistory(),
-                    child: entries.isEmpty
-                        ? ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            children: [
-                              EmptyStateWidget(
-                                icon: Iconsax.call,
-                                title: _missedOnly
-                                    ? l10n.callsMissedEmptyTitle
-                                    : l10n.callsEmptyTitle,
-                                message: l10n.callsEmptyMessageAgent,
-                              ),
-                            ],
-                          )
-                        : ListView.separated(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            // The shell announces its floating tab bar in the
-                            // bottom padding: the last row stays reachable.
-                            padding: EdgeInsets.only(
-                              bottom:
-                                  MediaQuery.paddingOf(context).bottom +
-                                  DesignTokens.spaceM,
-                            ),
+                : PlatformRefreshScrollView(
+                    onRefresh: _refreshHistory,
+                    slivers: [
+                      if (entries.isEmpty)
+                        SliverToBoxAdapter(
+                          child: EmptyStateWidget(
+                            icon: Iconsax.call,
+                            title: _missedOnly
+                                ? l10n.callsMissedEmptyTitle
+                                : l10n.callsEmptyTitle,
+                            message: l10n.callsEmptyMessageAgent,
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          // The shell announces its floating tab bar in the
+                          // bottom padding: the last row stays reachable.
+                          padding: EdgeInsets.only(
+                            bottom:
+                                MediaQuery.paddingOf(context).bottom +
+                                DesignTokens.spaceM,
+                          ),
+                          sliver: SliverList.separated(
                             itemCount: entries.length,
                             separatorBuilder: (context, _) => Divider(
                               height: DesignTokens.borderWidthThin,
@@ -235,6 +241,8 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
                               );
                             },
                           ),
+                        ),
+                    ],
                   ),
           ),
         ],

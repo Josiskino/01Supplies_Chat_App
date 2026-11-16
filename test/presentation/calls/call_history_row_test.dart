@@ -414,8 +414,13 @@ void main() {
         ),
       );
       await tester.pump();
-      final list = tester.widget<ListView>(find.byType(ListView));
-      expect(list.padding?.resolve(TextDirection.ltr).bottom, greaterThan(98));
+      final list = tester.widget<SliverPadding>(
+        find.ancestor(
+          of: find.byType(SliverList),
+          matching: find.byType(SliverPadding),
+        ),
+      );
+      expect(list.padding.resolve(TextDirection.ltr).bottom, greaterThan(98));
     });
   });
 }

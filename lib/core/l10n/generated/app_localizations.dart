@@ -332,6 +332,12 @@ abstract class AppLocalizations {
   /// **'Connexion impossible. Vérifiez votre réseau et réessayez.'**
   String get errorNetwork;
 
+  /// Erreur affichée quand un tirer-pour-actualiser échoue
+  ///
+  /// In fr, this message translates to:
+  /// **'Actualisation impossible. Réessayez.'**
+  String get refreshFailed;
+
   /// Nombre de messages non lus
   ///
   /// In fr, this message translates to:
