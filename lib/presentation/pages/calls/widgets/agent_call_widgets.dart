@@ -133,13 +133,19 @@ class AvailabilityToggle extends ConsumerWidget {
               ],
             ),
           ),
-          Switch.adaptive(
-            key: const ValueKey('availability-switch'),
-            value: availability == SupportAgentAvailability.available,
-            onChanged: selectable
-                ? (value) => setAgentAvailability(context, ref, value)
-                : null,
-          ),
+          // Design-system switch: native UISwitch / CupertinoSwitch on iOS,
+          // Material elsewhere. `Switch.adaptive` decides from the Material
+          // theme, which the iOS CupertinoApp does not configure.
+          ref
+              .watch(platformUiProvider)
+              .controls
+              .switchToggle(
+                key: const ValueKey('availability-switch'),
+                value: availability == SupportAgentAvailability.available,
+                onChanged: selectable
+                    ? (value) => setAgentAvailability(context, ref, value)
+                    : null,
+              ),
         ],
       ),
     );

@@ -243,7 +243,22 @@ class CupertinoControls implements PlatformControls {
     required bool value,
     required ValueChanged<bool>? onChanged,
   }) {
-    return AdaptiveSwitch(key: key, value: value, onChanged: onChanged);
+    // iOS 26+: the real UIKit UISwitch, green by default.
+    if (PlatformInfo.isIOS26OrHigher()) {
+      return AdaptiveSwitch(key: key, value: value, onChanged: onChanged);
+    }
+    // Older iOS, tests and FORCE_PLATFORM=ios: a CupertinoSwitch with the
+    // system green track. `AdaptiveSwitch` would tint it with the brand
+    // primary (and `applyThemeToAll` does the same on a bare CupertinoSwitch),
+    // which reads as a foreign, Material-looking control on iOS. The design
+    // system brands navigation and buttons, not the system switch.
+    return CupertinoSwitch(
+      key: key,
+      value: value,
+      onChanged: onChanged,
+      activeTrackColor: CupertinoColors.systemGreen,
+      applyTheme: false,
+    );
   }
 
   @override

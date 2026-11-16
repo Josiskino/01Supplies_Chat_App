@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -6,6 +7,8 @@ import 'package:supplies_calls/support.dart';
 import 'package:supplies_chat_app/core/calls/agent_calls.dart';
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations.dart';
 import 'package:supplies_chat_app/core/l10n/generated/app_localizations_fr.dart';
+import 'package:supplies_chat_app/core/platform/app_platform.dart';
+import 'package:supplies_chat_app/core/platform/platform_ui_provider.dart';
 import 'package:supplies_chat_app/presentation/pages/calls/call_copy.dart';
 import 'package:supplies_chat_app/presentation/pages/calls/widgets/agent_call_widgets.dart';
 
@@ -153,6 +156,54 @@ void main() {
     await tester.pumpAndSettle();
     // Still denied after the OS prompt: availability is not switched on.
     expect(actions.log, ['microphone']);
+  });
+
+  testWidgets('uses the iOS system switch (green CupertinoSwitch) on iOS', (
+    tester,
+  ) async {
+    final actions = FakeActions();
+    await tester.pumpWidget(
+      app([
+        appPlatformProvider.overrideWithValue(AppPlatform.ios),
+        agentCallsProvider.overrideWithValue(
+          const AgentCallsSnapshot(
+            identity: 'agent',
+            availability: SupportAgentAvailability.available,
+          ),
+        ),
+        agentCallActionsProvider.overrideWithValue(actions),
+      ], const AvailabilityToggle()),
+    );
+    final toggle = tester.widget<CupertinoSwitch>(
+      find.byKey(const ValueKey('availability-switch')),
+    );
+    expect(toggle.value, isTrue);
+    expect(toggle.activeTrackColor, CupertinoColors.systemGreen);
+    expect(toggle.applyTheme, isFalse);
+    expect(find.byType(Switch), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('availability-switch')));
+    await tester.pump();
+    expect(actions.log, ['mode:paused']);
+  });
+
+  testWidgets('keeps the Material switch on Android', (tester) async {
+    await tester.pumpWidget(
+      app([
+        appPlatformProvider.overrideWithValue(AppPlatform.android),
+        agentCallsProvider.overrideWithValue(
+          const AgentCallsSnapshot(
+            identity: 'agent',
+            availability: SupportAgentAvailability.available,
+          ),
+        ),
+        agentCallActionsProvider.overrideWithValue(FakeActions()),
+      ], const AvailabilityToggle()),
+    );
+    expect(
+      tester.widget(find.byKey(const ValueKey('availability-switch'))),
+      isA<Switch>(),
+    );
+    expect(find.byType(CupertinoSwitch), findsNothing);
   });
 
   testWidgets('busy and offline are shown but cannot be toggled', (
