@@ -1,4 +1,5 @@
 import '../auth/user_entity.dart';
+import 'message_attachment_entity.dart';
 
 /// Nature du contenu d'un message.
 enum MessageType {
@@ -48,6 +49,7 @@ class MessageEntity {
     this.replyToAuthor,
     this.attachments = const [],
     this.attachmentMediaIds = const [],
+    this.attachmentDetails = const [],
     this.reaction,
     this.isPending = false,
     this.isFailed = false,
@@ -73,6 +75,10 @@ class MessageEntity {
 
   /// Stable media IDs used to renew private attachment URLs on demand.
   final List<String> attachmentMediaIds;
+
+  /// Per-file metadata (name, size, MIME type), in the same order as the
+  /// server lists them. May be empty for older payloads that only carry URLs.
+  final List<MessageAttachmentEntity> attachmentDetails;
 
   /// Première réaction posée, celle que la bulle affiche.
   final String? reaction;
@@ -102,6 +108,7 @@ class MessageEntity {
     replyToAuthor: replyToAuthor,
     attachments: attachments,
     attachmentMediaIds: attachmentMediaIds,
+    attachmentDetails: attachmentDetails,
     reaction: reaction,
     isPending: isPending ?? this.isPending,
     isFailed: isFailed ?? this.isFailed,

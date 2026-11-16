@@ -491,4 +491,84 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get inboxRoleVendor => 'Vendor';
+
+  @override
+  String get chatAttachDocument => 'Document';
+
+  @override
+  String get chatAttachChooseImages => 'Choose images';
+
+  @override
+  String get chatAttachChooseDocument => 'Choose a document';
+
+  @override
+  String get chatDocumentTypeGroup => 'Documents';
+
+  @override
+  String get chatDocumentSave => 'Save a copy…';
+
+  @override
+  String get chatDocumentOpenAction => 'Open document';
+
+  @override
+  String chatDocumentDownloading(int percent) {
+    return 'Downloading… $percent%';
+  }
+
+  @override
+  String chatDocumentUploading(int percent) {
+    return 'Uploading… $percent%';
+  }
+
+  @override
+  String get chatDocumentUnavailable => 'File unavailable';
+
+  @override
+  String get chatDocumentRetry => 'Retry';
+
+  @override
+  String get chatDocumentDownloadFailed =>
+      'Download failed. Check your connection and try again.';
+
+  @override
+  String get chatDocumentExpired => 'The file link has expired. Try again.';
+
+  @override
+  String get chatDocumentNoViewer =>
+      'No app on this device can open this file.';
+
+  @override
+  String get chatDocumentStorageFailed =>
+      'The file could not be saved on this device.';
+
+  @override
+  String get chatDocumentSaved => 'Copy saved.';
+
+  @override
+  String chatDocumentTooLarge(int max) {
+    return 'This file is larger than $max MB, the maximum allowed size.';
+  }
+
+  @override
+  String get chatDocumentEmpty => 'This file is empty.';
+
+  @override
+  String get chatDocumentUnsupported =>
+      'Unsupported format. Accepted formats: PDF, Word, Excel, PowerPoint, TXT and CSV.';
+
+  @override
+  String get chatDocumentSendFailed =>
+      'The document could not be sent. Try again.';
+
+  @override
+  String get chatDocumentPickFailed => 'Files cannot be accessed.';
+
+  @override
+  String get chatFileSizeBytes => 'B';
+
+  @override
+  String get chatFileSizeKb => 'KB';
+
+  @override
+  String get chatFileSizeMb => 'MB';
 }

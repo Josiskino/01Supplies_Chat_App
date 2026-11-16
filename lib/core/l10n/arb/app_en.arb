@@ -216,5 +216,49 @@
   "inboxSearchHint": "Search conversations",
   "inboxRoleClient": "Customer",
   "inboxRoleDelivery": "Driver",
-  "inboxRoleVendor": "Vendor"
+  "inboxRoleVendor": "Vendor",
+  "chatAttachDocument": "Document",
+  "chatAttachChooseImages": "Choose images",
+  "chatAttachChooseDocument": "Choose a document",
+  "chatDocumentTypeGroup": "Documents",
+  "chatDocumentSave": "Save a copy…",
+  "chatDocumentOpenAction": "Open document",
+  "chatDocumentDownloading": "Downloading… {percent}%",
+  "@chatDocumentDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDocumentUploading": "Uploading… {percent}%",
+  "@chatDocumentUploading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDocumentUnavailable": "File unavailable",
+  "chatDocumentRetry": "Retry",
+  "chatDocumentDownloadFailed": "Download failed. Check your connection and try again.",
+  "chatDocumentExpired": "The file link has expired. Try again.",
+  "chatDocumentNoViewer": "No app on this device can open this file.",
+  "chatDocumentStorageFailed": "The file could not be saved on this device.",
+  "chatDocumentSaved": "Copy saved.",
+  "chatDocumentTooLarge": "This file is larger than {max} MB, the maximum allowed size.",
+  "@chatDocumentTooLarge": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "chatDocumentEmpty": "This file is empty.",
+  "chatDocumentUnsupported": "Unsupported format. Accepted formats: PDF, Word, Excel, PowerPoint, TXT and CSV.",
+  "chatDocumentSendFailed": "The document could not be sent. Try again.",
+  "chatDocumentPickFailed": "Files cannot be accessed.",
+  "chatFileSizeBytes": "B",
+  "chatFileSizeKb": "KB",
+  "chatFileSizeMb": "MB"
 }

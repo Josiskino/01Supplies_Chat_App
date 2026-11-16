@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import '../../../domain/entity/auth/user_entity.dart';
 import '../../../domain/entity/auth/user_role.dart';
 import '../../../core/utils/chat_date_formatter.dart';
+import '../../../domain/entity/messaging/message_attachment_entity.dart';
 import '../../../domain/entity/messaging/message_entity.dart';
 import '../../../domain/entity/messaging/conversation_list_entry.dart';
 
@@ -177,6 +178,7 @@ class ChatMessageData {
     this.replyTo,
     this.voice,
     this.attachments = const [],
+    this.documents = const [],
     this.status = MessageStatus.read,
     this.isTyping = false,
   }) : isOutgoing = isOutgoing ?? isMine;
@@ -229,8 +231,13 @@ class ChatMessageData {
   /// affiché doit refléter ce qui sera réellement feuilletable.
   final List<String> attachments;
 
+  /// Non-image files (PDF, Office documents, videos…), shown as document
+  /// tiles that download and open the file instead of the photo viewer.
+  final List<ChatDocumentData> documents;
+
   bool get isVoice => voice != null;
   bool get hasAttachments => attachments.isNotEmpty;
+  bool get hasDocuments => documents.isNotEmpty;
 
   /// Projette un message de l'API dans le modèle de vue du fil.
   ///
@@ -248,12 +255,35 @@ class ChatMessageData {
     // Les clients envoient leurs images avec le nom du fichier pour contenu :
     // l'afficher en légende donne « scaled_1002322126.jpg » sous la photo, ce
     // qui n'apprend rien et ressemble à un défaut.
+    final isVoice = message.type == MessageType.audio;
+    // Older payloads only carry URLs: classify them from their extension.
+    final details = message.attachmentDetails.isNotEmpty
+        ? message.attachmentDetails
+        : [
+            for (final url in message.attachments)
+              MessageAttachmentEntity(url: url),
+          ];
+    final images = isVoice
+        ? const <String>[]
+        : [
+            for (final file in details)
+              if (file.isImage && !file.unavailable) file.url,
+          ];
+    final documents = isVoice
+        ? const <ChatDocumentData>[]
+        : [
+            for (final file in details)
+              if (!file.isImage) ChatDocumentData.fromAttachment(file),
+          ];
+
+    final content = message.content.trim();
     final looksLikeFileName =
-        message.type != MessageType.text &&
-        RegExp(
-          r'\.(jpe?g|png|gif|webp|heic|mp4|mov|m4a|aac|wav|pdf)$',
-          caseSensitive: false,
-        ).hasMatch(message.content.trim());
+        (message.type != MessageType.text || details.isNotEmpty) &&
+        (RegExp(
+              r'\.(jpe?g|png|gif|webp|heic|mp4|mov|m4a|aac|wav|pdf|docx?|xlsx?|pptx?|csv|txt)$',
+              caseSensitive: false,
+            ).hasMatch(content) ||
+            documents.any((d) => d.name == content));
 
     final isMine = message.isMine(currentUserId);
 
@@ -286,9 +316,8 @@ class ChatMessageData {
                   : (message.replyToAuthor ?? ''),
               text: message.replyToContent ?? '',
             ),
-      attachments: message.type == MessageType.audio
-          ? const []
-          : message.attachments,
+      attachments: images,
+      documents: documents,
       // Une note vocale se reconnaît à son type, pas à sa pièce jointe : un
       // message audio rendu comme du texte n'afficherait qu'une bulle vide.
       //
@@ -313,6 +342,42 @@ class ChatMessageData {
             },
     );
   }
+}
+
+/// A document attached to a message, as the thread displays it.
+class ChatDocumentData {
+  const ChatDocumentData({
+    required this.name,
+    required this.source,
+    this.mediaId,
+    this.sizeBytes,
+    this.mimeType,
+    this.unavailable = false,
+  });
+
+  factory ChatDocumentData.fromAttachment(MessageAttachmentEntity file) =>
+      ChatDocumentData(
+        name: file.displayName,
+        source: file.url,
+        mediaId: file.mediaId,
+        sizeBytes: file.size,
+        mimeType: file.mimeType,
+        unavailable: file.unavailable || file.url.isEmpty,
+      );
+
+  /// Original file name, as chosen by the sender.
+  final String name;
+
+  /// Signed remote URL, or a local path while the file uploads.
+  final String source;
+
+  /// Media id used to renew an expired signed URL.
+  final String? mediaId;
+  final int? sizeBytes;
+  final String? mimeType;
+
+  /// The server cannot serve this file any more.
+  final bool unavailable;
 }
 
 /// Étapes d'acheminement d'un message émis.

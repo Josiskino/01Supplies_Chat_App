@@ -1,3 +1,4 @@
+import '../../../domain/entity/messaging/message_attachment_entity.dart';
 import '../../../domain/entity/messaging/message_entity.dart';
 import '../auth/user_model.dart';
 
@@ -16,6 +17,7 @@ class MessageModel {
     this.replyToMessage,
     this.attachments = const [],
     this.attachmentMediaIds = const [],
+    this.attachmentDetails = const [],
     this.reactions = const [],
   });
 
@@ -31,6 +33,7 @@ class MessageModel {
   final Map<String, dynamic>? replyToMessage;
   final List<String> attachments;
   final List<String> attachmentMediaIds;
+  final List<MessageAttachmentEntity> attachmentDetails;
   final List<Map<String, dynamic>> reactions;
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
@@ -49,6 +52,7 @@ class MessageModel {
       replyToMessage: (json['replyToMessage'] as Map?)?.cast<String, dynamic>(),
       attachments: _parseAttachments(json),
       attachmentMediaIds: _parseAttachmentMediaIds(json),
+      attachmentDetails: parseAttachmentDetails(json),
       reactions:
           (json['reactions'] as List?)
               ?.whereType<Map>()
@@ -79,6 +83,94 @@ class MessageModel {
       }
     }
     return urls.toList();
+  }
+
+  /// Merges `attachmentMedia` (resolved media assets) and the legacy
+  /// `attachments` objects into one description per file.
+  ///
+  /// Without this metadata every attachment was treated as a photo: a PDF was
+  /// handed to the image decoder, rendered as a broken thumbnail, and its tap
+  /// opened the photo viewer instead of the document.
+  static List<MessageAttachmentEntity> parseAttachmentDetails(
+    Map<String, dynamic> json,
+  ) {
+    final byUrl = <String, MessageAttachmentEntity>{};
+    final unavailable = <MessageAttachmentEntity>[];
+
+    int? asInt(Object? value) => switch (value) {
+      num() => value.toInt(),
+      String() => int.tryParse(value),
+      _ => null,
+    };
+    String? asText(Object? value) {
+      final text = value?.toString().trim() ?? '';
+      return text.isEmpty ? null : text;
+    }
+
+    // The server fills a missing legacy `name` with the media id: an id is
+    // not a file name, the URL file name reads better.
+    String? legacyName(Map item, String? mediaId) {
+      final name = asText(item['name'] ?? item['originalName']);
+      final id = mediaId ?? asText(item['id'] ?? item['_id']);
+      return name != null && name == id ? null : name;
+    }
+
+    final media = json['attachmentMedia'];
+    if (media is List) {
+      for (final item in media.whereType<Map>()) {
+        final id = asText(item['id'] ?? item['_id'] ?? item['mediaId']);
+        if (item['unavailable'] == true) {
+          unavailable.add(
+            MessageAttachmentEntity(
+              url: '',
+              mediaId: id,
+              mimeType: asText(item['mimeType']),
+              fileType: asText(item['fileType']),
+              unavailable: true,
+            ),
+          );
+          continue;
+        }
+        final url = asText(item['url'] ?? item['secureUrl'] ?? item['path']);
+        if (url == null) continue;
+        byUrl[url] = MessageAttachmentEntity(
+          url: url,
+          mediaId: id,
+          name: asText(item['originalName'] ?? item['name']),
+          size: asInt(item['size']),
+          mimeType: asText(item['mimeType']),
+          fileType: asText(item['fileType']),
+        );
+      }
+    }
+
+    final legacy = json['attachments'];
+    if (legacy is List) {
+      for (final item in legacy) {
+        if (item is String && item.isNotEmpty) {
+          byUrl.putIfAbsent(item, () => MessageAttachmentEntity(url: item));
+        } else if (item is Map) {
+          final url = asText(item['url'] ?? item['secureUrl'] ?? item['path']);
+          if (url == null) continue;
+          final known = byUrl[url];
+          // Legacy `type` holds a MIME type (`application/pdf`).
+          final legacyType = asText(item['type'] ?? item['mimeType']);
+          byUrl[url] = MessageAttachmentEntity(
+            url: url,
+            mediaId: known?.mediaId ?? asText(item['id'] ?? item['_id']),
+            name: known?.name ?? legacyName(item, known?.mediaId),
+            size: known?.size ?? asInt(item['size']),
+            mimeType:
+                known?.mimeType ??
+                (legacyType != null && legacyType.contains('/')
+                    ? legacyType
+                    : null),
+            fileType: known?.fileType,
+          );
+        }
+      }
+    }
+    return [...byUrl.values, ...unavailable];
   }
 
   static List<String> _parseAttachmentMediaIds(Map<String, dynamic> json) {
@@ -120,6 +212,7 @@ class MessageModel {
           : UserModel.fromJson(replyAuthor).toEntity().displayName,
       attachments: attachments,
       attachmentMediaIds: attachmentMediaIds,
+      attachmentDetails: attachmentDetails,
       // Une seule réaction est affichée par la bulle : la première posée.
       reaction: reactions.isEmpty ? null : reactions.first['emoji']?.toString(),
     );

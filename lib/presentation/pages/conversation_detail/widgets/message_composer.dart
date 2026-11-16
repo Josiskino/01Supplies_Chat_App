@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:file_selector/file_selector.dart' as files;
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:iconsax/iconsax.dart';
@@ -7,6 +8,8 @@ import 'package:iconsax/iconsax.dart';
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../../core/platform/platform_ui_provider.dart';
+import '../../../../core/utils/document_attachment_policy.dart';
+import '../../../../core/utils/localization_helper.dart';
 import '../../../shared/models/conversation_view_data.dart';
 
 /// Zone de saisie d'un message, présentation mobile.
@@ -23,6 +26,7 @@ class MessageComposer extends ConsumerStatefulWidget {
     this.onCancelReply,
     this.onRecordVoice,
     this.onPickImages,
+    this.onPickDocument,
     this.onTyping,
     this.initialText = '',
     this.onDraftChanged,
@@ -46,6 +50,9 @@ class MessageComposer extends ConsumerStatefulWidget {
 
   /// Envoie des images choisies dans la photothèque ou prises à l'instant.
   final ValueChanged<List<String>>? onPickImages;
+
+  /// Sends a document (PDF, Office file…) chosen in the file picker.
+  final ValueChanged<XFile>? onPickDocument;
 
   @override
   ConsumerState<MessageComposer> createState() => _MessageComposerState();
@@ -147,17 +154,25 @@ class _MessageComposerState extends ConsumerState<MessageComposer>
   Future<void> _openAttachments(BuildContext context) async {
     final ui = ref.read(platformUiProvider);
     final overlays = ui.overlays;
-    // Seules les deux premières entrées sont branchées : proposer « Document »
-    // ou « Position » sans les servir ferait chercher une panne là où il n'y a
-    // qu'une fonctionnalité absente.
+    final l10n = LocalizationHelper.of(context);
+    final isMobile = ui.platform.isMobile;
+    final canSendDocuments = widget.onPickDocument != null;
+    final labels = [
+      if (isMobile) ...['Photothèque', 'Prendre une photo'],
+      if (!isMobile) l10n.chatAttachChooseImages,
+      if (canSendDocuments)
+        isMobile ? l10n.chatAttachDocument : l10n.chatAttachChooseDocument,
+    ];
     final choice = await overlays.pickOption(
       context: context,
       title: 'Joindre',
-      labels: ui.platform.isMobile
-          ? const ['Photothèque', 'Prendre une photo']
-          : const ['Choisir des images'],
+      labels: labels,
     );
     if (choice == null || !context.mounted) return;
+    if (canSendDocuments && choice == labels.length - 1) {
+      await _pickDocument(context);
+      return;
+    }
 
     final picker = ImagePicker();
     try {
@@ -179,6 +194,35 @@ class _MessageComposerState extends ConsumerState<MessageComposer>
       overlays.notify(
         context: context,
         message: 'Impossible d’accéder aux photos.',
+        isError: true,
+      );
+    }
+  }
+
+  /// Opens the system file picker restricted to the formats the media
+  /// service accepts.
+  Future<void> _pickDocument(BuildContext context) async {
+    final overlays = ref.read(platformUiProvider).overlays;
+    final l10n = LocalizationHelper.of(context);
+    try {
+      final file = await files.openFile(
+        acceptedTypeGroups: [
+          files.XTypeGroup(
+            label: l10n.chatDocumentTypeGroup,
+            extensions: DocumentAttachmentPolicy.extensions,
+            mimeTypes: DocumentAttachmentPolicy.mimeTypes.values.toList(),
+            uniformTypeIdentifiers:
+                DocumentAttachmentPolicy.uniformTypeIdentifiers,
+          ),
+        ],
+      );
+      if (!mounted || file == null) return;
+      widget.onPickDocument?.call(file);
+    } catch (_) {
+      if (!context.mounted) return;
+      overlays.notify(
+        context: context,
+        message: l10n.chatDocumentPickFailed,
         isError: true,
       );
     }

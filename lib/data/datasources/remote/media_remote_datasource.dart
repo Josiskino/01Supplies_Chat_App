@@ -19,7 +19,10 @@ class MediaRemoteDataSource implements MediaDataSourceContract {
       );
 
   @override
-  Future<ApiResult<MediaUploadModel>> upload(String filePath) {
+  Future<ApiResult<MediaUploadModel>> upload(
+    String filePath, {
+    void Function(int sent, int total)? onProgress,
+  }) {
     return _client.uploadSingleFile<MediaUploadModel>(
       path: ApiEndpoints.mediaUpload,
       filePath: filePath,
@@ -27,6 +30,7 @@ class MediaRemoteDataSource implements MediaDataSourceContract {
       // fichier déposé sans lui serait rangé comme média de catalogue, visible
       // là où il n'a rien à faire.
       additionalData: const {'purpose': 'message_attachment'},
+      onSendProgress: onProgress,
       // `uploadSingleFile` n'expose pas de `dataKey` : le parseur reçoit
       // l'enveloppe `{statusCode, success, data}` entière. Sans cette
       // extraction, l'identifiant du média restait vide et le message partait

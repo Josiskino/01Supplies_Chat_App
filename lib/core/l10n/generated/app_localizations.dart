@@ -961,6 +961,144 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Vendeur'**
   String get inboxRoleVendor;
+
+  /// No description provided for @chatAttachDocument.
+  ///
+  /// In fr, this message translates to:
+  /// **'Document'**
+  String get chatAttachDocument;
+
+  /// No description provided for @chatAttachChooseImages.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisir des images'**
+  String get chatAttachChooseImages;
+
+  /// No description provided for @chatAttachChooseDocument.
+  ///
+  /// In fr, this message translates to:
+  /// **'Choisir un document'**
+  String get chatAttachChooseDocument;
+
+  /// No description provided for @chatDocumentTypeGroup.
+  ///
+  /// In fr, this message translates to:
+  /// **'Documents'**
+  String get chatDocumentTypeGroup;
+
+  /// No description provided for @chatDocumentSave.
+  ///
+  /// In fr, this message translates to:
+  /// **'Enregistrer une copie…'**
+  String get chatDocumentSave;
+
+  /// No description provided for @chatDocumentOpenAction.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ouvrir le document'**
+  String get chatDocumentOpenAction;
+
+  /// No description provided for @chatDocumentDownloading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Téléchargement… {percent} %'**
+  String chatDocumentDownloading(int percent);
+
+  /// No description provided for @chatDocumentUploading.
+  ///
+  /// In fr, this message translates to:
+  /// **'Envoi… {percent} %'**
+  String chatDocumentUploading(int percent);
+
+  /// No description provided for @chatDocumentUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Fichier indisponible'**
+  String get chatDocumentUnavailable;
+
+  /// No description provided for @chatDocumentRetry.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réessayer'**
+  String get chatDocumentRetry;
+
+  /// No description provided for @chatDocumentDownloadFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Téléchargement impossible. Vérifiez votre connexion et réessayez.'**
+  String get chatDocumentDownloadFailed;
+
+  /// No description provided for @chatDocumentExpired.
+  ///
+  /// In fr, this message translates to:
+  /// **'Le lien du fichier a expiré. Réessayez.'**
+  String get chatDocumentExpired;
+
+  /// No description provided for @chatDocumentNoViewer.
+  ///
+  /// In fr, this message translates to:
+  /// **'Aucune application ne peut ouvrir ce fichier.'**
+  String get chatDocumentNoViewer;
+
+  /// No description provided for @chatDocumentStorageFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’enregistrer le fichier sur cet appareil.'**
+  String get chatDocumentStorageFailed;
+
+  /// No description provided for @chatDocumentSaved.
+  ///
+  /// In fr, this message translates to:
+  /// **'Copie enregistrée.'**
+  String get chatDocumentSaved;
+
+  /// No description provided for @chatDocumentTooLarge.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce fichier dépasse {max} Mo, la taille maximale autorisée.'**
+  String chatDocumentTooLarge(int max);
+
+  /// No description provided for @chatDocumentEmpty.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce fichier est vide.'**
+  String get chatDocumentEmpty;
+
+  /// No description provided for @chatDocumentUnsupported.
+  ///
+  /// In fr, this message translates to:
+  /// **'Format non pris en charge. Formats acceptés : PDF, Word, Excel, PowerPoint, TXT et CSV.'**
+  String get chatDocumentUnsupported;
+
+  /// No description provided for @chatDocumentSendFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Envoi du document impossible. Réessayez.'**
+  String get chatDocumentSendFailed;
+
+  /// No description provided for @chatDocumentPickFailed.
+  ///
+  /// In fr, this message translates to:
+  /// **'Impossible d’accéder aux fichiers.'**
+  String get chatDocumentPickFailed;
+
+  /// No description provided for @chatFileSizeBytes.
+  ///
+  /// In fr, this message translates to:
+  /// **'o'**
+  String get chatFileSizeBytes;
+
+  /// No description provided for @chatFileSizeKb.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ko'**
+  String get chatFileSizeKb;
+
+  /// No description provided for @chatFileSizeMb.
+  ///
+  /// In fr, this message translates to:
+  /// **'Mo'**
+  String get chatFileSizeMb;
 }
 
 class _AppLocalizationsDelegate

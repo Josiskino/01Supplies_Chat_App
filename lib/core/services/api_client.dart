@@ -214,6 +214,7 @@ class DioClient implements ApiClientInterface {
     Map<String, dynamic>? additionalData,
     Map<String, String>? headers,
     HttpMethod method = HttpMethod.post,
+    void Function(int sent, int total)? onSendProgress,
   }) async {
     final file = await _createSingleFileMultipart(filePath);
 
@@ -232,6 +233,7 @@ class DioClient implements ApiClientInterface {
       fromJson: fromJson,
       headers: headers,
       method: method,
+      onSendProgress: onSendProgress,
     );
   }
 
@@ -278,6 +280,7 @@ class DioClient implements ApiClientInterface {
     required JsonParser<T> fromJson,
     Map<String, String>? headers,
     HttpMethod method = HttpMethod.post,
+    void Function(int sent, int total)? onSendProgress,
   }) async {
     final logger = AppLogger();
 
@@ -296,9 +299,24 @@ class DioClient implements ApiClientInterface {
       final options = _defaultOptions('multipart/form-data', headers);
 
       final response = await switch (method) {
-        HttpMethod.post => _dio.post(path, data: formData, options: options),
-        HttpMethod.put => _dio.put(path, data: formData, options: options),
-        HttpMethod.patch => _dio.patch(path, data: formData, options: options),
+        HttpMethod.post => _dio.post(
+          path,
+          data: formData,
+          options: options,
+          onSendProgress: onSendProgress,
+        ),
+        HttpMethod.put => _dio.put(
+          path,
+          data: formData,
+          options: options,
+          onSendProgress: onSendProgress,
+        ),
+        HttpMethod.patch => _dio.patch(
+          path,
+          data: formData,
+          options: options,
+          onSendProgress: onSendProgress,
+        ),
         _ => throw ArgumentError(
           'Method ${method.name} is not allowed for form data upload',
         ),
