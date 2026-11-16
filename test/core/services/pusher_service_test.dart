@@ -228,4 +228,86 @@ void main() {
     unawaited(service.disconnect());
     await tester.pump();
   });
+
+  group('ensureAlive (app resume / foreground push)', () {
+    test('a ping answered by a pong keeps the socket', () async {
+      final (transport, service, states) = await connected();
+      states.clear();
+      service.ensureAlive(probeTimeout: const Duration(milliseconds: 20));
+      expect(transport.sent.last['event'], 'pusher:ping');
+      transport.receive('pusher:pong', {});
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(service.isConnected, isTrue);
+      expect(states, isEmpty);
+      await service.disconnect();
+    });
+
+    test('a half-open socket is replaced at once, without back-off', () async {
+      final transports = <FakeTransport>[];
+      final service = PusherService(
+        transportFactory: () {
+          final transport = FakeTransport();
+          transports.add(transport);
+          return transport;
+        },
+        retryDelay: const Duration(minutes: 5),
+      );
+      await service.connect(
+        apiKey: 'key',
+        cluster: 'eu',
+        authorizer: (_, _) async => {'auth': 'signed'},
+      );
+      transports.single.receive(
+        'pusher:connection_established',
+        jsonEncode({'socket_id': '1.1', 'activity_timeout': 120}),
+      );
+      expect(service.isConnected, isTrue);
+      service.ensureAlive(probeTimeout: const Duration(milliseconds: 10));
+      // Repeated signals while a probe is pending send a single ping.
+      service.ensureAlive(probeTimeout: const Duration(milliseconds: 10));
+      expect(
+        transports.single.sent.where((f) => f['event'] == 'pusher:ping'),
+        hasLength(1),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(transports, hasLength(2));
+      expect(service.connectionState, RealtimeConnectionState.connecting);
+      await service.disconnect();
+    });
+
+    test('a pending reconnect skips the remaining back-off', () async {
+      final transports = <FakeTransport>[];
+      final service = PusherService(
+        transportFactory: () {
+          final transport = FakeTransport();
+          transports.add(transport);
+          return transport;
+        },
+        retryDelay: const Duration(minutes: 5),
+      );
+      await service.connect(
+        apiKey: 'key',
+        cluster: 'eu',
+        authorizer: (_, _) async => {'auth': 'signed'},
+      );
+      transports.single.receive(
+        'pusher:connection_established',
+        jsonEncode({'socket_id': '1.1'}),
+      );
+      await transports.single.controller.close();
+      expect(service.connectionState, RealtimeConnectionState.reconnecting);
+      service.ensureAlive();
+      await Future<void>.delayed(Duration.zero);
+      expect(transports, hasLength(2));
+      await service.disconnect();
+    });
+
+    test('does nothing once disconnected on purpose', () async {
+      final (transport, service, _) = await connected();
+      await service.disconnect();
+      transport.sent.clear();
+      service.ensureAlive();
+      expect(transport.sent, isEmpty);
+    });
+  });
 }

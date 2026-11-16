@@ -13,6 +13,7 @@ import '../providers/messaging/support_provider.dart';
 import '../providers/realtime/realtime_provider.dart';
 import '../providers/auth/auth_status_provider.dart';
 import '../auth/auth_gate.dart';
+import '../utils/app_logger.dart';
 import 'pusher_service.dart';
 
 class ConversationRealtimeEvent {
@@ -73,6 +74,7 @@ class MessageEventsService with WidgetsBindingObserver {
   final Ref _ref;
   final PusherService _pusher;
   final Duration queueRefreshInterval;
+  final _logger = AppLogger();
 
   /// Conversation events that can change an inbox row (order, preview,
   /// existence). `message.new` is also applied locally at once through
@@ -108,6 +110,15 @@ class MessageEventsService with WidgetsBindingObserver {
   final _presence = StreamController<ConversationPresence>.broadcast();
   final _incoming = StreamController<IncomingMessage>.broadcast();
   final _incomingSeen = <String>{};
+
+  /// IDs of `message.new` events already received through the socket. A push
+  /// for one of them needs no catch-up fetch.
+  final _socketMessages = <String>{};
+
+  /// Conversation channels confirmed at least once in this session. A later
+  /// confirmation is a resubscription after a reconnect, whose gap may hide
+  /// messages.
+  final _confirmed = <String>{};
   final _catchUp = StreamController<String>.broadcast();
   final _typingChanges = StreamController<ConversationTyping>.broadcast();
   final Map<String, Map<String, String>> _typers = {};
@@ -127,7 +138,10 @@ class MessageEventsService with WidgetsBindingObserver {
   bool get isForeground =>
       WidgetsBinding.instance.lifecycleState == null ||
       WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+  static const _subscriptionSucceeded =
+      'pusher_internal:subscription_succeeded';
   static const _convEvents = [
+    _subscriptionSucceeded,
     'message.new',
     'message.updated',
     'message.deleted',
@@ -355,6 +369,7 @@ class MessageEventsService with WidgetsBindingObserver {
       return;
     }
     final handlers = _bindings.remove(id);
+    _confirmed.remove(id);
     if (handlers == null) {
       return;
     }
@@ -372,6 +387,17 @@ class MessageEventsService with WidgetsBindingObserver {
     String name,
     Map<String, dynamic> payload,
   ) {
+    if (name == _subscriptionSucceeded) {
+      // Messages sent while the channel was down never reach the socket. The
+      // connection-level catch-up runs before the channel authorization ends,
+      // so the thread is refetched again once the subscription is back.
+      if (!_confirmed.add(id)) {
+        _logger.debug('Resubscribed to $id, catching up', feature: 'Realtime');
+        _catchUp.add(id);
+        _threadEvents.add(id);
+      }
+      return;
+    }
     final event = ConversationRealtimeEvent(id, name, payload);
     _events.add(event);
     if (name == 'client-typing') {
@@ -379,6 +405,10 @@ class MessageEventsService with WidgetsBindingObserver {
       return;
     }
     if (name == 'message.new') {
+      _remember(
+        _socketMessages,
+        (event.data['messageId'] ?? event.data['id'])?.toString(),
+      );
       _removeTyper(id, event.data['senderId']?.toString());
       _queueDelivered(id, event.data);
       _ref
@@ -433,15 +463,34 @@ class MessageEventsService with WidgetsBindingObserver {
   /// Account notifications also reach support observers who cannot subscribe
   /// to the private conversation until they claim it. Share deduplication with
   /// conversation events and FCM so a single message produces one banner.
-  void handleNotification(Map<String, dynamic> payload) {
+  ///
+  /// The backend triggers the Pusher event before it queues the push, so a
+  /// push for a message the socket has not delivered means the socket missed
+  /// it (half-open after an iOS suspension, channel not subscribed, observer
+  /// without channel access). The thread is then refetched at once instead of
+  /// waiting for a reconnect, and a push from FCM ([viaPush]) also probes the
+  /// socket.
+  void handleNotification(
+    Map<String, dynamic> payload, {
+    bool viaPush = false,
+  }) {
     if (_disposed || _account == null || !isForeground) return;
     final data = ConversationRealtimeEvent.normalize(payload);
     if (data['type'] != 'message.new') return;
     final id = data['conversationId']?.toString();
-    if (id == null ||
-        id.isEmpty ||
-        data['senderId'] == _account ||
-        id == _ref.read(visibleConversationProvider)) {
+    if (id == null || id.isEmpty || data['senderId'] == _account) {
+      return;
+    }
+    final messageId = data['messageId']?.toString();
+    if (messageId == null || !_socketMessages.contains(messageId)) {
+      _logger.debug(
+        'Message $messageId not seen on the socket, catching up $id',
+        feature: 'Realtime',
+      );
+      if (viaPush) _pusher.ensureAlive();
+      _threadEvents.add(id);
+    }
+    if (id == _ref.read(visibleConversationProvider)) {
       return;
     }
     final observer = data['visibility'] == 'observer';
@@ -462,6 +511,11 @@ class MessageEventsService with WidgetsBindingObserver {
                   .toString(),
       ),
     );
+  }
+
+  static void _remember(Set<String> ids, String? id) {
+    if (id == null || id.isEmpty || !ids.add(id)) return;
+    if (ids.length > 256) ids.remove(ids.first);
   }
 
   void _emitIncoming(String? messageId, IncomingMessage message) {
@@ -646,6 +700,9 @@ class MessageEventsService with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // The socket may have died while the app was suspended: probe it now
+      // rather than at the next heartbeat, then refetch what may be missing.
+      _pusher.ensureAlive();
       _catchUpAll();
       for (final id in _foreground.keys.toList()) {
         unawaited(_bindPresence(id, _generation));
@@ -782,6 +839,8 @@ class MessageEventsService with WidgetsBindingObserver {
 
   void _clearLocal() {
     _incomingSeen.clear();
+    _socketMessages.clear();
+    _confirmed.clear();
     _queueRefreshTimer?.cancel();
     _deliveryTimer?.cancel();
     _pendingDelivered.clear();
