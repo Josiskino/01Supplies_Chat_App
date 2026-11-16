@@ -16,7 +16,11 @@ abstract interface class AudioPlaybackService {
 }
 
 class DeviceAudioPlaybackService implements AudioPlaybackService {
-  final AudioPlayer _player = AudioPlayer();
+  /// [player] is for tests; a real one is created otherwise.
+  DeviceAudioPlaybackService({AudioPlayer? player})
+    : _player = player ?? AudioPlayer();
+
+  final AudioPlayer _player;
   String? _source;
 
   /// Start position chosen before the source was loaded.
@@ -45,8 +49,17 @@ class DeviceAudioPlaybackService implements AudioPlaybackService {
       remote ? UrlSource(source) : DeviceFileSource(source),
       position: startAt != null && startAt > Duration.zero ? startAt : null,
     );
+    // A position picked while the note was loading lands now that it plays.
+    final pickedWhileLoading = _startAt;
     _startAt = null;
     _source = source;
+    if (pickedWhileLoading != null && pickedWhileLoading != startAt) {
+      try {
+        await _player.seek(pickedWhileLoading);
+      } catch (_) {
+        // Not blocking: playback goes on from where it started.
+      }
+    }
   }
 
   @override
