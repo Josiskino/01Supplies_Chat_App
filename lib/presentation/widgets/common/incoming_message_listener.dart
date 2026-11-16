@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../config/router/app_router.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/constants/app_ui_route.dart';
+import '../../../core/providers/messaging/support_provider.dart';
 import '../../../core/providers/realtime/push_provider.dart';
 import '../../../core/providers/realtime/realtime_provider.dart';
 import '../../../core/services/message_events_service.dart';
+import '../../../core/utils/app_logger.dart';
+import 'push_navigation.dart';
 
 /// Provides message banners for both Material and Cupertino application roots.
 class MessagingApplicationLayer extends StatelessWidget {
@@ -50,19 +56,72 @@ class _IncomingMessageListenerState
       _show(message);
     });
 
-    // Le tap sur une notification système ouvre directement la conversation.
+    // Tapping a system notification opens its conversation.
     ref.listen<AsyncValue<PushRoute>>(pushRouteProvider, (_, next) {
       final route = next.value;
       if (route == null || !mounted) return;
-      ref
-          .read(appRouterProvider)
-          .push(
-            AppUiRoute.conversationDetailPath(route.conversationId),
-            extra: {'contactName': route.title},
-          );
+      _pendingPush = route;
+      _openPendingPush();
     });
 
     return widget.child;
+  }
+
+  /// Latest tapped notification not yet opened. Only the last tap matters.
+  PushRoute? _pendingPush;
+  GoRouter? _waitingRouter;
+
+  @override
+  void dispose() {
+    _stopWaiting();
+    super.dispose();
+  }
+
+  void _stopWaiting() {
+    _waitingRouter?.routerDelegate.removeListener(_onRouteChanged);
+    _waitingRouter = null;
+  }
+
+  // Never navigate from inside the delegate's own notification.
+  void _onRouteChanged() => scheduleMicrotask(_openPendingPush);
+
+  void _openPendingPush() {
+    final route = _pendingPush;
+    if (route == null || !mounted) return;
+    final router = ref.read(appRouterProvider);
+    if (!canOpenPushedConversation(currentRouterLocation(router))) {
+      // Cold start: the session or the splash is not done yet. Retry on the
+      // next route change (splash -> main).
+      if (_waitingRouter != router) {
+        _stopWaiting();
+        _waitingRouter = router..routerDelegate.addListener(_onRouteChanged);
+      }
+      return;
+    }
+    _pendingPush = null;
+    _stopWaiting();
+
+    final inbox = ref.exists(supportQueueProvider)
+        ? ref.read(supportQueueProvider).value
+        : null;
+    final conversationId = resolvePushConversationId(route, inbox ?? const []);
+    if (conversationId == null) {
+      AppLogger().warning(
+        'Opened notification names no reachable conversation',
+        feature: 'Push',
+      );
+      return;
+    }
+    // A thread missing from the loaded inbox (new direct conversation, ticket
+    // created since the last fetch) still opens: the screen loads it by id.
+    // The refresh fills its header and role once the inbox knows it.
+    if (inbox != null &&
+        !inbox.any((e) => e.conversationId == conversationId)) {
+      ref.read(supportQueueProvider.notifier).requestRefresh();
+    }
+    final path = AppUiRoute.conversationDetailPath(conversationId);
+    if (currentRouterLocation(router) == path) return;
+    unawaited(router.push(path, extra: {'contactName': route.title}));
   }
 
   void _show(IncomingMessage message) {

@@ -69,17 +69,38 @@ Stream<PushRoute> pushRoute(Ref ref) {
 }
 
 class PushRoute {
-  const PushRoute({required this.conversationId, required this.title});
-  final String conversationId;
+  const PushRoute({
+    this.conversationId,
+    this.ticketId,
+    this.title = 'Conversation',
+  });
+
+  /// Thread to open. Direct and support message pushes both carry it.
+  final String? conversationId;
+
+  /// Support ticket, for payloads that only name the ticket
+  /// (`support.ticket.updated`); resolved against the loaded inbox.
+  final String? ticketId;
   final String title;
+
   static PushRoute? fromData(Map<String, dynamic> payload) {
     final data = PushMessage.normalize(payload);
-    final id = data['conversationId']?.toString();
-    if (id == null || id.isEmpty) {
+    String? id(String key) {
+      final value = data[key]?.toString().trim();
+      return value == null || value.isEmpty ? null : value;
+    }
+
+    final conversationId = id('conversationId');
+    final ticketId = id('ticketId');
+    if (conversationId == null && ticketId == null) {
       return null;
     }
     // The target endpoint still checks membership. A stale push never supplies
     // a client name as trusted screen metadata.
-    return PushRoute(conversationId: id, title: 'Conversation');
+    return PushRoute(
+      conversationId: conversationId,
+      ticketId: ticketId,
+      title: 'Conversation',
+    );
   }
 }

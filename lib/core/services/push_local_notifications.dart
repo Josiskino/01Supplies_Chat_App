@@ -16,11 +16,29 @@ abstract interface class PushLocalNotifications {
 
 class NativePushLocalNotifications implements PushLocalNotifications {
   final _plugin = FlutterLocalNotificationsPlugin();
-  final _opened = StreamController<PushMessage>.broadcast();
   Future<void>? _initializing;
   bool _disposed = false;
+
+  /// Taps are published on one stream per isolate, not per instance.
+  ///
+  /// `FlutterLocalNotificationsPlugin` is a process-wide singleton and every
+  /// `initialize` call replaces its single tap callback. On iOS the Firebase
+  /// background handler runs in the main isolate and builds its own instance
+  /// to display a data-only push: its `initialize` used to steal the callback,
+  /// so taps were published on a stream nobody listened to and the
+  /// conversation never opened. Android runs that handler in a separate
+  /// isolate, which is why it kept working there. A shared stream makes the
+  /// last `initialize` irrelevant.
+  static final _sharedOpened = StreamController<PushMessage>.broadcast();
+
+  static void _handleResponse(NotificationResponse response) {
+    final message = decodePayload(response.payload);
+    if (message != null) _sharedOpened.add(message);
+  }
+
   @override
-  Stream<PushMessage> get openedMessages => _opened.stream;
+  Stream<PushMessage> get openedMessages =>
+      _sharedOpened.stream.where((_) => !_disposed);
   @override
   Future<void> initialize() => _initializing ??= _initialize();
   Future<void> _initialize() async {
@@ -33,12 +51,7 @@ class NativePushLocalNotifications implements PushLocalNotifications {
           requestSoundPermission: false,
         ),
       ),
-      onDidReceiveNotificationResponse: (response) {
-        final message = _decode(response.payload);
-        if (!_disposed && message != null) {
-          _opened.add(message);
-        }
-      },
+      onDidReceiveNotificationResponse: _handleResponse,
     );
     final android = _plugin
         .resolvePlatformSpecificImplementation<
@@ -60,7 +73,7 @@ class NativePushLocalNotifications implements PushLocalNotifications {
     }
   }
 
-  PushMessage? _decode(String? payload) {
+  static PushMessage? decodePayload(String? payload) {
     if (payload == null) {
       return null;
     }
@@ -77,7 +90,7 @@ class NativePushLocalNotifications implements PushLocalNotifications {
     await initialize();
     final details = await _plugin.getNotificationAppLaunchDetails();
     return details?.didNotificationLaunchApp == true
-        ? _decode(details?.notificationResponse?.payload)
+        ? decodePayload(details?.notificationResponse?.payload)
         : null;
   }
 
@@ -124,6 +137,5 @@ class NativePushLocalNotifications implements PushLocalNotifications {
   @override
   Future<void> dispose() async {
     _disposed = true;
-    await _opened.close();
   }
 }
