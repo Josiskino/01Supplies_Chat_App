@@ -82,7 +82,12 @@ class _SeekableVoiceWaveformState extends State<SeekableVoiceWaveform> {
     super.didUpdateWidget(oldWidget);
     if (_scrubFraction != null && !widget.canSeek) {
       _scrubFraction = null;
-      widget.onScrub?.call(null);
+      // The parent is building right now: calling it back synchronously
+      // would be a setState during build. Tell it once the frame is done.
+      final onScrub = widget.onScrub;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) onScrub?.call(null);
+      });
     }
   }
 
