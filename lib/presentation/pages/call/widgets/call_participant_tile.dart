@@ -5,7 +5,10 @@ import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../desktop/widgets/presence_avatar.dart';
 import '../../../shared/models/call_view_data.dart';
-import 'speaking_aura.dart';
+import 'package:supplies_calls/support.dart' show SpeakingHalo;
+
+const _silent = AlwaysStoppedAnimation<double>(0);
+const _speaking = AlwaysStoppedAnimation<double>(0.6);
 
 /// Un participant : avatar, pastille de micro, identifiant en dessous.
 class CallParticipantTile extends StatelessWidget {
@@ -45,28 +48,21 @@ class CallParticipantTile extends StatelessWidget {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Le halo est peint **sous** l'avatar et déborde largement de
-                // sa boîte : d'où `Clip.none` et le centrage manuel.
-                if (participant.isSpeaking)
-                  Positioned(
-                    left: -size * 0.55,
-                    top: -size * 0.55,
-                    child: SpeakingAura(
+                // The halo is painted under the avatar and spills well past
+                // its box. Its tint is the avatar colour: it must seem to
+                // emanate from the person, not be a badge laid on top.
+                SpeakingHalo(
+                  level: participant.isSpeaking ? _speaking : _silent,
+                  size: size,
+                  color: PresenceAvatar.colorForName(participant.name),
+                  child: _Jitter(
+                    active: isEditing,
+                    child: _AvatarRing(
+                      participant: participant,
                       size: size,
-                      // La teinte de la pastille : le halo doit paraître émaner
-                      // de l'avatar. Un vert uniforme pour tout le monde en
-                      // faisait un badge posé par-dessus, sans lien avec la
-                      // personne qui parle.
-                      color: PresenceAvatar.colorForName(participant.name),
+                      accent: theme.colorScheme.primary,
+                      secondary: theme.colorScheme.secondary,
                     ),
-                  ),
-                _Jitter(
-                  active: isEditing,
-                  child: _AvatarRing(
-                    participant: participant,
-                    size: size,
-                    accent: theme.colorScheme.primary,
-                    secondary: theme.colorScheme.secondary,
                   ),
                 ),
                 Positioned(

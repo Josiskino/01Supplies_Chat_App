@@ -384,6 +384,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get callEarpiece => 'Écouteur';
 
   @override
+  String get callAudioBluetooth => 'Bluetooth';
+
+  @override
+  String get callAudioHeadset => 'Casque';
+
+  @override
+  String get callPeerMuted => 'Son micro est coupé';
+
+  @override
   String get callHangUp => 'Raccrocher';
 
   @override

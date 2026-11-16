@@ -16,6 +16,7 @@ import 'package:supplies_calls/serverpod.dart';
 import 'package:supplies_calls/livekit.dart';
 import '../../presentation/pages/calls/widgets/agent_call_widgets.dart';
 import '../constants/app_ui_route.dart';
+import '../platform/app_platform.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../providers/auth/auth_provider.dart';
 import '../utils/app_logger.dart';
@@ -32,6 +33,7 @@ final _config = resolveSupportCallsBuildConfig(
   enabledDefine: const String.fromEnvironment('SUPPORT_CALLS_ENABLED'),
   urlDefine: const String.fromEnvironment('SUPPORT_CALLS_URL'),
 );
+
 /// Flavor used to pick the calls service.
 ///
 /// `appFlavor` only exists where the platform has native flavors (Android,
@@ -359,6 +361,11 @@ final supportCallHostOverrides = [
     (ref) => ref.watch(_dependencies).native,
   ),
   supportCallDiagnosticsProvider.overrideWithValue(_logDiagnostic),
+  supportCallCuePlayerProvider.overrideWith((ref) {
+    final player = createPlatformCallCuePlayer();
+    ref.onDispose(player.dispose);
+    return player;
+  }),
   if (_enabled && _url.isNotEmpty) ...[
     callsSignOutProvider.overrideWith(_HostCallsSignOut.new),
     missedCallsSeenStoreProvider.overrideWithValue(
@@ -396,6 +403,8 @@ class _SecureMissedCallsSeenStore implements MissedCallsSeenStore {
 /// Runs before runApp so accepting on the lock screen needs no Flutter view.
 void restoreSupportCallsHeadless(ProviderContainer container) {
   if (_enabled && _url.isNotEmpty) {
+    // Call sounds follow the controller, with or without a Flutter view.
+    container.read(supportCallCuesProvider);
     unawaited(container.read(supportCallControllerProvider.notifier).restore());
   }
 }
@@ -478,12 +487,34 @@ class _SupportCallLifecycleState extends ConsumerState<_SupportCallLifecycle>
     }
   }
 
+  bool _backgrounded = false;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _backgrounded = true;
+    }
     if (state == AppLifecycleState.resumed && widget.userId != null) {
+      final fromBackground = _backgrounded;
+      _backgrounded = false;
+      if (fromBackground && AppPlatform.current.isMobile) _openOngoingCall();
       final controller = ref.read(supportCallControllerProvider.notifier);
       unawaited(controller.ensureReady().then((_) => controller.reconcile()));
     }
+  }
+
+  /// Mobile: the system owns the ongoing-call presentation (Android
+  /// notification, iOS green pill / Dynamic Island); coming back to the app
+  /// from it lands on the call screen. A system dialog (inactive without
+  /// paused) does not.
+  void _openOngoingCall() {
+    final call = ref.read(agentCallsProvider).active;
+    if (call == null || !call.isActive) return;
+    final router = widget.router;
+    final stack = router.routerDelegate.currentConfiguration;
+    if (stack.isEmpty || stack.last.matchedLocation == AppUiRoute.call) return;
+    unawaited(router.push(AppUiRoute.call));
   }
 
   @override
@@ -494,6 +525,7 @@ class _SupportCallLifecycleState extends ConsumerState<_SupportCallLifecycle>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(supportCallCuesProvider);
     final calls = ref.watch(agentCallsProvider);
     final call = calls.active;
     final router = widget.router;
@@ -513,8 +545,14 @@ class _SupportCallLifecycleState extends ConsumerState<_SupportCallLifecycle>
               router.routerDelegate.currentConfiguration.last.matchedLocation ==
                   AppUiRoute.call;
           final showOffers = calls.incoming.isNotEmpty && !onCallScreen;
+          // Desktop keeps the in-app banner; on mobile the system presents
+          // the ongoing call (notification, status bar pill, full screen).
           final showBanner =
-              call != null && call.isActive && !onCallScreen && !showOffers;
+              AppPlatform.current.isDesktop &&
+              call != null &&
+              call.isActive &&
+              !onCallScreen &&
+              !showOffers;
           return Stack(
             children: [
               widget.child,

@@ -7,6 +7,7 @@ import 'package:supplies_calls/support.dart';
 
 import '../../../core/calls/agent_calls.dart';
 import '../../../core/constants/app_ui_route.dart';
+import '../../../core/platform/app_platform.dart';
 import '../../../core/utils/localization_helper.dart';
 import '../../desktop/widgets/presence_avatar.dart';
 import '../calls/call_copy.dart';
@@ -47,6 +48,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     final state = ref.watch(supportCallControllerProvider);
     final calls = ref.watch(agentCallsProvider);
     final actions = ref.read(agentCallActionsProvider);
+    final speech = ref.watch(supportCallSpeechProvider);
     // An offer opened from the banner or a notification is not active yet.
     final incoming = calls.active == null && calls.incoming.isNotEmpty;
     final call = calls.active ?? calls.incoming.firstOrNull;
@@ -88,10 +90,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                       child: Column(
                         children: [
                           if (call != null) ...[
-                            PresenceAvatar(
-                              name: call.caller.name,
-                              avatarUrl: call.caller.avatarUrl,
+                            // The halo lights up while the caller speaks.
+                            SpeakingHalo(
+                              level: speech?.remoteLevel ?? _silent,
                               size: 112,
+                              color: PresenceAvatar.colorForName(
+                                call.caller.name,
+                              ),
+                              child: PresenceAvatar(
+                                name: call.caller.name,
+                                avatarUrl: call.caller.avatarUrl,
+                                size: 112,
+                              ),
                             ),
                             const SizedBox(height: 24),
                             Text(
@@ -142,6 +152,28 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                               ),
                             if (otherAgent)
                               Text(l10n.callAnsweredBy(call.agentName!)),
+                            if (connected && call.isActive && speech != null)
+                              ValueListenableBuilder<bool>(
+                                valueListenable: speech.remoteMuted,
+                                builder: (context, muted, _) => muted
+                                    ? Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.mic_off, size: 16),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              key: const ValueKey(
+                                                'call-peer-muted',
+                                              ),
+                                              l10n.callPeerMuted,
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
+                              ),
                             const SizedBox(height: 12),
                             TextButton.icon(
                               key: const ValueKey('open-conversation'),
@@ -222,23 +254,21 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                               state.muted ? l10n.callUnmute : l10n.callMute,
                             ),
                           ),
-                          OutlinedButton.icon(
-                            onPressed: state.busy
-                                ? null
-                                : () => ref
-                                      .read(
-                                        supportCallControllerProvider.notifier,
-                                      )
-                                      .setSpeaker(!state.speaker),
-                            icon: Icon(
-                              state.speaker ? Icons.volume_up : Icons.hearing,
+                          // Desktop has no earpiece to switch from.
+                          if (!AppPlatform.current.isDesktop)
+                            OutlinedButton.icon(
+                              key: const ValueKey('call-speaker'),
+                              onPressed: state.busy
+                                  ? null
+                                  : () => ref
+                                        .read(
+                                          supportCallControllerProvider
+                                              .notifier,
+                                        )
+                                        .setSpeaker(!state.speaker),
+                              icon: Icon(callRouteIcon(state)),
+                              label: Text(callRouteLabel(l10n, state)),
                             ),
-                            label: Text(
-                              state.speaker
-                                  ? l10n.callEarpiece
-                                  : l10n.callSpeaker,
-                            ),
-                          ),
                         ],
                         FilledButton.icon(
                           onPressed: state.busy ? null : () => actions.end(),
@@ -260,3 +290,26 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     );
   }
 }
+
+const _silent = AlwaysStoppedAnimation<double>(0);
+
+/// Speaker control icon: the current private device (Bluetooth, headset)
+/// when one is in use, otherwise the speaker / earpiece toggle.
+IconData callRouteIcon(SupportCallState state) => state.speaker
+    ? Icons.volume_up
+    : switch (state.audioRoute) {
+        CallAudioRoute.bluetooth => Icons.bluetooth_audio,
+        CallAudioRoute.wired => Icons.headset,
+        _ => Icons.hearing,
+      };
+
+/// Speaker control label: names the private device in use, otherwise the
+/// action (switch to the other of speaker / earpiece).
+String callRouteLabel(AppLocalizations l10n, SupportCallState state) =>
+    state.speaker
+    ? l10n.callEarpiece
+    : switch (state.audioRoute) {
+        CallAudioRoute.bluetooth => l10n.callAudioBluetooth,
+        CallAudioRoute.wired => l10n.callAudioHeadset,
+        _ => l10n.callSpeaker,
+      };

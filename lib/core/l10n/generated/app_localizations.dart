@@ -752,6 +752,24 @@ abstract class AppLocalizations {
   /// **'Écouteur'**
   String get callEarpiece;
 
+  /// No description provided for @callAudioBluetooth.
+  ///
+  /// In fr, this message translates to:
+  /// **'Bluetooth'**
+  String get callAudioBluetooth;
+
+  /// No description provided for @callAudioHeadset.
+  ///
+  /// In fr, this message translates to:
+  /// **'Casque'**
+  String get callAudioHeadset;
+
+  /// No description provided for @callPeerMuted.
+  ///
+  /// In fr, this message translates to:
+  /// **'Son micro est coupé'**
+  String get callPeerMuted;
+
   /// No description provided for @callHangUp.
   ///
   /// In fr, this message translates to:
