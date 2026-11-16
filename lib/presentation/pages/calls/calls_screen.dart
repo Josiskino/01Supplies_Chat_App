@@ -1,21 +1,24 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:supplies_calls/support.dart';
 
-import '../../../config/theme/apple_type.dart';
 import '../../../config/theme/design_tokens.dart';
 import '../../../core/calls/agent_calls.dart';
 import '../../../core/constants/app_ui_route.dart';
 import '../../../core/utils/localization_helper.dart';
-import '../../desktop/widgets/presence_avatar.dart';
+import '../../../core/platform/platform_ui_provider.dart';
 import '../../widgets/common/empty_state_widget.dart';
 import '../../widgets/common/platform_page.dart';
 import 'call_copy.dart';
 import 'widgets/agent_call_widgets.dart';
+import 'widgets/call_history_row.dart';
+
+export 'widgets/call_history_row.dart' show SupportCallHistoryRow;
 
 class CallsScreen extends ConsumerStatefulWidget {
   const CallsScreen({super.key, this.isVisible = true});
@@ -116,6 +119,7 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
             .toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final canCallBack = !calls.inCall && calls.active?.isActive != true;
+    final isApple = ref.watch(platformUiProvider).platform.isApple;
     return PlatformPage(
       title: l10n.callsTitle,
       actions: const [],
@@ -123,12 +127,12 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
         children: [
           if (available) ...[
             const Padding(
-              padding: EdgeInsets.fromLTRB(24, 8, 24, 8),
-              child: AvailabilityToggle(),
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: _AvailabilityCard(),
             ),
             if (calls.inCall)
               const Padding(
-                padding: EdgeInsets.only(bottom: 8),
+                padding: EdgeInsets.only(top: 8),
                 child: CallsWaitingIndicator(),
               ),
             const Padding(
@@ -137,7 +141,7 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
             ),
           ],
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: _MissedFilter(
               missedOnly: _missedOnly,
               onChanged: (value) => setState(() => _missedOnly = value),
@@ -191,15 +195,34 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
                           )
                         : ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
+                            // The shell announces its floating tab bar in the
+                            // bottom padding: the last row stays reachable.
+                            padding: EdgeInsets.only(
+                              bottom:
+                                  MediaQuery.paddingOf(context).bottom +
+                                  DesignTokens.spaceM,
+                            ),
                             itemCount: entries.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1, indent: 72),
+                            separatorBuilder: (context, _) => Divider(
+                              height: DesignTokens.borderWidthThin,
+                              thickness: DesignTokens.borderWidthThin,
+                              indent:
+                                  DesignTokens.spaceL +
+                                  DesignTokens.inboxAvatarMobile +
+                                  DesignTokens.spaceM,
+                              color: DesignTokens.getBorderColor(
+                                Theme.of(context).brightness == Brightness.dark,
+                                opacity: 0.08,
+                              ),
+                            ),
                             itemBuilder: (context, index) {
                               final call = entries[index];
                               return SupportCallHistoryRow(
                                 key: ValueKey(call.id),
                                 call: call,
                                 viewerId: calls.identity,
+                                appleTypography: isApple,
+                                reserveCallbackSlot: canCallBack,
                                 onOpenConversation: () => context.push(
                                   AppUiRoute.conversationDetailPath(
                                     call.context.conversationId,
@@ -223,96 +246,30 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
 bool _isCustomer(String role) =>
     const {'client', 'customer'}.contains(role.split('.').last);
 
-class SupportCallHistoryRow extends StatelessWidget {
-  const SupportCallHistoryRow({
-    super.key,
-    required this.call,
-    this.viewerId,
-    this.onOpenConversation,
-    this.onCallback,
-  });
-  final SupportCall call;
-  final String? viewerId;
-  final VoidCallback? onOpenConversation;
-
-  /// "Rappeler": calls the customer back on the same conversation.
-  final VoidCallback? onCallback;
+/// Availability switch in a compact card, so it reads as a setting and not
+/// as the first row of the history.
+class _AvailabilityCard extends StatelessWidget {
+  const _AvailabilityCard();
 
   @override
   Widget build(BuildContext context) {
-    final l10n = LocalizationHelper.of(context);
-    final theme = Theme.of(context);
-    final created = call.createdAt.toLocal();
-    final time =
-        '${created.day.toString().padLeft(2, '0')}/${created.month.toString().padLeft(2, '0')} '
-        '${created.hour.toString().padLeft(2, '0')}:${created.minute.toString().padLeft(2, '0')}';
-    final missed = supportCallMissedFor(call, viewerId);
-    final status = CallCopy.status(l10n, call, viewerId: viewerId);
-    final reason = call.isActive
-        ? null
-        : CallCopy.endReason(l10n, call, viewerId: viewerId);
-    final statusLine = [
-      call.isCallback ? l10n.callOutgoing(status) : status,
-      if (reason != null && reason != status) reason,
-    ].join(' · ');
-    final answered =
-        call.agentName != null &&
-        (call.isCallback ||
-            call.acceptedAt != null ||
-            call.connectedAt != null);
-    return ListTile(
-      onTap: onOpenConversation,
-      leading: PresenceAvatar(
-        name: call.caller.name,
-        avatarUrl: call.caller.avatarUrl,
-        size: 44,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: DesignTokens.getBorderColor(isDark, opacity: 0.06),
+        ),
       ),
-      title: Text(
-        call.caller.name,
-        style: TextStyle(color: missed ? theme.colorScheme.error : null),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${CallCopy.role(l10n, call.caller.role)} · ${call.context.reference}',
-          ),
-          Text(statusLine),
-          if (call.connectedAt != null && call.endedAt != null)
-            Text(CallCopy.duration(l10n, call.durationAt(call.endedAt!))),
-          if (answered)
-            Text(
-              call.isCallback
-                  ? l10n.callStartedBy(call.agentName!)
-                  : l10n.callAnsweredBy(call.agentName!),
-            ),
-        ],
-      ),
-      trailing: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(time, style: theme.textTheme.bodySmall),
-          if (onCallback != null)
-            TextButton.icon(
-              key: ValueKey('callback-${call.id}'),
-              onPressed: onCallback,
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              icon: const Icon(Icons.phone_callback, size: 16),
-              label: Text(l10n.callCallback),
-            ),
-        ],
-      ),
-      isThreeLine: true,
+      child: const AvailabilityToggle(),
     );
   }
 }
 
-/// "All / Missed" segmented filter: the only sort agents look for in a call
-/// history, so it costs a single tap.
+/// "All / Missed" filter, styled like the inbox Support / Direct tabs: the
+/// only sort agents look for in a call history, so it costs a single tap.
 class _MissedFilter extends StatelessWidget {
   const _MissedFilter({required this.missedOnly, required this.onChanged});
 
@@ -322,62 +279,43 @@ class _MissedFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final l10n = LocalizationHelper.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: DesignTokens.getSubtleBackground(context, opacity: 0.07),
-        borderRadius: DesignTokens.borderRadiusS,
-      ),
-      child: Row(
-        children: [
+    final base = theme.textTheme.bodyMedium ?? const TextStyle();
+    return SizedBox(
+      width: double.infinity,
+      child: CupertinoSlidingSegmentedControl<bool>(
+        groupValue: missedOnly,
+        backgroundColor: theme.brightness == Brightness.dark
+            ? theme.colorScheme.surfaceContainerHighest
+            : const Color(0xFFECECEC),
+        thumbColor: theme.colorScheme.primary,
+        padding: const EdgeInsets.all(4),
+        onValueChanged: (value) {
+          if (value != null) onChanged(value);
+        },
+        children: {
           for (final segment in [
             (false, l10n.callsFilterAll),
             (true, l10n.callsFilterMissed),
           ])
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(segment.$1),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: DesignTokens.durationFast,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: BoxDecoration(
-                    color: missedOnly == segment.$1
-                        ? (isDark ? const Color(0xFF3A3A3F) : Colors.white)
-                        : Colors.transparent,
-                    borderRadius: DesignTokens.borderRadiusXs,
-                    boxShadow: missedOnly == segment.$1
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Text(
-                    segment.$2,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium
-                        ?.merge(AppleType.subheadline)
-                        .copyWith(
-                          fontWeight: missedOnly == segment.$1
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: DesignTokens.getTextColorWithOpacity(
-                            context,
-                            missedOnly == segment.$1 ? 0.95 : 0.55,
-                          ),
-                        ),
-                  ),
+            segment.$1: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Text(
+                segment.$2,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: base.copyWith(
+                  fontSize: 13,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
+                  color: segment.$1 == missedOnly
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurface,
                 ),
               ),
             ),
-        ],
+        },
       ),
     );
   }

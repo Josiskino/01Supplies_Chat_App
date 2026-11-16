@@ -180,6 +180,22 @@
   "callEndReasonOtherDevice": "Pris sur un autre appareil",
   "callEndReasonRevoked": "Accès révoqué",
   "callEndReasonMicrophone": "Microphone indisponible",
+  "callDirectionIncoming": "Entrant",
+  "@callDirectionIncoming": {
+    "description": "Call history: short status of an answered incoming call"
+  },
+  "callDirectionOutgoing": "Sortant",
+  "@callDirectionOutgoing": {
+    "description": "Call history: short status of an answered outgoing callback"
+  },
+  "callsYesterday": "Hier",
+  "@callsYesterday": {
+    "description": "Call history: time column for a call made yesterday"
+  },
+  "callsByYou": "Vous",
+  "@callsByYou": {
+    "description": "Call history: the signed-in agent, shown instead of their own name"
+  },
   "callCallback": "Rappeler",
   "callCallbackTooltip": "Appeler le client",
   "callOpenConversation": "Ouvrir la conversation",

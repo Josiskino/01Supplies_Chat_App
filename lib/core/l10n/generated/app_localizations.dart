@@ -686,6 +686,30 @@ abstract class AppLocalizations {
   /// **'Microphone indisponible'**
   String get callEndReasonMicrophone;
 
+  /// Call history: short status of an answered incoming call
+  ///
+  /// In fr, this message translates to:
+  /// **'Entrant'**
+  String get callDirectionIncoming;
+
+  /// Call history: short status of an answered outgoing callback
+  ///
+  /// In fr, this message translates to:
+  /// **'Sortant'**
+  String get callDirectionOutgoing;
+
+  /// Call history: time column for a call made yesterday
+  ///
+  /// In fr, this message translates to:
+  /// **'Hier'**
+  String get callsYesterday;
+
+  /// Call history: the signed-in agent, shown instead of their own name
+  ///
+  /// In fr, this message translates to:
+  /// **'Vous'**
+  String get callsByYou;
+
   /// No description provided for @callCallback.
   ///
   /// In fr, this message translates to:

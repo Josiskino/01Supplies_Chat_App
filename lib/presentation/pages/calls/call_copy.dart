@@ -1,6 +1,29 @@
 import 'package:supplies_calls/support.dart';
 
+import '../../../core/calls/agent_calls.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+
+/// How a call reads in the history list, relative to the viewer.
+enum CallHistoryKind {
+  /// Still ringing or in progress.
+  ongoing,
+
+  /// Customer call answered by an agent.
+  incoming,
+
+  /// Callback the customer picked up.
+  outgoing,
+
+  /// Customer call nobody answered (spec §1.5 predicate).
+  missed,
+
+  /// Declined: an offer the viewer turned down, or a callback the customer
+  /// refused.
+  declined,
+
+  /// Callback the customer never picked up.
+  noAnswer,
+}
 
 /// Agent-facing copy for support calls. Raw error codes and end reasons never
 /// reach the screen: every value maps to a translated sentence.
@@ -88,4 +111,55 @@ abstract final class CallCopy {
           ? l10n.callStatusEnded
           : l10n.callStatusIncomingEnded,
   };
+
+  /// Classifies [call] for the history row.
+  static CallHistoryKind historyKind(SupportCall call, {String? viewerId}) {
+    if (call.isActive) return CallHistoryKind.ongoing;
+    if (call.isCallback) {
+      if (call.connectedAt != null || call.acceptedAt != null) {
+        return CallHistoryKind.outgoing;
+      }
+      return call.status == SupportCallStatus.rejected
+          ? CallHistoryKind.declined
+          : CallHistoryKind.noAnswer;
+    }
+    if (supportCallMissedFor(call, viewerId)) return CallHistoryKind.missed;
+    if (call.acceptedAt == null) return CallHistoryKind.declined;
+    return CallHistoryKind.incoming;
+  }
+
+  /// One or two words for the history row: verbose end reasons stay on the
+  /// call screen.
+  static String historyLabel(
+    AppLocalizations l10n,
+    SupportCall call, {
+    String? viewerId,
+  }) => switch (historyKind(call, viewerId: viewerId)) {
+    CallHistoryKind.ongoing => status(l10n, call, viewerId: viewerId),
+    CallHistoryKind.incoming => l10n.callDirectionIncoming,
+    CallHistoryKind.outgoing => l10n.callDirectionOutgoing,
+    CallHistoryKind.missed => l10n.callStatusMissed,
+    CallHistoryKind.declined => l10n.callStatusDeclined,
+    CallHistoryKind.noAnswer => l10n.callStatusNoAnswer,
+  };
+
+  /// Time column of the history: the hour today, "Yesterday", then the day
+  /// and month (and the year when it is not the current one).
+  static String historyTime(
+    AppLocalizations l10n,
+    DateTime createdAt, {
+    DateTime? now,
+  }) {
+    final date = createdAt.toLocal();
+    final current = (now ?? DateTime.now()).toLocal();
+    final day = DateTime(date.year, date.month, date.day);
+    final today = DateTime(current.year, current.month, current.day);
+    String two(int value) => value.toString().padLeft(2, '0');
+    if (day == today) return '${two(date.hour)}:${two(date.minute)}';
+    if (day == DateTime(today.year, today.month, today.day - 1)) {
+      return l10n.callsYesterday;
+    }
+    final base = '${two(date.day)}/${two(date.month)}';
+    return date.year == current.year ? base : '$base/${two(date.year % 100)}';
+  }
 }

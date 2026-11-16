@@ -184,9 +184,8 @@ void main() {
         ),
       );
       expect(find.text('Ama Test'), findsOneWidget);
-      expect(find.text('Client · 01DEL-123'), findsOneWidget);
-      expect(find.text('Répondu par Afi'), findsOneWidget);
-      expect(find.text('1 min 5 s'), findsOneWidget);
+      expect(find.text('(01DEL-123)'), findsOneWidget);
+      expect(find.textContaining('Entrant · 1 min 5 s · Afi'), findsOneWidget);
       expect(find.text('Rappeler'), findsNothing);
     },
   );
@@ -212,11 +211,13 @@ void main() {
   });
 
   testWidgets(
-    'cancelled unavailable and missed calls keep distinct labels and no duration',
+    'unanswered customer calls read as missed, without duration or agent',
     (tester) async {
+      // Unanswered customer calls all read as missed (spec §1.5), however
+      // they ended: the end reason belongs to the call screen, not the list.
       for (final entry in {
-        SupportCallStatus.cancelled: 'Annulé',
-        SupportCallStatus.unavailable: 'Support indisponible',
+        SupportCallStatus.cancelled: 'Manqué',
+        SupportCallStatus.unavailable: 'Manqué',
         SupportCallStatus.expired: 'Manqué',
       }.entries) {
         await tester.pumpWidget(
@@ -232,8 +233,8 @@ void main() {
           ),
         );
         expect(find.textContaining(entry.value), findsOneWidget);
-        expect(find.text('1 min 5 s'), findsNothing);
-        expect(find.text('Répondu par Afi'), findsNothing);
+        expect(find.textContaining('1 min 5 s'), findsNothing);
+        expect(find.textContaining('Afi'), findsNothing);
       }
     },
   );

@@ -346,6 +346,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get callEndReasonMicrophone => 'Microphone unavailable';
 
   @override
+  String get callDirectionIncoming => 'Incoming';
+
+  @override
+  String get callDirectionOutgoing => 'Outgoing';
+
+  @override
+  String get callsYesterday => 'Yesterday';
+
+  @override
+  String get callsByYou => 'You';
+
+  @override
   String get callCallback => 'Call back';
 
   @override
