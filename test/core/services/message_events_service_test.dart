@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -82,8 +83,14 @@ class FakePusher extends PusherService {
     sync: true,
   );
   int connections = 0;
+  int probes = 0;
   @override
   Stream<RealtimeConnectionState> get connectionStates => states.stream;
+  @override
+  void ensureAlive({Duration probeTimeout = const Duration(seconds: 5)}) {
+    probes++;
+  }
+
   @override
   Future<void> connect({
     required String apiKey,
@@ -356,5 +363,112 @@ void main() {
     // pump() only flushes microtasks. Explicit zero duration advances fake
     // time too, executing Riverpod's Timer.run auto-disposal task.
     await tester.pump(Duration.zero);
+  });
+
+  group('iOS realtime catch-up', () {
+    Future<List<String>> threadRefreshes(void Function() act) async {
+      final ids = <String>[];
+      final sub = service.threadChanges.listen(ids.add);
+      act();
+      for (var i = 0; i < 10; i++) {
+        await Future<void>.value();
+      }
+      await sub.cancel();
+      return ids;
+    }
+
+    test('resume probes the socket and refetches bound threads', () async {
+      await setup();
+      final ids = await threadRefreshes(
+        () => service.didChangeAppLifecycleState(AppLifecycleState.resumed),
+      );
+      expect(pusher.probes, 1);
+      expect(ids, ['c']);
+    });
+
+    test(
+      'only a resubscription after a reconnect refetches the thread',
+      () async {
+        await setup();
+        const channel = 'private-conversation-c';
+        const succeeded = 'pusher_internal:subscription_succeeded';
+        final first = await threadRefreshes(
+          () => pusher.emit(channel, succeeded, {}),
+        );
+        expect(first, isEmpty);
+        final again = await threadRefreshes(
+          () => pusher.emit(channel, succeeded, {}),
+        );
+        expect(again, ['c']);
+      },
+    );
+
+    test('a foreground push the socket missed refetches the thread', () async {
+      await setup();
+      final ids = await threadRefreshes(
+        () => service.handleNotification({
+          'type': 'message.new',
+          'conversationId': 'c',
+          'messageId': 'm-missed',
+          'senderId': 'client',
+        }, viaPush: true),
+      );
+      expect(ids, ['c']);
+      expect(pusher.probes, 1);
+    });
+
+    test('a push for the visible thread still refetches it', () async {
+      await setup();
+      container.read(visibleConversationProvider.notifier).set('c');
+      final received = <IncomingMessage>[];
+      final banners = service.incomingMessages.listen(received.add);
+      final ids = await threadRefreshes(
+        () => service.handleNotification({
+          'type': 'message.new',
+          'conversationId': 'c',
+          'messageId': 'm-visible',
+          'senderId': 'client',
+        }, viaPush: true),
+      );
+      expect(ids, ['c']);
+      expect(received, isEmpty);
+      await banners.cancel();
+    });
+
+    test('a push already delivered by the socket fetches nothing', () async {
+      await setup();
+      pusher.emit('private-conversation-c', 'message.new', {
+        'messageId': 'm-live',
+        'senderId': 'client',
+      });
+      await Future<void>.value();
+      final ids = await threadRefreshes(
+        () => service.handleNotification({
+          'type': 'message.new',
+          'conversationId': 'c',
+          'messageId': 'm-live',
+          'senderId': 'client',
+        }, viaPush: true),
+      );
+      expect(ids, isEmpty);
+      expect(pusher.probes, 0);
+    });
+
+    test('an account notification seen on the socket does not probe', () async {
+      await setup();
+      final ids = await threadRefreshes(
+        () => pusher.emit('private-user-me', 'notification', {
+          'data': {
+            'type': 'message.new',
+            'conversationId': 'unclaimed',
+            'messageId': 'm-observer',
+            'senderId': 'client',
+            'visibility': 'observer',
+          },
+        }),
+      );
+      expect(ids, ['unclaimed']);
+      expect(pusher.probes, 0);
+    });
   });
 }

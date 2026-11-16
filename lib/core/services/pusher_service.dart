@@ -41,6 +41,7 @@ class PusherService {
   Timer? _handshakeTimeout;
   Timer? _pongTimeout;
   Future<void>? _opening;
+  bool _probing = false;
   int _epoch = 0;
   bool _wanted = false;
   String? _socketId;
@@ -52,6 +53,7 @@ class PusherService {
     if (_state == state) {
       return;
     }
+    _logger.debug('State ${_state.name} -> ${state.name}', feature: 'Pusher');
     _state = state;
     if (!_states.isClosed) {
       _states.add(state);
@@ -137,11 +139,12 @@ class PusherService {
     }
   }
 
-  void _lost(int epoch) {
+  void _lost(int epoch, {Duration? retryAfter}) {
     if (epoch != _epoch) {
       return;
     }
     ++_epoch;
+    _probing = false;
     _socketId = null;
     _subscribed.clear();
     _subscribing.clear();
@@ -157,11 +160,54 @@ class PusherService {
     }
     _setState(RealtimeConnectionState.reconnecting);
     _retry?.cancel();
-    _retry = Timer(retryDelay, () {
+    _retry = Timer(retryAfter ?? retryDelay, () {
       if (_wanted) {
         unawaited(_open());
       }
     });
+  }
+
+  /// Checks the socket right away instead of waiting for the next heartbeat.
+  ///
+  /// Called when the app returns to the foreground and when a push reports a
+  /// message the socket should already have delivered. iOS suspends a
+  /// backgrounded app: its socket often comes back half-open while the state
+  /// still reads `connected`, and the regular heartbeat (activity timeout up
+  /// to 120 s, then a 30 s pong wait) would notice it minutes later, leaving
+  /// the inbox and the open thread silent in the meantime.
+  ///
+  /// - connected: sends a `pusher:ping` and reconnects at once when no pong
+  ///   arrives within [probeTimeout];
+  /// - reconnecting: skips the remaining back-off delay.
+  void ensureAlive({Duration probeTimeout = const Duration(seconds: 5)}) {
+    if (!_wanted) {
+      return;
+    }
+    switch (_state) {
+      case RealtimeConnectionState.connected:
+        if (_probing) {
+          return;
+        }
+        final epoch = _epoch;
+        _probing = true;
+        _logger.debug('Liveness probe', feature: 'Pusher');
+        _send({'event': 'pusher:ping', 'data': {}});
+        _pongTimeout?.cancel();
+        _pongTimeout = Timer(probeTimeout, () {
+          _probing = false;
+          _logger.warning('Liveness probe timed out', feature: 'Pusher');
+          _lost(epoch, retryAfter: Duration.zero);
+        });
+      case RealtimeConnectionState.reconnecting:
+        if (_retry?.isActive ?? false) {
+          _logger.debug('Reconnecting now', feature: 'Pusher');
+          _retry!.cancel();
+          unawaited(_open());
+        }
+      case RealtimeConnectionState.connecting:
+      case RealtimeConnectionState.disconnected:
+        break;
+    }
   }
 
   Map<String, dynamic> _map(Object? value) {
@@ -206,6 +252,7 @@ class PusherService {
       return;
     }
     if (event == 'pusher:pong') {
+      _probing = false;
       _pongTimeout?.cancel();
       return;
     }
@@ -347,6 +394,7 @@ class PusherService {
   void _send(Map<String, dynamic> frame) => _transport?.send(jsonEncode(frame));
   Future<void> disconnect() async {
     _wanted = false;
+    _probing = false;
     ++_epoch;
     _retry?.cancel();
     _heartbeat?.cancel();
