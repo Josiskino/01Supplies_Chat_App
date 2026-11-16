@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import '../../../../config/theme/apple_type.dart';
 import '../../../../config/theme/design_tokens.dart';
 import '../../../../core/services/audio_playback_service.dart';
+import '../../../../core/utils/localization_helper.dart';
 import '../../../shared/models/conversation_view_data.dart';
+import 'seekable_voice_waveform.dart';
 
 class VoiceNoteBubble extends StatefulWidget {
   const VoiceNoteBubble({
@@ -38,6 +40,9 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
   int _generation = 0;
   bool _refreshing = false;
   String? _playbackSource;
+
+  /// Position under the finger while the waveform is being scrubbed.
+  Duration? _scrubPosition;
 
   @override
   void initState() {
@@ -126,6 +131,20 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
     }
   }
 
+  /// Moves playback to [target], chosen on the waveform. A playing note
+  /// continues from there; a paused or not yet started one will start there.
+  Future<void> _seekTo(Duration target) async {
+    setState(() {
+      _position = target;
+      _error = false;
+    });
+    try {
+      await _ensurePlayer().seek(target);
+    } catch (_) {
+      // Best effort: the position shown stays the requested one.
+    }
+  }
+
   Future<void> _releasePlayer() async {
     final player = _player;
     _player = null;
@@ -158,6 +177,7 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
       unawaited(_releasePlayer());
       _position = Duration.zero;
       _duration = widget.voice.duration;
+      _scrubPosition = null;
       _playing = false;
       _loading = false;
       _error = false;
@@ -215,20 +235,28 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
         ),
         const SizedBox(width: DesignTokens.spaceS),
         Expanded(
-          child: CustomPaint(
+          child: SeekableVoiceWaveform(
             key: const ValueKey('voice-waveform'),
-            size: const Size(double.infinity, 26),
-            painter: _WaveformPainter(
-              amplitudes: widget.voice.waveform,
-              progress: playbackProgress,
-              played: widget.accent,
-              pending: widget.foreground.withValues(alpha: 0.35),
-            ),
+            amplitudes: widget.voice.waveform,
+            position: _position,
+            duration: _duration,
+            played: widget.accent,
+            pending: widget.foreground.withValues(alpha: 0.35),
+            enabled: !unavailable,
+            // Same height as the play button: the bubble keeps its size.
+            hitHeight: 40,
+            semanticsLabel: AppLocalizations.of(context)?.voiceNotePosition,
+            onScrub: (position) => setState(() => _scrubPosition = position),
+            onSeek: (target) => unawaited(_seekTo(target)),
           ),
         ),
         const SizedBox(width: DesignTokens.spaceS),
         Text(
-          _format(_playing ? _position : _duration),
+          _scrubPosition != null
+              ? '${_format(_scrubPosition!)} / ${_format(_duration)}'
+              : _format(
+                  _playing || _position > Duration.zero ? _position : _duration,
+                ),
           style: Theme.of(context).textTheme.labelSmall
               ?.merge(AppleType.caption1)
               .copyWith(color: widget.foreground.withValues(alpha: 0.75)),
@@ -239,72 +267,4 @@ class _VoiceNoteBubbleState extends State<VoiceNoteBubble> {
 
   static String _format(Duration d) =>
       '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
-}
-
-/// Forme d'onde en barres, la partie lue peinte dans la couleur d'accent.
-class _WaveformPainter extends CustomPainter {
-  const _WaveformPainter({
-    required this.amplitudes,
-    required this.progress,
-    required this.played,
-    required this.pending,
-  });
-
-  final List<double> amplitudes;
-  final double progress;
-  final Color played;
-  final Color pending;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (amplitudes.isEmpty) return;
-
-    const barWidth = 3.0;
-    const gap = 2.0;
-    const step = barWidth + gap;
-    final count = (size.width / step).floor().clamp(1, 1000);
-    final spacing = count > 1 ? (size.width - barWidth) / (count - 1) : 0.0;
-
-    void drawBars(Paint paint) {
-      for (var i = 0; i < count; i++) {
-        // Rééchantillonnage : la forme d'onde stockée est plus fine que le
-        // nombre de barres qui tiennent dans la bulle.
-        final amplitude = amplitudes[(i * amplitudes.length / count).floor()];
-        // Hauteur plancher : une barre nulle laisserait un trou dans le tracé.
-        final height = (size.height * amplitude).clamp(3.0, size.height);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(
-              i * spacing,
-              (size.height - height) / 2,
-              barWidth,
-              height,
-            ),
-            const Radius.circular(1.5),
-          ),
-          paint,
-        );
-      }
-    }
-
-    // Deux passes et un découpage au pixel, plutôt qu'une couleur choisie barre
-    // par barre. Comparer l'index à une progression fait basculer une barre
-    // entière d'un coup : sur une trentaine de barres pour quatorze secondes,
-    // la tête de lecture avançait par à-coups d'une demi-seconde. Le découpage
-    // colore la barre en cours **partiellement**, et le mouvement devient
-    // continu.
-    drawBars(Paint()..color = pending);
-
-    canvas.save();
-    canvas.clipRect(Rect.fromLTWH(0, 0, size.width * progress, size.height));
-    drawBars(Paint()..color = played);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_WaveformPainter old) =>
-      old.progress != progress ||
-      old.played != played ||
-      old.pending != pending ||
-      old.amplitudes != amplitudes;
 }

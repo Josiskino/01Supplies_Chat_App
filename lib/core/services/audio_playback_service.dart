@@ -8,12 +8,19 @@ abstract interface class AudioPlaybackService {
   Stream<void> get completed;
   Future<void> play(String source);
   Future<void> pause();
+
+  /// Moves playback to [position]. Before the source is loaded (or once it
+  /// has finished), the position is kept and the next [play] starts there.
+  Future<void> seek(Duration position);
   Future<void> dispose();
 }
 
 class DeviceAudioPlaybackService implements AudioPlaybackService {
   final AudioPlayer _player = AudioPlayer();
   String? _source;
+
+  /// Start position chosen before the source was loaded.
+  Duration? _startAt;
 
   @override
   Stream<Duration> get position => _player.onPositionChanged;
@@ -33,8 +40,24 @@ class DeviceAudioPlaybackService implements AudioPlaybackService {
     }
     final uri = Uri.tryParse(source);
     final remote = uri?.scheme == 'https' || uri?.scheme == 'http';
-    await _player.play(remote ? UrlSource(source) : DeviceFileSource(source));
+    final startAt = _startAt;
+    await _player.play(
+      remote ? UrlSource(source) : DeviceFileSource(source),
+      position: startAt != null && startAt > Duration.zero ? startAt : null,
+    );
+    _startAt = null;
     _source = source;
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    final state = _player.state;
+    if (_source != null &&
+        (state == PlayerState.playing || state == PlayerState.paused)) {
+      await _player.seek(position);
+      return;
+    }
+    _startAt = position;
   }
 
   @override

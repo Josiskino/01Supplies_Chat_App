@@ -36,6 +36,12 @@ class FakePlayback implements AudioPlaybackService {
     states.add(false);
   }
 
+  final seeks = <Duration>[];
+  @override
+  Future<void> seek(Duration position) async {
+    seeks.add(position);
+  }
+
   @override
   Future<void> dispose() async {
     disposed = true;
@@ -194,4 +200,84 @@ void main() {
       expect(fake.disposed, isFalse);
     },
   );
+
+  group('waveform seeking', () {
+    Future<void> pumpTenSeconds(
+      WidgetTester tester,
+      FakePlayback fake, {
+      String? source = 'https://example.com/a.m4a',
+    }) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              child: VoiceNoteBubble(
+                voice: VoiceNoteData(
+                  duration: const Duration(seconds: 10),
+                  waveform: const [.3, .5, .8],
+                  source: source,
+                ),
+                foreground: Colors.black,
+                accent: Colors.blue,
+                playerFactory: () => fake,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Offset at(WidgetTester tester, double fraction) {
+      final rect = tester.getRect(find.byKey(const ValueKey('voice-waveform')));
+      return Offset(rect.left + rect.width * fraction, rect.center.dy);
+    }
+
+    testWidgets('dragging shows the scrubbed time and seeks on release', (
+      tester,
+    ) async {
+      final fake = FakePlayback();
+      await pumpTenSeconds(tester, fake);
+
+      final gesture = await tester.startGesture(at(tester, 0.2));
+      await gesture.moveTo(at(tester, 0.45));
+      await gesture.moveTo(at(tester, 0.7));
+      await tester.pump();
+      expect(find.text('0:07 / 0:10'), findsOneWidget);
+      expect(fake.seeks, isEmpty);
+
+      await gesture.up();
+      await tester.pump();
+      expect(fake.seeks.single.inMilliseconds, closeTo(7000, 100));
+      expect(find.text('0:07'), findsOneWidget);
+
+      // Not started yet: play starts the note, from the chosen position.
+      await tester.tap(find.byIcon(CupertinoIcons.play_fill));
+      await tester.pump();
+      expect(fake.plays, 1);
+    });
+
+    testWidgets('tapping the waveform seeks there while playing', (
+      tester,
+    ) async {
+      final fake = FakePlayback();
+      await pumpTenSeconds(tester, fake);
+      await tester.tap(find.byIcon(CupertinoIcons.play_fill));
+      await tester.pump();
+
+      await tester.tapAt(at(tester, 0.5));
+      await tester.pump();
+      expect(fake.seeks.single.inMilliseconds, closeTo(5000, 100));
+      expect(find.byIcon(CupertinoIcons.pause_fill), findsOneWidget);
+    });
+
+    testWidgets('an unavailable note cannot be seeked', (tester) async {
+      final fake = FakePlayback();
+      await pumpTenSeconds(tester, fake, source: null);
+      await tester.tapAt(at(tester, 0.5));
+      await tester.dragFrom(at(tester, 0.2), const Offset(100, 0));
+      await tester.pump();
+      expect(fake.seeks, isEmpty);
+    });
+  });
 }
