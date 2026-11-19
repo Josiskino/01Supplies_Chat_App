@@ -295,31 +295,50 @@ class _HostDependencies {
           await onSystemReset();
           return;
         }
+        // iOS calls didRegisterForRemoteNotifications after *every*
+        // registerForRemoteNotifications, even when the token is unchanged.
+        // Re-running register() here would call enableAlerts again and loop
+        // forever, flooding the calls server. Only push the tokens.
         if (call.method == 'voipTokenChanged' ||
             call.method == 'alertTokenChanged') {
-          await register(identity);
+          await _registerAppleTokens(device);
         }
       });
       await _nativeChannel.invokeMethod<void>('enableVoip');
       await _nativeChannel.invokeMethod<void>('enableAlerts');
-      final alert = await _nativeChannel.invokeMethod<String>('getAlertToken');
-      if (alert != null && alert.isNotEmpty) {
-        await source.client.calls.registerDevice(
-          '$device:alerts',
-          alert,
-          'apns-alert',
-          await _nativeChannel.invokeMethod<bool>('isSandbox') ?? true,
-        );
-      }
-      final token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
-      if (token is String && token.isNotEmpty) {
-        await source.client.calls.registerDevice(
-          device,
-          token,
-          'apns',
-          await _nativeChannel.invokeMethod<bool>('isSandbox') ?? true,
-        );
-      }
+      await _registerAppleTokens(device);
+    }
+  }
+
+  /// Last token sent per transport, so an unchanged token is never re-sent.
+  final _sentAppleTokens = <String, String>{};
+
+  Future<void> _registerAppleTokens(String device) async {
+    final sandbox =
+        await _nativeChannel.invokeMethod<bool>('isSandbox') ?? true;
+    final alert = await _nativeChannel.invokeMethod<String>('getAlertToken');
+    if (alert != null &&
+        alert.isNotEmpty &&
+        _sentAppleTokens['apns-alert'] != alert) {
+      await source.client.calls.registerDevice(
+        '$device:alerts',
+        alert,
+        'apns-alert',
+        sandbox,
+      );
+      _sentAppleTokens['apns-alert'] = alert;
+    }
+    final token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+    if (token is String &&
+        token.isNotEmpty &&
+        _sentAppleTokens['apns'] != token) {
+      await source.client.calls.registerDevice(
+        device,
+        token,
+        'apns',
+        sandbox,
+      );
+      _sentAppleTokens['apns'] = token;
     }
   }
 
@@ -333,6 +352,8 @@ class _HostDependencies {
     tokens = null;
     await messages?.cancel();
     messages = null;
+    // The server forgets the device below: the next login must re-send.
+    _sentAppleTokens.clear();
     try {
       final device = await HostCallSessionStorage.deviceId();
       await source.client.calls.unregisterDevice(device);
