@@ -101,9 +101,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginSubtitle => 'Restricted to the 01Supplies logistics team';
 
   @override
-  String get rememberMe => 'Stay signed in';
-
-  @override
   String get forgotPassword => 'Forgot password?';
 
   @override

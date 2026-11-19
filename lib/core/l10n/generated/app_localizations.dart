@@ -278,12 +278,6 @@ abstract class AppLocalizations {
   /// **'Espace réservé à l\'équipe logistique 01Supplies'**
   String get loginSubtitle;
 
-  /// No description provided for @rememberMe.
-  ///
-  /// In fr, this message translates to:
-  /// **'Rester connecté'**
-  String get rememberMe;
-
   /// No description provided for @forgotPassword.
   ///
   /// In fr, this message translates to:

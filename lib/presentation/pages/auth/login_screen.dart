@@ -37,7 +37,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _rememberMe = true;
 
   /// Dernier échec, affiché sous le formulaire.
   String? _error;
@@ -102,9 +101,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               obscurePassword: _obscurePassword,
               onToggleObscure: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
-              rememberMe: _rememberMe,
-              onToggleRemember: () =>
-                  setState(() => _rememberMe = !_rememberMe),
               isLoading: isLoading,
               onSubmit: _submit,
               error: _error,
@@ -246,8 +242,6 @@ class _LoginForm extends StatelessWidget {
     required this.passwordController,
     required this.obscurePassword,
     required this.onToggleObscure,
-    required this.rememberMe,
-    required this.onToggleRemember,
     required this.isLoading,
     required this.onSubmit,
     this.error,
@@ -259,8 +253,6 @@ class _LoginForm extends StatelessWidget {
   final TextEditingController passwordController;
   final bool obscurePassword;
   final VoidCallback onToggleObscure;
-  final bool rememberMe;
-  final VoidCallback onToggleRemember;
   final bool isLoading;
   final VoidCallback onSubmit;
 
@@ -317,13 +309,11 @@ class _LoginForm extends StatelessWidget {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => onSubmit(),
         ),
-        const SizedBox(height: DesignTokens.spaceL),
+        // The session always persists until explicit logout, so there is no
+        // "stay signed in" choice to offer here. The wider gap keeps the
+        // primary button visually separate from the fields.
+        const SizedBox(height: DesignTokens.spaceXxxl),
 
-        _RememberMe(
-          label: l10n.rememberMe,
-          value: rememberMe,
-          onTap: onToggleRemember,
-        ),
         // Placé au-dessus du bouton et non sous lui : après un échec, le regard
         // revient au bouton pour réessayer et sauterait un message posé plus bas.
         if (error != null) ...[
@@ -375,62 +365,6 @@ class _LoginForm extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// Case à cocher « rester connecté ».
-class _RememberMe extends StatelessWidget {
-  const _RememberMe({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      // Le libellé fait partie de la cible : viser une case de 20 px au doigt
-      // est inutilement exigeant.
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          AnimatedContainer(
-            duration: DesignTokens.durationFast,
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              borderRadius: DesignTokens.borderRadiusXs,
-              color: value
-                  ? AppColors.secondaryColorLight
-                  : Colors.white.withValues(alpha: 0.10),
-              border: Border.all(
-                color: value
-                    ? AppColors.secondaryColorLight
-                    : Colors.white.withValues(alpha: 0.45),
-              ),
-            ),
-            child: value
-                ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-                : null,
-          ),
-          const SizedBox(width: DesignTokens.spaceM),
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

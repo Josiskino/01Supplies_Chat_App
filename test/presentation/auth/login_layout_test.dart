@@ -65,7 +65,8 @@ void main() {
     for (final size in [const Size(1280, 900), const Size(390, 844)]) {
       await pumpAt(tester, size);
       expect(find.text('SE CONNECTER'), findsOneWidget, reason: '$size');
-      expect(find.text('Rester connecté'), findsOneWidget, reason: '$size');
+      // The session always persists, so no "stay signed in" toggle is shown.
+      expect(find.text('Rester connecté'), findsNothing, reason: '$size');
       expect(find.byType(TextField), findsNWidgets(2), reason: '$size');
     }
   });

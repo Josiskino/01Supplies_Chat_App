@@ -103,9 +103,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Espace réservé à l\'équipe logistique 01Supplies';
 
   @override
-  String get rememberMe => 'Rester connecté';
-
-  @override
   String get forgotPassword => 'Mot de passe oublié ?';
 
   @override
