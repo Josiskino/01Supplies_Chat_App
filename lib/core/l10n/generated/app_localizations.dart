@@ -740,6 +740,12 @@ abstract class AppLocalizations {
   /// **'Aucun appel en cours'**
   String get callNoActive;
 
+  /// No description provided for @callPlacing.
+  ///
+  /// In fr, this message translates to:
+  /// **'Appel en cours…'**
+  String get callPlacing;
+
   /// No description provided for @callIncomingAudio.
   ///
   /// In fr, this message translates to:

@@ -173,6 +173,7 @@
   "callOpenConversation": "Open conversation",
   "callMinimize": "Minimize",
   "callNoActive": "No call in progress",
+  "callPlacing": "Calling…",
   "callIncomingAudio": "Incoming audio call",
   "callConnecting": "Connecting audio…",
   "callMute": "Mute",

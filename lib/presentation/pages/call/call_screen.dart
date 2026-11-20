@@ -190,6 +190,22 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                                 padding: EdgeInsets.only(top: 8),
                                 child: CallsWaitingIndicator(),
                               ),
+                          ] else if (state.busy && state.error == null) ...[
+                            // The call request is in flight: the server has
+                            // not returned the call yet, so show progress
+                            // instead of an empty "no call" screen.
+                            const SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: CircularProgressIndicator(strokeWidth: 3),
+                            ),
+                            const SizedBox(height: 24),
+                            Text(
+                              key: const ValueKey('call-placing'),
+                              l10n.callPlacing,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: Colors.white),
+                            ),
                           ] else
                             Text(l10n.callNoActive),
                           if (health != null && call != null && call.isActive)

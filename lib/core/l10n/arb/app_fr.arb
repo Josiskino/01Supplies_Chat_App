@@ -204,6 +204,7 @@
   "callOpenConversation": "Ouvrir la conversation",
   "callMinimize": "Réduire",
   "callNoActive": "Aucun appel en cours",
+  "callPlacing": "Appel en cours…",
   "callIncomingAudio": "Appel audio entrant",
   "callConnecting": "Connexion audio…",
   "callMute": "Couper le micro",

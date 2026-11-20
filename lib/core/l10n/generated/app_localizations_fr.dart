@@ -378,6 +378,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get callNoActive => 'Aucun appel en cours';
 
   @override
+  String get callPlacing => 'Appel en cours…';
+
+  @override
   String get callIncomingAudio => 'Appel audio entrant';
 
   @override
